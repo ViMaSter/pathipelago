@@ -8,8 +8,9 @@ See [EVIDENCE.md](EVIDENCE.md) for the shop investigation and verification bound
 
 Every shop room (normal and heart shop) gets **exactly one designated Archipelago
 pedestal**, chosen deterministically (first ordinary bodypart offer by node name,
-else the first non-blood pedestal). It keeps the upgrade sprite and the normal coin
-price. Its floating name becomes **Remote Unlock 3/20** (next shipment of the
+else the first non-blood pedestal). It keeps the normal coin price, but always shows
+the **Enhancer** icon (`res://gfx/player/bodyparts/internal/upgrade.png`) instead of
+the rolled upgrade. Its floating name becomes **Remote Unlock 3/20** (next shipment of the
 campaign), and its tooltip becomes a blue **ARCHIPELAGO** card titled the same way
 whose text is only the scouted item, recipient player and game, for example
 `"Poke Ball" for PkmnPlayer (Pokemon Red and Blue)` with the three names in blue.
@@ -17,17 +18,27 @@ This is possible because Archipelago fixes each location's item at generation ti
 and the client scouts it (`LocationScouts`). Buying it pays coins, grants **nothing locally**,
 and sends the location check. Archipelago then delivers the item to its owner.
 
+Blue **item rooms** (`item_room`, `item_room_1_item`, `item_room_2_item`: one to three
+free choose-one pedestals) also get exactly one remote unlock, the first pedestal in
+scene order. It looks the same (Enhancer icon, "Remote Unlock n/N", blue tooltip),
+costs nothing, and taking it sends the next check instead of the free upgrade and
+consumes the other choices, as picking any item there does. In a one-item room the
+only pedestal is the remote unlock.
+
 - A persistent campaign spans multiple demo runs: default 20 purchases, configurable
   from 5 to 100 in the YAML.
 - The AP pedestal offers the **next** unpurchased shipment. Rerolling does not add checks.
-- All other pedestals, blood deals and non-shop rewards retain vanilla behavior.
+- All other pedestals, blood deals and other rewards (boss, chest, devil) retain vanilla behavior.
 - The AP purchase requires a connection, valid slot data and a scouted item. It is
   blocked offline (toast + log line) and becomes vanilla after the campaign is exhausted.
 - Killing the shopkeeper does **not** make the AP shipment free.
 - After a save/reload, a shop whose AP pedestal was already bought may designate
   another pedestal (so each shop has *at least* one).
-- Received Research Grants are banked. Use **Settings > Archipelago > Redeem grants**
-  during a living run to claim **15 coins per grant**.
+- Received Research Grants are redeemed automatically for **15 coins each** as soon
+  as they arrive (including ones another player unlocks), announced in the same blue
+  `Archipelago: received 1 Research Grant: +15 coins` text as a purchase. Grants that
+  arrive with no living run wait in the journal and are paid 2 s after the next run's
+  player exists.
 - All server-confirmed campaign checks trigger Archipelago goal status.
 - No DeathLink, boss goal, progression unlocks or run-completion requirement.
 
@@ -101,7 +112,7 @@ Steam updates fail the supported-build fingerprint check; do not bypass it.
    menu). Enter `ws://host:port` (or `wss://host:port`), the exact generated slot
    name and optional server password. Click Connect.
 6. Start a run, earn coins and buy the blue-tooltip AP pedestal in each shop. The
-   tab reports checks confirmed by the server. Redeem received grants when useful.
+   tab reports checks confirmed by the server. Received grants pay out automatically.
 
 The server address and slot name are saved; the password is not. There is no
 automatic reconnection after a lost connection; reconnect from the tab.

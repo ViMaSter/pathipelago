@@ -23,9 +23,11 @@ def engine_tests(godot: str, live_server: str | None = None) -> None:
         shop = project / "scn/environ/pickups"
         shop.mkdir(parents=True)
         shutil.copy(ROOT / "tests/stubs/shop_item.gd", shop / "shop_item.gd")
+        shutil.copy(ROOT / "tests/stubs/bodypart_reward.gd", shop / "bodypart_reward.gd")
         room = project / "scn/environ/rooms/special"
         room.mkdir(parents=True)
         shutil.copy(ROOT / "tests/stubs/shop.gd", room / "shop.gd")
+        shutil.copy(ROOT / "tests/stubs/item_room.gd", room / "item_room.gd")
         ui = project / "scn/ui"
         ui.mkdir(parents=True)
         shutil.copy(ROOT / "tests/stubs/options_menu.gd", ui / "options_menu.gd")

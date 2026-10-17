@@ -2,15 +2,15 @@
 
 ## What does randomization do to this game?
 
-Every shop room contains one Archipelago pedestal. It still shows the upgrade
-sprite the shop rolled, but buying it with in-game coins sends the next
-"Shop Shipment" location to the multiworld instead of granting the upgrade.
-All other pedestals remain normal local purchases.
+Every shop room and every blue item room contains one Archipelago pedestal,
+shown as an Enhancer icon named "Remote Unlock n/N". Buying it with in-game coins
+(or taking it for free in an item room) sends the next "Shop Shipment" location
+to the multiworld instead of granting an upgrade. All other pedestals stay vanilla.
 
 ## What items can appear in other players' worlds?
 
-"Research Grant", which can be redeemed in Settings > Archipelago for 15 coins
-in the current run.
+"Research Grant", which is redeemed automatically for 15 coins in the current
+(or next) run.
 
 ## What does another world's item look like in Pathogenic Demo?
 

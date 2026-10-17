@@ -10,12 +10,18 @@ const LOG_LIMIT := 512 * 1024
 const LOG_LINES := 200
 const SHOP_ROOM_SCRIPT := "res://scn/environ/rooms/special/shop.gd"
 const OPTIONS_SCRIPT := "res://scn/ui/options_menu.gd"
+# Blue "item rooms" offer 1-3 free choose-one BodypartRewards.
+const ITEM_ROOM_SCRIPT := "res://scn/environ/rooms/special/item_room.gd"
+const REWARD_SCRIPT := "res://scn/environ/pickups/bodypart_reward.gd"
 const TAB_TITLE := "Archipelago"
 const FONT_SIZE := 18
 const SMALL_FONT_SIZE := 12
 const PAGE_MIN_HEIGHT := 300.0
 const PAGE_MAX_HEIGHT := 640.0
 const BUTTON_COLOR := Color(0.12, 0.42, 0.68)
+# Enhancer's icon; every AP pedestal shows it instead of the rolled upgrade.
+const REMOTE_ICON := "res://gfx/player/bodyparts/internal/upgrade.png"
+const REMOTE_ICON_SCALE := Vector2(3.0, 3.0)
 const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
 
 var socket := WebSocketPeer.new()
@@ -45,6 +51,14 @@ var log_revision := 0
 var pages: Array = []
 var toast: Label
 var toast_time := 0.0
+var ap_rewards: Array = []
+var free_rewards: Array = []
+var remote_icon: Texture2D
+# A new run's player must exist this long before grants are paid to it, so
+# run setup or save restore cannot overwrite the added coins.
+var settled_player := 0
+var player_seen := 0
+var player_age := 0.0
 var _log: FileAccess
 
 func _ready() -> void:
@@ -187,10 +201,15 @@ func _process(delta: float) -> void:
 		if toast_time <= 0.0 and is_instance_valid(toast):
 			toast.visible = false
 	_override_tooltip()
+	_mask_rewards()
+	_track_player(delta)
 	refresh_time += delta
 	if refresh_time >= 0.5:
 		refresh_time = 0.0
 		_refresh_offers()
+		_mask_rewards()
+		if campaign != null and campaign.bank > 0:
+			redeem_grants(true)
 		_refresh_pages()
 
 func _send(message: Dictionary) -> bool:
@@ -398,7 +417,8 @@ func _received(message: Dictionary) -> void:
 		_fail(campaign.error)
 		return
 	if campaign.bank > before:
-		notify("Received %d Research Grant(s). Redeem them in Settings > Archipelago." % (campaign.bank - before))
+		log_line("Received %d Research Grant(s)." % (campaign.bank - before))
+		redeem_grants(true)
 
 func _send_checks() -> void:
 	if campaign != null and not campaign.checks.is_empty():
@@ -480,6 +500,8 @@ func _on_node_added(node: Node) -> void:
 		return
 	if script.resource_path == OPTIONS_SCRIPT:
 		_inject_tab.call_deferred(node)
+	elif script.resource_path == REWARD_SCRIPT:
+		_track_free_reward.call_deferred(node)
 	elif node.has_method("finalize_purchase") and node.get("_rewards") != null:
 		_track_shop.call_deferred(node)
 
@@ -499,26 +521,126 @@ func _fallback_pick(shop: Node) -> void:
 	if is_instance_valid(shop) and not handle_pick(shop):
 		shop._on_picked()
 
+# --- Free item-room pedestals -------------------------------------------------
+
+func item_room(node: Node) -> Node:
+	var ancestor := node.get_parent()
+	while ancestor != null:
+		var script: Script = ancestor.get_script()
+		if script != null and script.resource_path == ITEM_ROOM_SCRIPT:
+			return ancestor
+		ancestor = ancestor.get_parent()
+	return null
+
+static func _is_reward(node: Node) -> bool:
+	var script: Script = node.get_script()
+	return script != null and script.resource_path == REWARD_SCRIPT
+
+# One free reward per item room becomes the remote unlock: the first in
+# scene-tree order (Reward, Reward2, Reward3), cached on the room so it stays put.
+func designated_free(room: Node) -> Node:
+	if room.has_meta("archipelago_reward"):
+		var cached: Variant = room.get_meta("archipelago_reward")
+		if is_instance_valid(cached) and not cached.deleted:
+			return cached
+	var candidates: Array = []
+	for node in room.find_children("*", "", true, false):
+		if _is_reward(node) and not node.deleted and not node.consumed and not node.is_queued_for_deletion() \
+				and _shop_wrapper(node) == null and item_room(node) == room:
+			candidates.append(node)
+	if candidates.is_empty():
+		return null
+	room.set_meta("archipelago_reward", candidates[0])
+	log_line("AP pedestal for item room %s: %s" % [room.name, room.get_path_to(candidates[0])])
+	return candidates[0]
+
+func _track_free_reward(reward: Node) -> void:
+	if not is_instance_valid(reward) or reward.deleted or reward.has_meta("archipelago_free") \
+			or _shop_wrapper(reward) != null:
+		return
+	var room := item_room(reward)
+	if room == null or designated_free(room) != reward:
+		return
+	var area: Variant = reward.get("pickup_area")
+	if not area is Node or not area.has_signal("picked"):
+		log_line("Item-room reward layout changed; %s stays vanilla." % reward.name)
+		return
+	var vanilla := Callable(reward, "_player_entered")
+	if area.picked.is_connected(vanilla):
+		area.picked.disconnect(vanilla)
+	area.picked.connect(_free_pick.bind(reward))
+	reward.set_meta("archipelago_free", true)
+	free_rewards.append(reward)
+	if is_free_ap(reward):
+		ap_rewards.append(reward)
+		_mask_rewards()
+
+func is_free_ap(reward: Variant) -> bool:
+	if not is_instance_valid(reward) or reward.deleted or reward.consumed or not reward.has_meta("archipelago_free"):
+		return false
+	return not (campaign != null and authenticated and campaign.next_location() < 0)
+
+func _free_pick(reward: Node) -> void:
+	if not is_instance_valid(reward) or reward.deleted or reward.consumed:
+		return
+	var room := item_room(reward)
+	var exhausted: bool = campaign != null and authenticated and campaign.next_location() < 0
+	log_line("Item room pick %s/%s -> %s" % [room.name if room != null else "-", reward.name,
+		"vanilla free upgrade" if exhausted else "ARCHIPELAGO"])
+	if exhausted:
+		_unmask_reward(reward)
+		_rename_reward(reward, "")
+		reward._player_entered()
+		return
+	var location := _claim_location()
+	if location < 0:
+		return
+	if not campaign.purchase(location):
+		_fail(campaign.error)
+		return
+	reward.consumed = true
+	reward._disable_player_block()
+	reward._detach_pickup_area()
+	var animation := reward.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	if animation != null:
+		animation.play("take")
+	var audio := get_node_or_null("/root/AudioManager")
+	if audio != null and audio.get("upgrade") != null:
+		audio.upgrade.play()
+	# Consumes the choose-one siblings and marks the room looted, like a mutation pick.
+	reward._confirm_choose_one_siblings()
+	reward._confirm_after_take_animation()
+	get_node("/root/RunSaveManager").save_run()
+	_send_checks()
+	show_toast("sent " + offer_text(location))
+	notify("Sent %s: %s. Waiting for server confirmation." % [location_name(location), offer_text(location)])
+
 func _error_sound() -> void:
 	var audio := get_node_or_null("/root/AudioManager")
 	if audio != null and audio.get("ui_error") != null:
 		audio.ui_error.play()
 
-func purchase(shop: Node) -> void:
-	if shop.paid:
-		return
+func _claim_location() -> int:
 	if fatal or not authenticated or campaign == null:
 		_error_sound()
 		show_toast("not connected - open Settings > Archipelago.")
 		notify("AP pedestal blocked: not connected to an Archipelago slot.")
-		return
+		return -1
 	var location: int = campaign.next_location()
 	if location < 0:
 		notify("All AP checks purchased. Waiting for confirmation, or campaign complete.")
-		return
+		return -1
 	if not scouts.has(location):
 		_error_sound()
 		notify("AP pedestal blocked: waiting for scouting data from the server.")
+		return -1
+	return location
+
+func purchase(shop: Node) -> void:
+	if shop.paid:
+		return
+	var location := _claim_location()
+	if location < 0:
 		return
 	var globals := get_node("/root/G")
 	var player: Node = globals.player
@@ -543,9 +665,6 @@ func purchase(shop: Node) -> void:
 		if child.get("attract") != null:
 			child.queue_free()
 	shop.finalize_purchase()
-	var label := shop.get_node_or_null("ArchipelagoOffer")
-	if label != null:
-		label.queue_free()
 	var audio := get_node_or_null("/root/AudioManager")
 	if audio != null and audio.get("buy") != null:
 		audio.buy.play()
@@ -613,6 +732,13 @@ func _shop_wrapper(node: Node) -> Node:
 		node = node.get_parent()
 	return null
 
+func _reward_ancestor(node: Node) -> Node:
+	while node != null:
+		if node.has_meta("archipelago_free"):
+			return node
+		node = node.get_parent()
+	return null
+
 func _override_tooltip() -> void:
 	var globals := get_node_or_null("/root/G")
 	if globals == null:
@@ -625,7 +751,10 @@ func _override_tooltip() -> void:
 	if not tooltip.visible or not is_instance_valid(anchor):
 		return
 	var shop := _shop_wrapper(anchor)
-	if shop == null or shop.paid or not is_ap(shop):
+	if shop != null:
+		if shop.paid or not is_ap(shop):
+			return
+	elif not is_free_ap(_reward_ancestor(anchor)):
 		return
 	var card := tooltip_card()
 	var current: Variant = tooltip.item
@@ -643,53 +772,123 @@ func _override_tooltip() -> void:
 			panel.self_modulate = Color(0.1, 0.35, 0.55, 1.0)
 
 func _refresh_offers() -> void:
+	var masked: Array = []
 	for shop in get_tree().get_nodes_in_group("shop_item"):
 		if not is_instance_valid(shop):
 			continue
-		var label := shop.get_node_or_null("ArchipelagoOffer") as Label
 		if shop.paid or not is_ap(shop):
-			if label != null:
-				label.queue_free()
-				_rename_rewards(shop, "")
+			_rename_rewards(shop, "")
+			for reward in shop.get("_rewards"):
+				_unmask_reward(reward)
 			continue
 		_rename_rewards(shop, tooltip_title())
-		if label == null:
-			label = Label.new()
-			label.name = "ArchipelagoOffer"
-			label.position = Vector2(-160, -190)
-			label.custom_minimum_size = Vector2(320, 0)
-			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
-			label.add_theme_color_override("font_outline_color", Color.BLACK)
-			label.add_theme_constant_override("outline_size", 6)
-			shop.add_child(label)
-		label.text = "ARCHIPELAGO" if authenticated else "ARCHIPELAGO (offline)"
+		for reward in shop.get("_rewards"):
+			if is_instance_valid(reward):
+				masked.append(reward)
+	var live: Array = []
+	for reward in free_rewards:
+		if not is_instance_valid(reward) or reward.deleted:
+			continue
+		live.append(reward)
+		if not is_free_ap(reward):
+			if not reward.consumed:
+				_rename_reward(reward, "")
+				_unmask_reward(reward)
+			continue
+		_rename_reward(reward, tooltip_title())
+		masked.append(reward)
+	free_rewards = live
+	ap_rewards = masked
+
+# Hides the rolled bodypart/mutation and shows the Enhancer icon instead. Runs
+# every frame because the game re-spawns the visual on rerolls.
+func _mask_rewards() -> void:
+	for reward in ap_rewards:
+		if not is_instance_valid(reward) or reward.is_queued_for_deletion():
+			continue
+		var icon := reward.get_node_or_null("%MutationIcon") as Sprite2D
+		if icon == null:
+			continue
+		if remote_icon == null:
+			if not ResourceLoader.exists(REMOTE_ICON):
+				return
+			remote_icon = load(REMOTE_ICON) as Texture2D
+		if not icon.has_meta("archipelago_original"):
+			icon.set_meta("archipelago_original", [icon.texture, icon.scale])
+		if icon.texture != remote_icon or not icon.visible:
+			icon.texture = remote_icon
+			icon.scale = REMOTE_ICON_SCALE
+			icon.visible = true
+		var part: Variant = reward.get("bodypart")
+		if part is CanvasItem and is_instance_valid(part) and part.visible:
+			part.visible = false
+
+func _unmask_reward(reward: Variant) -> void:
+	if not is_instance_valid(reward):
+		return
+	var icon := reward.get_node_or_null("%MutationIcon") as Sprite2D
+	if icon == null or not icon.has_meta("archipelago_original"):
+		return
+	var original: Array = icon.get_meta("archipelago_original")
+	icon.remove_meta("archipelago_original")
+	icon.texture = original[0]
+	icon.scale = original[1]
+	var part: Variant = reward.get("bodypart")
+	icon.visible = not (part is CanvasItem and is_instance_valid(part))
+	if part is CanvasItem and is_instance_valid(part):
+		part.visible = true
 
 # Replaces the floating bodypart name under the AP pedestal; "" restores it.
 func _rename_rewards(shop: Node, title: String) -> void:
 	for reward in shop.get("_rewards"):
-		if not is_instance_valid(reward):
-			continue
-		var name_label := reward.get_node_or_null("%Label") as Label
-		if name_label == null:
-			continue
-		if title.is_empty():
-			if name_label.has_meta("archipelago_original"):
-				name_label.text = name_label.get_meta("archipelago_original")
-				name_label.remove_meta("archipelago_original")
-		elif name_label.text != title:
-			name_label.set_meta("archipelago_original", name_label.text)
-			name_label.text = title
+		_rename_reward(reward, title)
 
-func redeem_grants() -> void:
-	if fatal or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
-		notify("No synchronized Research Grants available.")
+func _rename_reward(reward: Variant, title: String) -> void:
+	if not is_instance_valid(reward):
 		return
-	var globals := get_node("/root/G")
-	var player: Node = globals.player
+	var name_label := reward.get_node_or_null("%Label") as Label
+	if name_label == null:
+		return
+	if title.is_empty():
+		if name_label.has_meta("archipelago_original"):
+			name_label.text = name_label.get_meta("archipelago_original")
+			name_label.remove_meta("archipelago_original")
+	elif name_label.text != title:
+		name_label.set_meta("archipelago_original", name_label.text)
+		name_label.text = title
+
+func _track_player(delta: float) -> void:
+	var globals := get_node_or_null("/root/G")
+	var player: Variant = globals.get("player") if globals != null else null
 	if not is_instance_valid(player) or player.dead:
-		notify("Start a living run before redeeming grants.")
+		player_seen = 0
+		settled_player = 0
+		return
+	if player.get_instance_id() != player_seen:
+		player_seen = player.get_instance_id()
+		settled_player = 0
+		player_age = 0.0
+	elif settled_player == 0:
+		player_age += delta
+		if player_age >= 2.0:
+			settled_player = player_seen
+
+func grant_text(amount: int) -> String:
+	return "received %d Research Grant%s: +%d coins" % [amount, "" if amount == 1 else "s", amount * GRANT_COINS]
+
+# Called automatically whenever grants arrive and every 0.5 s while some are
+# banked; grants wait in the journal until a living run exists.
+func redeem_grants(automatic := false) -> void:
+	if fatal or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
+		if not automatic:
+			notify("No synchronized Research Grants available.")
+		return
+	var globals := get_node_or_null("/root/G")
+	var player: Variant = globals.get("player") if globals != null else null
+	if not is_instance_valid(player) or player.dead or not player.is_inside_tree() \
+			or (automatic and player.get_instance_id() != settled_player):
+		if not automatic:
+			notify("Start a living run before redeeming grants.")
 		return
 	var amount: int = campaign.bank
 	if not campaign.redeem():
@@ -697,7 +896,8 @@ func redeem_grants() -> void:
 		return
 	player.money += amount * GRANT_COINS
 	get_node("/root/RunSaveManager").save_run()
-	notify("Redeemed %d Research Grants. +%d coins." % [amount, amount * GRANT_COINS])
+	show_toast(grant_text(amount))
+	notify("Redeemed %d Research Grant(s). +%d coins." % [amount, amount * GRANT_COINS])
 
 # --- Settings > Archipelago tab --------------------------------------------
 
@@ -767,8 +967,6 @@ func _build_page() -> Control:
 		slot_name = widgets.slot.text.strip_edges()
 		password = widgets.password.text
 		connect_server())
-	widgets.grants = _button(row, "Redeem grants")
-	widgets.grants.pressed.connect(redeem_grants)
 	_button(row, "Open log folder").pressed.connect(func():
 		OS.shell_open(ProjectSettings.globalize_path(ROOT)))
 	var paths := _label(box, SMALL_FONT_SIZE)
@@ -841,10 +1039,10 @@ func _refresh_pages() -> void:
 		if campaign != null:
 			widgets.progress.text = "Checks: %d sent, %d/%d confirmed. Next: %s." % [
 				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
-			widgets.grants.text = "Redeem %d grants (+%d coins)" % [campaign.bank, campaign.bank * GRANT_COINS]
+			if campaign.bank > 0:
+				widgets.progress.text += " %d Research Grant(s) waiting for a living run." % campaign.bank
 		else:
 			widgets.progress.text = "No campaign loaded yet."
-			widgets.grants.text = "Redeem Research Grants"
 		if widgets.revision != log_revision:
 			widgets.revision = log_revision
 			widgets.log.text = "\n".join(log_lines)

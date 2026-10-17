@@ -162,6 +162,20 @@ func _network_and_purchase() -> void:
 	name_label.text = "Recuperative Mitochondrion"
 	client._refresh_offers()
 	check(name_label.text == "Remote Unlock 1/5", "floating pedestal name replaced")
+	var icon := Sprite2D.new()
+	icon.name = "MutationIcon"
+	icon.visible = false
+	reward.add_child(icon)
+	icon.owner = reward
+	icon.unique_name_in_owner = true
+	reward.bodypart = Node2D.new()
+	reward.add_child(reward.bodypart)
+	client.remote_icon = ImageTexture.create_from_image(Image.create(4, 4, false, Image.FORMAT_RGBA8))
+	client._refresh_offers()
+	client._mask_rewards()
+	check(icon.visible and icon.texture == client.remote_icon and icon.scale == client.REMOTE_ICON_SCALE \
+			and not reward.bodypart.visible, "AP pedestal shows the Enhancer icon instead of the rolled upgrade")
+	check(client.REMOTE_ICON == "res://gfx/player/bodyparts/internal/upgrade.png", "remote icon is Enhancer's texture")
 	player.money = 2
 	shop._on_picked()
 	check(client.campaign.checks.is_empty() and player.money == 2, "insufficient funds unchanged")
@@ -180,11 +194,54 @@ func _network_and_purchase() -> void:
 	_send(peer, [{"cmd": "RoomUpdate", "checked_locations": [402938001]}])
 	await _collect(peer, 10)
 	check(client.campaign.confirmed == [402938001], "server acknowledgement saved")
+	var item_room: Node2D = load("res://scn/environ/rooms/special/item_room.gd").new()
+	item_room.name = "ItemRoom"
+	root.add_child(item_room)
+	var choice := Node2D.new()
+	choice.name = "BodypartReward3Choice"
+	item_room.add_child(choice)
+	var free: Array = []
+	for slot_name in ["Reward", "Reward2"]:
+		var holder := Node2D.new()
+		holder.name = slot_name
+		choice.add_child(holder)
+		var free_reward: Node2D = load("res://scn/environ/pickups/bodypart_reward.gd").new()
+		free_reward.choose_one = true
+		free_reward.picked_up.connect(item_room._on_reward_picked_up)
+		free.append(free_reward)
+	for free_reward in free:
+		free_reward.unique_from = free
+	for i in free.size():
+		choice.get_child(i).add_child(free[i])
+	await process_frame
+	check(free[0].has_meta("archipelago_free") and not free[1].has_meta("archipelago_free"),
+			"blue item room gets exactly one remote unlock")
+	client._refresh_offers()
+	client._mask_rewards()
+	check(free[0].get_node("%Label").text == "Remote Unlock 2/5" and free[1].get_node("%Label").text == "Pressurized Spicule",
+			"item-room remote unlock renamed, other choice untouched")
+	check(free[0].get_node("%MutationIcon").texture == client.remote_icon and not free[0].bodypart.visible,
+			"item-room remote unlock shows the Enhancer icon")
+	var coins: int = player.money
+	free[0].pickup_area.picked.emit()
+	check(free[0].vanilla_picks == 0 and free[0].deleted and free[1].consumed and item_room.looted,
+			"item-room pick grants nothing locally and consumes the choice")
+	check(player.money == coins and client.campaign.checks.size() == 2, "item-room remote unlock is free and sends the next check")
+	messages = await _collect(peer, 10)
+	sent = _find(messages, "LocationChecks").get("locations", [])
+	check(402938002 in sent.map(func(l): return int(l)), "item-room check sent to the server")
 	var grants := [{"item": 402939001, "location": 100, "player": 2, "flags": 0}]
+	client.player_seen = player.get_instance_id()
+	client.settled_player = 0
+	client.player_age = 0.0
 	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
 	await _collect(peer, 10)
-	client.redeem_grants()
-	check(player.money == 55 and client.campaign.bank == 0, "grant delivers 15 coins")
+	check(player.money == 40 and client.campaign.bank == 1, "grant waits until the run's player has settled")
+	client.player_age = 1.99
+	await create_timer(0.7).timeout
+	check(player.money == 55 and client.campaign.bank == 0, "grant auto-redeems 15 coins without a button")
+	check(client.toast.visible and client.toast.text == "Archipelago: received 1 Research Grant: +15 coins",
+			"auto-redeemed grant shown in the blue toast")
 	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
 	await _collect(peer, 10)
 	check(client.campaign.bank == 0, "network replay does not duplicate grant")

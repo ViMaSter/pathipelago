@@ -53,7 +53,8 @@ func _live() -> bool:
 			or int(sender.scouts[402938002].player) != receiver.slot:
 		push_error("TEST FAILED: need fresh seed with shipment 2 addressed to Pathogenic2")
 		return false
-	var recipient_before := 0
+	var received_before: int = receiver.campaign.received.size()
+	var start_money: int = player.money
 	for index in 2:
 		var shop_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
 		root.add_child(shop_room)
@@ -64,7 +65,6 @@ func _live() -> bool:
 		shop.add_child(reward)
 		shop._rewards.append(reward)
 		var money_before: int = player.money
-		recipient_before = receiver.campaign.bank
 		shop._on_picked()
 		if player.money != money_before - 10 or not shop.finalized \
 				or not reward.deleted or shop.vanilla_purchases != 0:
@@ -74,15 +74,16 @@ func _live() -> bool:
 		if not await _wait_for(func(): return sender.campaign.confirmed.size() == expected):
 			return false
 		await create_timer(0.1).timeout
-	if not await _wait_for(func(): return receiver.campaign.bank > recipient_before):
+	receiver.player_seen = player.get_instance_id()
+	receiver.settled_player = player.get_instance_id()
+	if not await _wait_for(func(): return receiver.campaign.received.size() > received_before \
+			and receiver.campaign.bank == 0):
 		return false
+	var granted: int = receiver.campaign.received.size() - received_before
 	print("LIVE_AP_CROSS_PLAYER sender=", sender.slot, " check=402938002 recipient=",
-		receiver.slot, " bank=", receiver.campaign.bank)
-	var bank: int = receiver.campaign.bank
-	var coins: int = player.money
-	receiver.redeem_grants()
-	if receiver.campaign.bank != 0 or player.money != coins + 15 * bank:
-		push_error("TEST FAILED: received grants did not redeem")
+		receiver.slot, " auto_redeemed=", granted)
+	if player.money != start_money - 20 + 15 * granted:
+		push_error("TEST FAILED: received grants did not auto-redeem")
 		return false
 	receiver.connect_server()
 	if not await _wait_for(func(): return receiver.authenticated and receiver.item_stream_ready):
