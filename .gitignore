@@ -1,0 +1,14 @@
+# Generated packages and private copies of the game
+/dist/
+/local-builds/
+/launch-modded.command
+
+# Python and Godot caches
+__pycache__/
+*.py[cod]
+.godot/
+
+# Local environments and macOS metadata
+/.venv/
+/venv/
+.DS_Store

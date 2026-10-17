@@ -1,0 +1,182 @@
+extends SceneTree
+
+const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
+const Client = preload("res://mods-unpacked/Local-ArchipelagoShop/client.gd")
+var failures := 0
+var assertions := 0
+
+func _init() -> void:
+	_run.call_deferred()
+
+func check(condition: bool, message: String) -> void:
+	assertions += 1
+	if not condition:
+		failures += 1
+		push_error("TEST FAILED: " + message)
+
+func _run() -> void:
+	print("TEST_USER_DIR ", OS.get_user_data_dir())
+	check(OS.get_user_data_dir() == OS.get_cmdline_user_args()[0], "isolated user data")
+	var state := State.new()
+	var path := "user://state-test.json"
+	check(state.open(path, "seed/team/slot", 5), "create journal")
+	check(state.next_location() == 402938001, "first location")
+	check(state.purchase(402938001), "record first purchase")
+	check(not state.purchase(402938001), "reject duplicate purchase")
+	var restored := State.new()
+	check(restored.open(path, "seed/team/slot", 5), "restore journal")
+	check(restored.next_location() == 402938002, "purchase survives restart")
+	check(restored.accept_checks([402938001, 402938003]), "server reconciliation")
+	check(restored.confirmed.size() == 2, "count acknowledgements")
+	check(restored.accept_checks([402938001]), "ack replay")
+	check(restored.confirmed.size() == 2, "ack replay idempotent")
+	var before := restored.checks.duplicate()
+	check(not restored.accept_checks([402938005, "bad"]), "reject mixed malformed acknowledgements")
+	check(restored.checks == before, "malformed acknowledgement is atomic")
+	var items := [{"item": 402939001}, {"item": 402939001}]
+	check(restored.accept_items(items), "receive grants")
+	check(restored.bank == 2, "two grants banked")
+	check(restored.accept_items(items) and restored.bank == 2, "item replay idempotent")
+	check(restored.redeem() and restored.bank == 0, "redeem bank")
+	check(restored.accept_items(items) and restored.bank == 0, "redeemed items not replayed")
+	check(not restored.accept_items([]), "reject truncated history")
+	var wrong := State.new()
+	check(not wrong.open(path, "different-seed", 5), "reject mismatched campaign")
+	var invalid := State.new()
+	check(not invalid.open("user://missing-directory/state.json", "x", 5), "write failure fails closed")
+	var corrupted := FileAccess.open("user://broken.json", FileAccess.WRITE)
+	corrupted.store_string("{broken")
+	corrupted.close()
+	check(not wrong.open("user://broken.json", "seed", 5), "corrupt journal fails closed")
+	await _network_and_purchase()
+	print("GODOT_TEST_RESULT assertions=%d failures=%d" % [assertions, failures])
+	quit(1 if failures else 0)
+
+func _network_and_purchase() -> void:
+	var globals: Node = load("res://tests/stubs/globals.gd").new()
+	globals.name = "G"
+	var player: Node = load("res://tests/stubs/player.gd").new()
+	root.add_child(player)
+	globals.player = player
+	root.add_child(globals)
+	var saves: Node = load("res://tests/stubs/run_save.gd").new()
+	saves.name = "RunSaveManager"
+	root.add_child(saves)
+	var room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
+	root.add_child(room)
+	var shop: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
+	room.add_child(shop)
+	shop.add_to_group("shop_item")
+	var reward: Node = load("res://tests/stubs/reward.gd").new()
+	shop.add_child(reward)
+	shop._rewards.append(reward)
+	var client := Client.new()
+	client.name = "ArchipelagoShop"
+	root.add_child(client)
+	await process_frame
+	check(client.eligible(shop), "ordinary bodypart shop eligible")
+	shop._on_picked()
+	check(player.money == 50 and shop.vanilla_purchases == 0, "offline buy neither charges nor grants vanilla")
+	shop.pay_with_blood = true
+	shop._on_picked()
+	check(shop.vanilla_purchases == 1, "blood purchase stays vanilla")
+	shop.pay_with_blood = false
+	reward.choose_one = true
+	check(not client.eligible(shop), "choose-one challenge excluded")
+	reward.choose_one = false
+	var tcp := TCPServer.new()
+	check(tcp.listen(0, "127.0.0.1") == OK, "listen local websocket fixture")
+	client.address_field.text = "ws://127.0.0.1:%d" % tcp.get_local_port()
+	client.slot_field.text = "Tester"
+	client.connect_server()
+	for i in 120:
+		if tcp.is_connection_available():
+			break
+		await process_frame
+	check(tcp.is_connection_available(), "client connects")
+	if not tcp.is_connection_available():
+		return
+	var peer := WebSocketPeer.new()
+	check(peer.accept_stream(tcp.take_connection()) == OK, "accept websocket")
+	for i in 120:
+		peer.poll()
+		if peer.get_ready_state() == WebSocketPeer.STATE_OPEN:
+			break
+		await process_frame
+	check(peer.get_ready_state() == WebSocketPeer.STATE_OPEN, "websocket open")
+	_send(peer, [{"cmd": "RoomInfo", "seed_name": "fixture-campaign"}])
+	var messages := await _collect(peer, 15)
+	var connect_message := _find(messages, "Connect")
+	check(connect_message.get("game") == "Pathogenic Demo", "real AP handshake game")
+	check(connect_message.get("items_handling") == 7, "request local, remote, starting items")
+	_send(peer, [{
+		"cmd": "Connected", "team": 0, "slot": 1,
+		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
+		"missing_locations": range(402938001, 402938006),
+		"checked_locations": [], "slot_data": {"schema": 1, "shop_checks": 5}
+	}, {
+		"cmd": "DataPackage",
+		"data": {"games": {"Example": {"item_name_to_id": {"Remote Sword": 9001}}}}
+	}, {
+		"cmd": "LocationInfo", "locations": [
+			{"location": 402938001, "item": 9001, "player": 2, "flags": 1},
+			{"location": 402938002, "item": 9001, "player": 2, "flags": 1}
+		]
+	}, {"cmd": "ReceivedItems", "index": 0, "items": []}])
+	messages = await _collect(peer, 15)
+	check(client.authenticated, "authenticate slot")
+	check(not _find(messages, "LocationScouts").is_empty(), "scout finite location pool")
+	check(client._offer_text(402938001).contains("Remote Sword -> Remote Friend"), "show item and recipient")
+	player.money = 2
+	shop._on_picked()
+	check(client.campaign.checks.is_empty() and player.money == 2, "insufficient funds unchanged")
+	player.money = 50
+	shop.make_free()
+	check(not shop.paid, "theft cannot create a free check")
+	shop._on_picked()
+	check(player.money == 40 and shop.paid, "paid shipment charges exactly once")
+	check(shop.finalized and reward.deleted, "vanilla reward suppressed and offer finalized")
+	check(shop.vanilla_purchases == 1, "no vanilla bodypart handoff")
+	shop._on_picked()
+	check(player.money == 40 and client.campaign.checks.size() == 1, "repeat signal idempotent")
+	messages = await _collect(peer, 10)
+	var sent: Array = _find(messages, "LocationChecks").get("locations", [])
+	check(sent.size() == 1 and int(sent[0]) == 402938001, "send actual LocationChecks")
+	_send(peer, [{"cmd": "RoomUpdate", "checked_locations": [402938001]}])
+	await _collect(peer, 10)
+	check(client.campaign.confirmed == [402938001], "server acknowledgement saved")
+	var grants := [{"item": 402939001, "location": 100, "player": 2, "flags": 0}]
+	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
+	await _collect(peer, 10)
+	client.redeem_grants()
+	check(player.money == 55 and client.campaign.bank == 0, "grant delivers 15 coins")
+	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
+	await _collect(peer, 10)
+	check(client.campaign.bank == 0, "network replay does not duplicate grant")
+	_send(peer, [{"cmd": "RoomUpdate", "checked_locations": range(402938001, 402938006)}])
+	messages = await _collect(peer, 10)
+	check(_find(messages, "StatusUpdate").get("status") == 30, "goal only after every server-confirmed check")
+	peer.close()
+	for i in 15:
+		peer.poll()
+		await process_frame
+	check(not client.authenticated, "disconnect blocks transactions")
+	tcp.stop()
+
+func _send(peer: WebSocketPeer, messages: Array) -> void:
+	check(peer.send_text(JSON.stringify(messages)) == OK, "fixture sends packet")
+
+func _collect(peer: WebSocketPeer, frames: int) -> Array:
+	var messages: Array = []
+	for i in frames:
+		peer.poll()
+		while peer.get_available_packet_count() > 0:
+			messages.append_array(JSON.parse_string(peer.get_packet().get_string_from_utf8()))
+		await process_frame
+	return messages
+
+func _find(messages: Array, command: String) -> Dictionary:
+	for message in messages:
+		if message.get("cmd") == command:
+			return message
+	return {}

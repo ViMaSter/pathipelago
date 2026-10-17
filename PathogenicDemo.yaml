@@ -1,0 +1,7 @@
+name: Pathogenic{number}
+game: Pathogenic Demo
+description: Persistent numbered shop shipments across repeatable demo runs.
+Pathogenic Demo:
+  progression_balancing: 50
+  accessibility: full
+  shop_checks: 20
