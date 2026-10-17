@@ -104,12 +104,17 @@ main conclusions. They are not hashes of the encrypted/compiled resource bytes.
 
 ## Why the mod hooks purchases rather than replacing RNG
 
-The original seeded reward and price generation stays intact. The extension
-intercepts eligible purchase/theft paths and substitutes the next AP check for
-the local handoff. It journals first, debits the price, marks local rewards
-consumed/deleted, finalizes the pedestal, asks the game to save and sends checks.
-Server acknowledgment is tracked separately and missing acknowledgments retry.
-It never invokes the vanilla local-upgrade handoff for an AP purchase.
+The original seeded reward and price generation stays intact. In each shop room
+the client designates exactly one non-blood pedestal (first ordinary bodypart offer
+by natural node-name order) and stores the choice as room metadata. The
+`shop_item.gd` extension routes that pedestal's real `PickupArea.picked` signal,
+`_take_for_free` theft path and `make_free` discount to the client. Other pedestals
+call the vanilla methods. A fallback rewires the signal if the script takeover is
+inactive. For the AP pedestal the client journals first, debits the price, marks
+local rewards consumed/deleted, frees pickups, finalizes the pedestal, asks the
+game to save and sends checks. Server acknowledgment is tracked separately and
+missing acknowledgments retry. It never invokes the vanilla local-upgrade handoff
+for an AP purchase.
 
 The AP server owns item placement; the game does not roll a recipient.
 Location IDs are 402938001 through 402938100. Research Grant is item 402939001.
@@ -153,6 +158,27 @@ It records `LIVE_AP_CROSS_PLAYER sender=1 check=402938002 recipient=2 bank=1`,
 `GODOT_TEST_RESULT live_archipelago=true failures=0`. This used disposable
 game-state doubles and a fresh loopback server, which was stopped afterward;
 it did not purchase checks in a user's campaign.
+
+## Reported local purchase (October 17, 2026)
+
+A purchase in the first published build produced a local upgrade and no check.
+Observed: the MultiServer save, the client journal and `run_save.json` (run XGWA3CV8)
+contained no AP purchase, and the Godot log had no purchase line (Godot `print`
+output is buffered and was not a reliable record). The earlier design applied a
+hidden eligibility filter per pedestal (ordinary bodypart, not choose-one, not
+mixed), so a non-matching pedestal silently stayed vanilla and looked identical.
+The exact pedestal bought cannot be reconstructed from the retained evidence.
+
+The redesign makes the AP pedestal explicit and visible (blue ARCHIPELAGO tooltip
+with the scouted item, recipient and game), forces one per shop, and writes a
+flushed `client.log` line for every pick with its routing decision.
+In the real engine (private app copy, headless) the actual `shop.tscn` and
+`heart_shop.tscn` each designated only `Item1`, the real pick signal reached the
+extension, logged `-> ARCHIPELAGO`, refused offline and granted no local reward.
+The injected Settings tab (8th tab "Archipelago") and tooltip text were also
+observed. Shop rooms cannot be added to the tree outside a run in release builds
+(`shop_item._ready` reads a null `G.level_generator`), so those probes used
+out-of-tree instances. An online paid purchase in a real run remains unverified.
 
 ## Requested references
 

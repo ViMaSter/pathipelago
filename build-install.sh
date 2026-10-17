@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 GAME="$HOME/Library/Application Support/Steam/steamapps/common/Pathogenic Demo/Pathogenic.app"
 GODOT="${GODOT:-/Applications/Godot_mono.app/Contents/MacOS/Godot}"
 PYTHON="${PYTHON:-python3}"
-GDRE="${GDRE:-}"
+GDRE="${GDRE:-/Applications/Godot RE Tools.app/Contents/MacOS/Godot RE Tools}"
 VERIFY=0
 BUILD_ONLY=0
 
@@ -63,5 +63,5 @@ echo "Private modded app built; native bootstrap and packed shop hook verified."
 echo "You can start the modded game using: $ROOT/launch-modded.command"
 echo "Keep Steam running. Starting the normal Steam shortcut starts the UNMODDED game."
 echo "The official game, other mods and original saves were not cleared or changed."
-echo "Press F8 to connect to a generated Pathogenic Demo Archipelago slot."
+echo "Open Settings > Archipelago in the game to connect to a generated Pathogenic Demo slot."
 echo "Bootstrap tests do not prove visual gameplay compatibility; see README.md for validation limits."

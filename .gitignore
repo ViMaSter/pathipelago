@@ -2,6 +2,8 @@
 /dist/
 /local-builds/
 /launch-modded.command
+/players-pokemon-pathogenic/
+/local-webhost/
 
 # Python and Godot caches
 __pycache__/

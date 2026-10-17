@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from BaseClasses import Item, ItemClassification, Location, Region
+from BaseClasses import Item, ItemClassification, Location, Region, Tutorial
 from Options import PerGameCommonOptions, Range
 from worlds.AutoWorld import WebWorld, World
 
@@ -21,6 +21,17 @@ class PathogenicOptions(PerGameCommonOptions):
     shop_checks: ShopChecks
 
 
+class PathogenicWeb(WebWorld):
+    tutorials = [Tutorial(
+        "Multiworld Setup Guide",
+        "Install the local Archipelago shop mod and connect Pathogenic Demo to a multiworld.",
+        "English",
+        "setup_en.md",
+        "setup/en",
+        ["Local Archipelago Shop"],
+    )]
+
+
 class PathogenicItem(Item):
     game = "Pathogenic Demo"
 
@@ -33,7 +44,7 @@ class PathogenicWorld(World):
     """Reach shops and earn money through normal play; repeat runs as necessary."""
 
     game = "Pathogenic Demo"
-    web = WebWorld()
+    web = PathogenicWeb()
     options_dataclass = PathogenicOptions
     options: PathogenicOptions
     required_client_version = (0, 6, 0)

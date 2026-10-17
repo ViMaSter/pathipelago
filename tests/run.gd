@@ -63,31 +63,50 @@ func _network_and_purchase() -> void:
 	saves.name = "RunSaveManager"
 	root.add_child(saves)
 	var room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
+	room.name = "ShopRoom"
 	root.add_child(room)
-	var shop: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
-	room.add_child(shop)
-	shop.add_to_group("shop_item")
-	var reward: Node = load("res://tests/stubs/reward.gd").new()
-	shop.add_child(reward)
-	shop._rewards.append(reward)
+	var shop: Node = _pedestal(room, "Item1", true)
+	var reward: Node = shop._rewards[0]
+	var second: Node = _pedestal(room, "Item2", true)
+	var pickups: Node = _pedestal(room, "Item4", false)
 	var client := Client.new()
 	client.name = "ArchipelagoShop"
 	root.add_child(client)
 	await process_frame
-	check(client.eligible(shop), "ordinary bodypart shop eligible")
+	check(client.is_ap(shop), "first bodypart pedestal is the AP pedestal")
+	check(not client.is_ap(second) and not client.is_ap(pickups), "exactly one AP pedestal per shop")
+	second._on_picked()
+	check(second.vanilla_purchases == 1, "other pedestals stay vanilla local purchases")
 	shop._on_picked()
-	check(player.money == 50 and shop.vanilla_purchases == 0, "offline buy neither charges nor grants vanilla")
+	check(player.money == 50 and shop.vanilla_purchases == 0, "offline AP buy neither charges nor grants vanilla")
 	shop.pay_with_blood = true
 	shop._on_picked()
 	check(shop.vanilla_purchases == 1, "blood purchase stays vanilla")
 	shop.pay_with_blood = false
-	reward.choose_one = true
-	check(not client.eligible(shop), "choose-one challenge excluded")
-	reward.choose_one = false
+	var challenge_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
+	root.add_child(challenge_room)
+	var choose: Node = _pedestal(challenge_room, "Item1", true)
+	choose._rewards[0].choose_one = true
+	var fallback: Node = _pedestal(challenge_room, "Item2", true)
+	check(not client.is_ap(choose) and client.is_ap(fallback), "choose-one pedestal skipped for designation")
+	var orphan: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
+	root.add_child(orphan)
+	check(not client.is_ap(orphan), "pedestals outside shop rooms stay vanilla")
+	var log_text := FileAccess.get_file_as_string("user://archipelago_shop/client.log")
+	check(log_text.contains("Shop pick ShopRoom/Item2") and log_text.contains("vanilla local purchase") \
+			and log_text.contains("-> ARCHIPELAGO"), "every pick is written to the flushed client log")
+	var menu: Node = load("res://scn/ui/options_menu.gd").new()
+	root.add_child(menu)
+	await process_frame
+	await process_frame
+	check(menu.tab_buttons.size() == 3 and menu.tab_buttons[2].text == "Archipelago", "settings tab injected")
+	check(menu.tab_content.get_child_count() == 3, "settings page injected")
+	menu.tab_buttons[2].pressed.emit()
+	check(menu.current_tab == 2 and menu.tab_content.get_child(2).visible, "settings tab selectable")
 	var tcp := TCPServer.new()
 	check(tcp.listen(0, "127.0.0.1") == OK, "listen local websocket fixture")
-	client.address_field.text = "ws://127.0.0.1:%d" % tcp.get_local_port()
-	client.slot_field.text = "Tester"
+	client.server = "ws://127.0.0.1:%d" % tcp.get_local_port()
+	client.slot_name = "Tester"
 	client.connect_server()
 	for i in 120:
 		if tcp.is_connection_available():
@@ -112,11 +131,13 @@ func _network_and_purchase() -> void:
 	_send(peer, [{
 		"cmd": "Connected", "team": 0, "slot": 1,
 		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
+		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic Demo"}, "2": {"name": "Friend", "game": "Example"}},
 		"missing_locations": range(402938001, 402938006),
 		"checked_locations": [], "slot_data": {"schema": 1, "shop_checks": 5}
 	}, {
 		"cmd": "DataPackage",
-		"data": {"games": {"Example": {"item_name_to_id": {"Remote Sword": 9001}}}}
+		"data": {"games": {"Example": {"item_name_to_id": {"Remote Sword": 9001}},
+			"Other": {"item_name_to_id": {"Wrong Game Item": 9001}}}}
 	}, {
 		"cmd": "LocationInfo", "locations": [
 			{"location": 402938001, "item": 9001, "player": 2, "flags": 1},
@@ -126,13 +147,17 @@ func _network_and_purchase() -> void:
 	messages = await _collect(peer, 15)
 	check(client.authenticated, "authenticate slot")
 	check(not _find(messages, "LocationScouts").is_empty(), "scout finite location pool")
-	check(client._offer_text(402938001).contains("Remote Sword -> Remote Friend"), "show item and recipient")
+	check(client.offer_text(402938001) == "Remote Sword for Remote Friend (Example)", "show item, recipient and game")
+	var card: Dictionary = client.tooltip_card()
+	check(card.get("name") == "Remote unlock" and str(card.get("hint")).contains("Shop Shipment 001") \
+			and str(card.get("hint")).contains("Remote Sword for Remote Friend (Example)") \
+			and str(card.get("hint")).contains("progression"), "tooltip card replaces upgrade text")
 	player.money = 2
 	shop._on_picked()
 	check(client.campaign.checks.is_empty() and player.money == 2, "insufficient funds unchanged")
 	player.money = 50
 	shop.make_free()
-	check(not shop.paid, "theft cannot create a free check")
+	check(not shop.paid, "theft cannot create a free check or local upgrade")
 	shop._on_picked()
 	check(player.money == 40 and shop.paid, "paid shipment charges exactly once")
 	check(shop.finalized and reward.deleted, "vanilla reward suppressed and offer finalized")
@@ -162,6 +187,17 @@ func _network_and_purchase() -> void:
 		await process_frame
 	check(not client.authenticated, "disconnect blocks transactions")
 	tcp.stop()
+
+func _pedestal(room: Node, pedestal_name: String, with_reward: bool) -> Node:
+	var pedestal: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
+	pedestal.name = pedestal_name
+	room.add_child(pedestal)
+	pedestal.add_to_group("shop_item")
+	if with_reward:
+		var item: Node = load("res://tests/stubs/reward.gd").new()
+		pedestal.add_child(item)
+		pedestal._rewards.append(item)
+	return pedestal
 
 func _send(peer: WebSocketPeer, messages: Array) -> void:
 	check(peer.send_text(JSON.stringify(messages)) == OK, "fixture sends packet")

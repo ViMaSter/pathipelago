@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start local Pokemon and Pathogenic server",
+			"type": "shell",
+			"command": "./start-local-server.command",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start local Archipelago WebHost (room + tracker)",
+			"type": "shell",
+			"command": "./start-local-webhost.command",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

@@ -43,11 +43,11 @@ func _live() -> bool:
 	root.add_child(receiver)
 	await process_frame
 	for pair in [[sender, "Pathogenic1"], [receiver, "Pathogenic2"]]:
-		pair[0].address_field.text = args[1]
-		pair[0].slot_field.text = pair[1]
+		pair[0].server = args[1]
+		pair[0].slot_name = pair[1]
 		pair[0].connect_server()
 	if not await _wait_for(func(): return sender.authenticated and receiver.authenticated \
-			and sender.scouts.has(402938002) and sender.item_names.has(402939001)):
+			and sender.scouts.has(402938002) and sender.item_names.get("Pathogenic Demo", {}).has(402939001)):
 		return false
 	if sender.campaign.checks.size() != 0 or receiver.campaign.bank != 0 \
 			or int(sender.scouts[402938002].player) != receiver.slot:
@@ -55,8 +55,11 @@ func _live() -> bool:
 		return false
 	var recipient_before := 0
 	for index in 2:
+		var shop_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
+		root.add_child(shop_room)
 		var shop: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
-		room.add_child(shop)
+		shop_room.add_child(shop)
+		shop.add_to_group("shop_item")
 		var reward: Node = load("res://tests/stubs/reward.gd").new()
 		shop.add_child(reward)
 		shop._rewards.append(reward)

@@ -5,11 +5,17 @@ const FIRST_LOCATION := 402938001
 const GRANT_ITEM := 402939001
 const GRANT_COINS := 15
 const ROOT := "user://archipelago_shop"
+const LOG_FILE := ROOT + "/client.log"
+const LOG_LIMIT := 512 * 1024
+const LOG_LINES := 200
+const SHOP_ROOM_SCRIPT := "res://scn/environ/rooms/special/shop.gd"
+const OPTIONS_SCRIPT := "res://scn/ui/options_menu.gd"
+const TAB_TITLE := "Archipelago"
 const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
 
 var socket := WebSocketPeer.new()
 var authenticated := false
-var status := "F8: configure Archipelago. AP shop purchases require a connection."
+var status := "Open Settings > Archipelago to connect. The AP pedestal in each shop needs a connection."
 var server := "ws://localhost:38281"
 var slot_name := ""
 var password := ""
@@ -20,13 +26,8 @@ var count := 0
 var campaign: RefCounted
 var scouts: Dictionary = {}
 var players: Dictionary = {}
+var slot_games: Dictionary = {}
 var item_names: Dictionary = {}
-var panel: PanelContainer
-var status_label: Label
-var address_field: LineEdit
-var slot_field: LineEdit
-var password_field: LineEdit
-var bank_button: Button
 var refresh_time := 0.0
 var retry_time := 0.0
 var connecting := false
@@ -34,12 +35,22 @@ var room_seen := false
 var item_stream: Array = []
 var item_stream_ready := false
 var fatal := false
+var log_lines: PackedStringArray = []
+var log_revision := 0
+var pages: Array = []
+var toast: Label
+var toast_time := 0.0
+var _log: FileAccess
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Run after the game UI so the tooltip override wins each frame.
+	process_priority = 1000
 	if DirAccess.make_dir_recursive_absolute(ROOT) != OK:
 		_fail("Cannot create AP campaign directory.")
-	_build_ui()
+	_open_log()
+	_build_toast()
+	get_tree().node_added.connect(_on_node_added)
 	var config := ConfigFile.new()
 	var err := config.load(ROOT + "/connection.cfg")
 	if err == OK:
@@ -47,72 +58,69 @@ func _ready() -> void:
 		slot_name = str(config.get_value("connection", "slot", ""))
 	elif err != ERR_FILE_NOT_FOUND:
 		_fail("Cannot read AP connection configuration: " + error_string(err))
-	address_field.text = server
-	slot_field.text = slot_name
+	log_line("Client log: " + ProjectSettings.globalize_path(LOG_FILE))
 	notify(status)
 	if not slot_name.is_empty() and not fatal:
 		connect_server()
 
-func _build_ui() -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 100
-	add_child(layer)
-	var box := VBoxContainer.new()
-	panel = PanelContainer.new()
-	panel.position = Vector2(20, 20)
-	panel.custom_minimum_size = Vector2(640, 0)
-	layer.add_child(panel)
-	panel.add_child(box)
-	status_label = Label.new()
-	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status_label.custom_minimum_size.x = 620
-	box.add_child(status_label)
-	address_field = _field(box, "Server URL: ws://host:port or wss://host:port")
-	slot_field = _field(box, "Slot name (not the server's player alias)")
-	password_field = _field(box, "Server password (not saved)")
-	password_field.secret = true
-	var connect_button := Button.new()
-	connect_button.text = "Connect / reconnect"
-	connect_button.pressed.connect(connect_server)
-	box.add_child(connect_button)
-	bank_button = Button.new()
-	bank_button.text = "Redeem received Research Grants in this run"
-	bank_button.pressed.connect(redeem_grants)
-	box.add_child(bank_button)
-	var hint := Label.new()
-	hint.text = "F8 hides/shows this panel. Campaign survives new runs. No DeathLink."
-	box.add_child(hint)
+func _open_log() -> void:
+	if FileAccess.file_exists(LOG_FILE) and FileAccess.open(LOG_FILE, FileAccess.READ).get_length() > LOG_LIMIT:
+		DirAccess.rename_absolute(LOG_FILE, LOG_FILE + ".1")
+	if FileAccess.file_exists(LOG_FILE):
+		_log = FileAccess.open(LOG_FILE, FileAccess.READ_WRITE)
+		if _log != null:
+			_log.seek_end()
+	else:
+		_log = FileAccess.open(LOG_FILE, FileAccess.WRITE)
+	if _log == null:
+		push_error("[ArchipelagoShop] Cannot open client log: " + error_string(FileAccess.get_open_error()))
 
-func _field(box: VBoxContainer, hint: String) -> LineEdit:
-	var field := LineEdit.new()
-	field.placeholder_text = hint
-	box.add_child(field)
-	return field
-
-func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F8:
-		panel.visible = not panel.visible
-		get_viewport().set_input_as_handled()
+func log_line(message: String) -> void:
+	var line := "%s %s" % [Time.get_datetime_string_from_system(), message]
+	log_lines.append(line)
+	if log_lines.size() > LOG_LINES:
+		log_lines = log_lines.slice(log_lines.size() - LOG_LINES)
+	log_revision += 1
+	print("[ArchipelagoShop] ", message)
+	if _log != null:
+		_log.store_line(line)
+		_log.flush()
 
 func notify(message: String) -> void:
 	status = message
-	if is_instance_valid(status_label):
-		status_label.text = "Archipelago Shop: " + message
-	print("[ArchipelagoShop] ", message)
+	log_line(message)
 
 func _fail(message: String) -> void:
 	fatal = true
 	authenticated = false
 	push_error("[ArchipelagoShop] " + message)
-	notify(message + " Purchases are blocked; see the game log.")
+	notify(message + " Purchases are blocked; see the client log.")
+
+func _build_toast() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	add_child(layer)
+	toast = Label.new()
+	toast.visible = false
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.position = Vector2(24, 24)
+	toast.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	toast.add_theme_color_override("font_outline_color", Color.BLACK)
+	toast.add_theme_constant_override("outline_size", 6)
+	layer.add_child(toast)
+
+func show_toast(message: String) -> void:
+	if is_instance_valid(toast):
+		toast.text = "Archipelago: " + message
+		toast.visible = true
+		toast_time = 5.0
 
 func connect_server() -> void:
 	if fatal:
 		notify("Restart after resolving the campaign/configuration error in the log.")
 		return
-	server = address_field.text.strip_edges()
-	slot_name = slot_field.text.strip_edges()
-	password = password_field.text
+	server = server.strip_edges()
+	slot_name = slot_name.strip_edges()
 	if not (server.begins_with("ws://") or server.begins_with("wss://")) or slot_name.is_empty():
 		notify("Enter a ws:// or wss:// server URL and a nonempty slot name.")
 		return
@@ -131,6 +139,7 @@ func connect_server() -> void:
 	item_stream.clear()
 	scouts.clear()
 	players.clear()
+	slot_games.clear()
 	item_names.clear()
 	campaign = null
 	err = socket.connect_to_url(server)
@@ -162,16 +171,22 @@ func _process(delta: float) -> void:
 		connecting = false
 		authenticated = false
 		item_stream_ready = false
-		notify("Disconnected. Purchases blocked. Use F8 to reconnect; checks will be resent.")
+		notify("Disconnected (code %d). AP pedestals are blocked; reconnect in Settings > Archipelago." % socket.get_close_code())
 	if authenticated and not fatal:
 		retry_time += delta
 		if retry_time >= 5.0:
 			retry_time = 0.0
 			_send_checks()
+	if toast_time > 0.0:
+		toast_time -= delta
+		if toast_time <= 0.0 and is_instance_valid(toast):
+			toast.visible = false
+	_override_tooltip()
 	refresh_time += delta
 	if refresh_time >= 0.5:
 		refresh_time = 0.0
 		_refresh_offers()
+		_refresh_pages()
 
 func _send(message: Dictionary) -> bool:
 	if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
@@ -179,7 +194,7 @@ func _send(message: Dictionary) -> bool:
 	var err := socket.send_text(JSON.stringify([message]))
 	if err != OK:
 		authenticated = false
-		notify("Network send failed: " + error_string(err) + ". Reconnect with F8.")
+		notify("Network send failed: " + error_string(err) + ". Reconnect in Settings > Archipelago.")
 		return false
 	return true
 
@@ -201,7 +216,8 @@ func _handle(message: Dictionary) -> void:
 				"items_handling": 7, "tags": ["AP"], "slot_data": true
 			})
 		"ConnectionRefused":
-			notify("Server refused connection: " + str(message.get("errors", [])))
+			notify("Server refused connection: " + str(message.get("errors", [])) \
+				+ ". Use the slot name from the generated seed, not the server alias.")
 			socket.close()
 		"Connected":
 			_connected(message)
@@ -213,6 +229,7 @@ func _handle(message: Dictionary) -> void:
 				return
 			if message.has("checked_locations"):
 				_accept_checks(message.checked_locations)
+				log_line("Server confirmed %d/%d checks." % [campaign.confirmed.size(), count])
 		"LocationInfo":
 			if not authenticated:
 				return
@@ -225,24 +242,50 @@ func _handle(message: Dictionary) -> void:
 					_fail("Malformed scout item.")
 					return
 				scouts[int(item.location)] = item
+			log_line("Scouted %d shop checks." % scouts.size())
 		"DataPackage":
 			var data: Variant = message.get("data", {})
 			if not data is Dictionary or not data.get("games") is Dictionary:
 				_fail("Malformed data package.")
 				return
-			for game in data.games.values():
+			for game_name in data.games:
+				var game: Variant = data.games[game_name]
 				if not game is Dictionary or not game.get("item_name_to_id") is Dictionary:
 					_fail("Malformed item-name data package.")
 					return
+				var names := {}
 				for item_name in game.item_name_to_id:
 					if not State.integer(game.item_name_to_id[item_name]):
 						_fail("Malformed data-package item ID.")
 						return
-					item_names[int(game.item_name_to_id[item_name])] = item_name
+					names[int(game.item_name_to_id[item_name])] = item_name
+				item_names[str(game_name)] = names
 		"ReceivedItems":
 			_received(message)
+		"PrintJSON":
+			var parts: Variant = message.get("data", [])
+			if parts is Array:
+				var text := ""
+				for part in parts:
+					if part is Dictionary:
+						text += _print_part(part)
+				if not text.is_empty():
+					log_line("Server: " + text)
 		"InvalidPacket":
 			_fail("Server rejected a protocol packet: " + str(message.get("text", message.get("type", ""))))
+
+func _print_part(part: Dictionary) -> String:
+	var text := str(part.get("text", ""))
+	match str(part.get("type", "")):
+		"player_id":
+			return str(players.get(int(text), text)) if text.is_valid_int() else text
+		"item_id":
+			if text.is_valid_int():
+				return _item_name(int(text), int(part.get("player", -1)))
+		"location_id":
+			if text.is_valid_int() and int(part.get("player", -1)) == slot:
+				return location_name(int(text))
+	return text
 
 func _connected(message: Dictionary) -> void:
 	var data: Variant = message.get("slot_data")
@@ -276,6 +319,11 @@ func _connected(message: Dictionary) -> void:
 		if not inventory.has(FIRST_LOCATION + i):
 			_fail("Server location inventory does not match this APWorld.")
 			return
+	var info: Variant = message.get("slot_info", {})
+	if info is Dictionary:
+		for key in info:
+			if info[key] is Dictionary and str(key).is_valid_int():
+				slot_games[int(key)] = str(info[key].get("game", ""))
 	_update_players(message.get("players", []))
 	if fatal:
 		return
@@ -288,7 +336,8 @@ func _connected(message: Dictionary) -> void:
 	_send({"cmd": "LocationScouts", "locations": range(FIRST_LOCATION, FIRST_LOCATION + count), "create_as_hint": 0})
 	_send({"cmd": "Sync"})
 	_send_checks()
-	notify("Connected. %d/%d checks confirmed. Shop shipments replace local upgrades." % [campaign.confirmed.size(), count])
+	notify("Connected as %s (slot %d). %d/%d checks confirmed. Each shop has one AP pedestal." % [
+		slot_name, slot, campaign.confirmed.size(), count])
 
 func _update_players(list: Variant) -> void:
 	if not list is Array:
@@ -339,47 +388,138 @@ func _received(message: Dictionary) -> void:
 				return
 		else:
 			item_stream.append(item)
+	var before: int = campaign.bank
 	if not campaign.accept_items(item_stream):
 		_fail(campaign.error)
+		return
+	if campaign.bank > before:
+		notify("Received %d Research Grant(s). Redeem them in Settings > Archipelago." % (campaign.bank - before))
 
 func _send_checks() -> void:
 	if campaign != null and not campaign.checks.is_empty():
 		_send({"cmd": "LocationChecks", "locations": campaign.checks})
 
-func eligible(shop: Node) -> bool:
-	if shop.pay_with_blood or shop._rewards.is_empty():
+# --- Shop pedestals ---------------------------------------------------------
+
+func shop_room(shop: Node) -> Node:
+	var ancestor := shop.get_parent()
+	while ancestor != null:
+		var script: Script = ancestor.get_script()
+		if script != null and script.resource_path == SHOP_ROOM_SCRIPT:
+			return ancestor
+		ancestor = ancestor.get_parent()
+	return null
+
+func _offers_bodypart(shop: Node) -> bool:
+	if shop._rewards.is_empty():
 		return false
 	for reward in shop._rewards:
 		if is_instance_valid(reward) and reward.choose_one:
 			return false
-	for child in shop.get_children():
-		if child.get("attract") != null:
-			return false
-	var ancestor := shop.get_parent()
-	while ancestor != null:
-		var script: Script = ancestor.get_script()
-		if script != null and script.resource_path == "res://scn/environ/rooms/special/shop.gd":
-			return true
-		ancestor = ancestor.get_parent()
-	return false
+	return true
+
+# Exactly one pedestal per shop room is the AP pedestal: the first pedestal in
+# name order that offers a bodypart, else the first currency pedestal. The
+# choice is cached on the room instance so it stays put after the purchase.
+func designated(room: Node) -> Node:
+	if room.has_meta("archipelago_pedestal"):
+		var cached: Variant = room.get_meta("archipelago_pedestal")
+		return cached if is_instance_valid(cached) else null
+	var candidates: Array = []
+	for node in room.find_children("*", "", true, false):
+		if node.has_method("finalize_purchase") and node.get("_rewards") != null \
+				and not node.pay_with_blood and not node.is_queued_for_deletion() and shop_room(node) == room:
+			candidates.append(node)
+	if candidates.is_empty():
+		return null
+	candidates.sort_custom(func(a, b): return str(a.name).naturalnocasecmp_to(str(b.name)) < 0)
+	var choice: Node = candidates[0]
+	for node in candidates:
+		if _offers_bodypart(node):
+			choice = node
+			break
+	room.set_meta("archipelago_pedestal", choice)
+	log_line("AP pedestal for shop room %s: %s" % [room.name, choice.name])
+	return choice
+
+func is_ap(shop: Node) -> bool:
+	if not is_instance_valid(shop) or shop.pay_with_blood:
+		return false
+	if campaign != null and authenticated and campaign.next_location() < 0:
+		return false
+	var room := shop_room(shop)
+	return room != null and designated(room) == shop
+
+# Kept for callers/tests written against the earlier API.
+func eligible(shop: Node) -> bool:
+	return is_ap(shop)
+
+# Returns true when the pick was consumed by the AP path; false lets the
+# vanilla shop purchase run.
+func handle_pick(shop: Node, theft := false) -> bool:
+	var ap := is_ap(shop)
+	var room := shop_room(shop)
+	var globals := get_node_or_null("/root/G")
+	var money: Variant = globals.player.money if globals != null and is_instance_valid(globals.player) else null
+	log_line("Shop pick %s/%s cost=%s money=%s paid=%s blood=%s theft=%s -> %s" % [
+		room.name if room != null else "-", shop.name, shop.cost, money, shop.paid,
+		shop.pay_with_blood, theft, "ARCHIPELAGO" if ap else "vanilla local purchase"])
+	if not ap:
+		return false
+	purchase(shop)
+	return true
+
+func _on_node_added(node: Node) -> void:
+	var script: Script = node.get_script()
+	if script == null:
+		return
+	if script.resource_path == OPTIONS_SCRIPT:
+		_inject_tab.call_deferred(node)
+	elif node.has_method("finalize_purchase") and node.get("_rewards") != null:
+		_track_shop.call_deferred(node)
+
+func _track_shop(shop: Node) -> void:
+	if not is_instance_valid(shop) or shop.has_method("_ap_client"):
+		return
+	# The script takeover did not apply to this pedestal; route its picks here.
+	var area := shop.get_node_or_null("PickupArea")
+	if area == null or not area.has_signal("picked"):
+		return
+	if area.picked.is_connected(shop._on_picked):
+		area.picked.disconnect(shop._on_picked)
+	area.picked.connect(_fallback_pick.bind(shop))
+	log_line("Takeover inactive on %s; picks rerouted through the client." % shop.name)
+
+func _fallback_pick(shop: Node) -> void:
+	if is_instance_valid(shop) and not handle_pick(shop):
+		shop._on_picked()
+
+func _error_sound() -> void:
+	var audio := get_node_or_null("/root/AudioManager")
+	if audio != null and audio.get("ui_error") != null:
+		audio.ui_error.play()
 
 func purchase(shop: Node) -> void:
 	if shop.paid:
 		return
 	if fatal or not authenticated or campaign == null:
-		notify("Purchase blocked: connect to your AP slot with F8 first.")
+		_error_sound()
+		show_toast("not connected - open Settings > Archipelago.")
+		notify("AP pedestal blocked: not connected to an Archipelago slot.")
 		return
 	var location: int = campaign.next_location()
 	if location < 0:
 		notify("All AP checks purchased. Waiting for confirmation, or campaign complete.")
 		return
-	if not scouts.has(location) or not item_names.has(int(scouts[location].item)):
-		notify("Purchase blocked: waiting for item and recipient scouting data.")
+	if not scouts.has(location):
+		_error_sound()
+		notify("AP pedestal blocked: waiting for scouting data from the server.")
 		return
 	var globals := get_node("/root/G")
 	var player: Node = globals.player
 	if not is_instance_valid(player) or int(player.money) < int(shop.cost):
-		notify("Not enough money for this AP shipment.")
+		_error_sound()
+		notify("Not enough money for this AP unlock.")
 		return
 	# Persist the location before charging. A crash between the two saves can
 	# forgive payment, but cannot lose or duplicate an Archipelago check.
@@ -394,46 +534,120 @@ func purchase(shop: Node) -> void:
 			reward.consumed = true
 			reward.deleted = true
 			reward.queue_free()
+	for child in shop.get_children():
+		if child.get("attract") != null:
+			child.queue_free()
 	shop.finalize_purchase()
 	var label := shop.get_node_or_null("ArchipelagoOffer")
 	if label != null:
 		label.queue_free()
+	var audio := get_node_or_null("/root/AudioManager")
+	if audio != null and audio.get("buy") != null:
+		audio.buy.play()
 	get_node("/root/RunSaveManager").save_run()
 	_send_checks()
-	notify("Shipment queued: " + _offer_text(location) + ". Waiting for server confirmation.")
+	show_toast("sent " + offer_text(location))
+	notify("Sent %s: %s. Waiting for server confirmation." % [location_name(location), offer_text(location)])
 
-func _offer_text(location: int) -> String:
+func location_name(location: int) -> String:
+	return "Shop Shipment %03d" % (location - FIRST_LOCATION + 1)
+
+func _item_name(item: int, player: int) -> String:
+	var game: String = slot_games.get(player, "")
+	if item_names.has(game) and item_names[game].has(item):
+		return str(item_names[game][item])
+	for names in item_names.values():
+		if names.has(item):
+			return str(names[item])
+	return "Item %d" % item
+
+func offer_text(location: int) -> String:
 	if not scouts.has(location):
-		return "Check %d (waiting for scout)" % (location - FIRST_LOCATION + 1)
+		return "an external unlock for another multiworld player"
 	var item: Dictionary = scouts[location]
-	return "#%d: %s -> %s" % [
-		location - FIRST_LOCATION + 1,
-		str(item_names.get(int(item.item), "Item " + str(item.item))),
-		str(players.get(int(item.player), "Player " + str(item.player)))
-	]
+	var player := int(item.player)
+	var text := "%s for %s" % [_item_name(int(item.item), player), players.get(player, "Player %d" % player)]
+	var game: String = slot_games.get(player, "")
+	if not game.is_empty():
+		text += " (" + game + ")"
+	return text
+
+# Backwards-compatible name used by older tests and docs.
+func _offer_text(location: int) -> String:
+	return offer_text(location)
+
+func tooltip_card() -> Dictionary:
+	var body := ""
+	if fatal or not authenticated or campaign == null:
+		body = "Remote unlock for the Archipelago multiworld. This pedestal never gives you a local upgrade.\n\n[color=orange]Not connected: open Settings > Archipelago.[/color]"
+	else:
+		var location: int = campaign.next_location()
+		var item: Dictionary = scouts.get(location, {})
+		body = "Buying this sends [b]%s[/b] (%d of %d) to the multiworld instead of giving you this upgrade.\n\n" % [
+			location_name(location), location - FIRST_LOCATION + 1, count]
+		if item.is_empty():
+			body += "Unlocks an external item for another player."
+		else:
+			body += "Unlocks [color=#66e6ff][b]%s[/b][/color]" % offer_text(location)
+			if int(item.get("flags", 0)) & 1:
+				body += " [color=gold](progression)[/color]"
+			body += "."
+	return {"name": "Remote unlock", "hint": body, "archipelago": true}
+
+func _shop_wrapper(node: Node) -> Node:
+	while node != null:
+		if node.has_method("finalize_purchase") and node.get("_rewards") != null:
+			return node
+		node = node.get_parent()
+	return null
+
+func _override_tooltip() -> void:
+	var globals := get_node_or_null("/root/G")
+	if globals == null:
+		return
+	var ui: Variant = globals.get("ui")
+	if not is_instance_valid(ui) or not is_instance_valid(ui.get("tooltip")):
+		return
+	var tooltip: Control = ui.tooltip
+	var anchor: Variant = ui.get("tooltip_pos_node")
+	if not tooltip.visible or not is_instance_valid(anchor):
+		return
+	var shop := _shop_wrapper(anchor)
+	if shop == null or shop.paid or not is_ap(shop):
+		return
+	var card := tooltip_card()
+	var current: Variant = tooltip.item
+	if typeof(current) != TYPE_DICTIONARY or current != card:
+		tooltip.item = card
+		ui.set("_last_tooltip_item", card)
+	var type_label := tooltip.get_node_or_null("%Type")
+	if type_label != null and type_label.text != "ARCHIPELAGO":
+		type_label.text = "ARCHIPELAGO"
+		var panel := tooltip.get_node_or_null("%TypePanel")
+		if panel != null:
+			panel.self_modulate = Color(0.1, 0.35, 0.55, 1.0)
 
 func _refresh_offers() -> void:
 	for shop in get_tree().get_nodes_in_group("shop_item"):
-		if not is_instance_valid(shop) or not eligible(shop) or shop.paid:
+		if not is_instance_valid(shop):
 			continue
 		var label := shop.get_node_or_null("ArchipelagoOffer") as Label
+		if shop.paid or not is_ap(shop):
+			if label != null:
+				label.queue_free()
+			continue
 		if label == null:
 			label = Label.new()
 			label.name = "ArchipelagoOffer"
-			label.position = Vector2(-230, -190)
-			label.custom_minimum_size = Vector2(460, 0)
+			label.position = Vector2(-160, -190)
+			label.custom_minimum_size = Vector2(320, 0)
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+			label.add_theme_color_override("font_outline_color", Color.BLACK)
+			label.add_theme_constant_override("outline_size", 6)
 			shop.add_child(label)
-		if authenticated and campaign != null:
-			var location: int = campaign.next_location()
-			label.text = "AP " + _offer_text(location) if location >= 0 else "AP campaign: no checks remaining"
-		else:
-			label.text = "AP shipment (connect with F8)"
-	if campaign != null and is_instance_valid(bank_button):
-		bank_button.text = "Redeem %d Research Grants (+%d coins) in this run" % [campaign.bank, campaign.bank * GRANT_COINS]
+		label.text = "ARCHIPELAGO" if authenticated else "ARCHIPELAGO (offline)"
 
 func redeem_grants() -> void:
 	if fatal or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
@@ -451,3 +665,110 @@ func redeem_grants() -> void:
 	player.money += amount * GRANT_COINS
 	get_node("/root/RunSaveManager").save_run()
 	notify("Redeemed %d Research Grants. +%d coins." % [amount, amount * GRANT_COINS])
+
+# --- Settings > Archipelago tab --------------------------------------------
+
+func _inject_tab(menu: Node) -> void:
+	if not is_instance_valid(menu) or menu.has_meta("archipelago_tab"):
+		return
+	var buttons: Variant = menu.get("tab_buttons")
+	var content: Variant = menu.get("tab_content")
+	if not buttons is Array or buttons.is_empty() or not content is Control \
+			or content.get_child_count() != buttons.size():
+		log_line("Options menu layout changed; Archipelago tab not added.")
+		return
+	menu.set_meta("archipelago_tab", true)
+	var template: Button = buttons[buttons.size() - 1]
+	var button := Button.new()
+	button.set_script(template.get_script())
+	button.name = "TabArchipelago"
+	button.text = TAB_TITLE
+	button.theme_type_variation = template.theme_type_variation
+	button.toggle_mode = true
+	button.button_group = template.button_group
+	button.size_flags_horizontal = template.size_flags_horizontal
+	button.focus_mode = Control.FOCUS_CLICK
+	template.add_sibling(button)
+	var index: int = buttons.size()
+	buttons.append(button)
+	button.pressed.connect(menu._on_tab_changed.bind(index))
+	var page := _build_page()
+	page.visible = false
+	content.add_child(page)
+	_refresh_pages()
+
+func _build_page() -> Control:
+	var page := VBoxContainer.new()
+	page.name = "button_archipelago"
+	page.add_theme_constant_override("separation", 8)
+	var widgets := {"page": page}
+	widgets.status = _label(page)
+	widgets.progress = _label(page)
+	widgets.server = _line(page, server, "Server URL: ws://host:port or wss://host:port")
+	widgets.slot = _line(page, slot_name, "Slot name from the seed (not the server alias)")
+	widgets.password = _line(page, password, "Server password (not saved)")
+	widgets.password.secret = true
+	var row := HBoxContainer.new()
+	page.add_child(row)
+	var connect_button := Button.new()
+	connect_button.text = "Connect / reconnect"
+	connect_button.pressed.connect(func():
+		server = widgets.server.text
+		slot_name = widgets.slot.text
+		password = widgets.password.text
+		connect_server())
+	row.add_child(connect_button)
+	widgets.grants = Button.new()
+	widgets.grants.pressed.connect(redeem_grants)
+	row.add_child(widgets.grants)
+	var folder := Button.new()
+	folder.text = "Open log folder"
+	folder.pressed.connect(func(): OS.shell_open(ProjectSettings.globalize_path("user://logs")))
+	row.add_child(folder)
+	var paths := _label(page)
+	paths.text = "Client log: %s\nGame log: %s" % [
+		ProjectSettings.globalize_path(LOG_FILE), ProjectSettings.globalize_path("user://logs/godot.log")]
+	widgets.log = RichTextLabel.new()
+	widgets.log.custom_minimum_size = Vector2(0, 260)
+	widgets.log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	widgets.log.scroll_following = true
+	widgets.log.selection_enabled = true
+	widgets.log.add_theme_font_size_override("normal_font_size", 14)
+	page.add_child(widgets.log)
+	widgets.revision = -1
+	pages.append(widgets)
+	return page
+
+func _label(parent: Control) -> Label:
+	var label := Label.new()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(label)
+	return label
+
+func _line(parent: Control, text: String, hint: String) -> LineEdit:
+	var field := LineEdit.new()
+	field.text = text
+	field.placeholder_text = hint
+	parent.add_child(field)
+	return field
+
+func _refresh_pages() -> void:
+	var live: Array = []
+	for widgets in pages:
+		if not is_instance_valid(widgets.page):
+			continue
+		live.append(widgets)
+		if not widgets.page.is_visible_in_tree():
+			continue
+		widgets.status.text = status
+		if campaign != null:
+			widgets.progress.text = "Shop checks: %d sent, %d/%d confirmed by the server. Slot %s on %s." % [
+				campaign.checks.size(), campaign.confirmed.size(), count, slot_name, server]
+			widgets.grants.text = "Redeem %d Research Grants (+%d coins)" % [campaign.bank, campaign.bank * GRANT_COINS]
+		else:
+			widgets.progress.text = "No campaign loaded yet."
+			widgets.grants.text = "Redeem Research Grants"
+		if widgets.revision != log_revision:
+			widgets.revision = log_revision
+			widgets.log.text = "\n".join(log_lines)
+	pages = live

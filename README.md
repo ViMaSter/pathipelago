@@ -6,23 +6,27 @@ See [EVIDENCE.md](EVIDENCE.md) for the shop investigation and verification bound
 
 ## What it does
 
-Ordinary bodypart/mutation shop offers become numbered Archipelago location checks.
-The displayed offer identifies the item and recipient. Buying it pays the normal
-coin price and sends a location check instead of granting that pedestal's local
-upgrade. Archipelago decides which player's item is at that location.
+Every shop room (normal and heart shop) gets **exactly one designated Archipelago
+pedestal**, chosen deterministically (first ordinary bodypart offer by node name,
+else the first non-blood pedestal). It keeps the upgrade sprite and the normal coin
+price. Its tooltip is replaced by a blue **ARCHIPELAGO / Remote unlock** card that
+names the scouted item, recipient player and game, for example
+`Shop Shipment 003: Poke Ball for PkmnPlayer (Pokemon Red and Blue)`. This is
+possible because Archipelago fixes each location's item at generation time and the
+client scouts it (`LocationScouts`). Buying it pays coins, grants **nothing locally**,
+and sends the location check. Archipelago then delivers the item to its owner.
 
 - A persistent campaign spans multiple demo runs: default 20 purchases, configurable
   from 5 to 100 in the YAML.
-- Every eligible pedestal offers the **next** unpurchased shipment. They are not
-  separate persistent pedestal locations. Rerolling does not add checks.
-- Blood deals, choose-one rewards, mixed consumable offers and non-shop rewards
-  retain vanilla behavior.
-- Eligible purchases require a connection, valid slot data and a scouted item.
-  They are blocked offline or after the campaign is exhausted.
-- Killing the shopkeeper does **not** make AP shipments free: those offers retain
-  their AP purchase price.
-- Received Research Grants are banked. Use F8's redemption button during a living
-  run to claim **15 coins per grant**.
+- The AP pedestal offers the **next** unpurchased shipment. Rerolling does not add checks.
+- All other pedestals, blood deals and non-shop rewards retain vanilla behavior.
+- The AP purchase requires a connection, valid slot data and a scouted item. It is
+  blocked offline (toast + log line) and becomes vanilla after the campaign is exhausted.
+- Killing the shopkeeper does **not** make the AP shipment free.
+- After a save/reload, a shop whose AP pedestal was already bought may designate
+  another pedestal (so each shop has *at least* one).
+- Received Research Grants are banked. Use **Settings > Archipelago > Redeem grants**
+  during a living run to claim **15 coins per grant**.
 - All server-confirmed campaign checks trigger Archipelago goal status.
 - No DeathLink, boss goal, progression unlocks or run-completion requirement.
 
@@ -41,11 +45,12 @@ Requirements:
 
 - Python 3.11 or newer for tooling (`python3` by default).
 - Godot 4.7 for isolated tests; tested with 4.7 stable Mono.
-- GDRE Tools 2.7.4 executable, supplied explicitly.
+- GDRE Tools 2.7.4, installed at `/Applications/Godot RE Tools.app`.
+  For another location, set `GDRE` or pass `--gdre` with its executable path.
 - The supported, unmodified Steam demo installation.
 
 ```bash
-./build-install.sh --verify --gdre "/absolute/path/to/Godot RE Tools"
+./build-install.sh --verify
 ```
 
 `--verify` opens Steam's verification URI. **Wait for Steam to finish**, then type
@@ -91,13 +96,202 @@ Steam updates fail the supported-build fingerprint check; do not bypass it.
    use a local/custom-world-capable generator.
 4. Start [launch-modded.command](launch-modded.command), **not Steam's normal
    Play shortcut**, which still starts the unmodded game.
-5. Press F8. Enter `ws://host:port` (or `wss://host:port`), the exact generated slot
+5. Open **Settings > Archipelago** (the tab after Remap, in the main or pause
+   menu). Enter `ws://host:port` (or `wss://host:port`), the exact generated slot
    name and optional server password. Click Connect.
-6. Start a run, earn coins and buy eligible shop shipments. The overlay reports
-   server confirmation. Redeem received grants when useful.
+6. Start a run, earn coins and buy the blue-tooltip AP pedestal in each shop. The
+   tab reports checks confirmed by the server. Redeem received grants when useful.
 
-The server address and slot name are saved; the password is not. F8 hides/shows
-the panel. There is no automatic reconnection after a lost connection; use F8.
+The server address and slot name are saved; the password is not. There is no
+automatic reconnection after a lost connection; reconnect from the tab.
+
+### Logs
+
+| Log | Path |
+| --- | --- |
+| AP client (flushed, every shop pick and server message) | `~/Library/Application Support/Pathogenic Archipelago/archipelago_shop/client.log` (rotates to `client.log.1`) |
+| Godot engine / game | `~/Library/Application Support/Pathogenic Archipelago/logs/godot.log` |
+| Local WebHost room server | room page > "Server log", or `$SESSION_FILES/ap-runtime/logs/2d4cc79a-2860-4a2a-9944-dc19e5980f6d.txt` |
+| Standalone MultiServer | `$SESSION_FILES/ap-runtime/logs/Server_*.txt` |
+
+The Archipelago tab shows the last 200 client log lines and has an "Open log
+folder" button. Each pick logs `Shop pick <room>/<item> cost ... -> ARCHIPELAGO`
+or `-> vanilla local purchase`.
+
+### Exact local walkthrough: Pokemon plus Pathogenic
+
+These paths describe Vincent's current machine. The generator and Python
+environment below were prepared during integration testing; keep them available.
+The prepared runtime now contains both Pathogenic and Pokemon support.
+
+First distinguish the files:
+
+- `PathogenicDemo.yaml`: player settings, already provided; no generation needed.
+- `dist/pathogenic_demo.apworld`: the custom game plugin, already built. Install
+  it in the generator, not on the hosting website.
+- `AP_<seed>.zip`: the generated multiworld containing both players. Upload this
+  to https://archipelago.gg/uploads. That page also accepts `.archipelago`
+  multidata; it does not install `.apworld` plugins or generate from YAML.
+
+#### 1. Prepare the generator and player files
+
+Run the following in Terminal. `SESSION_FILES` is the exact existing location,
+not a placeholder. The commands copy the two required Pokemon modules from the
+existing AP 0.6.7 source into the small test runtime. No download is needed.
+The copy commands replace same-named files if you repeat this setup.
+
+```bash
+SESSION_FILES="$SESSION_FILES"
+AP="$SESSION_FILES/ap-runtime"
+SOURCE="$SESSION_FILES/tools/Archipelago-0.6.7"
+mkdir -p "$AP/custom_worlds"
+ditto "$SOURCE/worlds/pokemon_rb" "$AP/worlds/pokemon_rb"
+ditto "$SOURCE/worlds/_bizhawk" "$AP/worlds/_bizhawk"
+cp "./dist/pathogenic_demo.apworld" \
+  "$AP/worlds/pathogenic_demo.apworld"
+
+mkdir -p "./players-pokemon-pathogenic"
+cp "~/Downloads/PkmnPlayer.yaml" \
+  "./players-pokemon-pathogenic/PkmnPlayer.yaml"
+cp "./PathogenicDemo.yaml" \
+  "./players-pokemon-pathogenic/PathogenicDemo.yaml"
+```
+
+Open `./players-pokemon-pathogenic/PathogenicDemo.yaml`
+and change its first line to exactly:
+
+```yaml
+name: Pathogenic1
+```
+
+Leave `game: Pathogenic Demo` and its settings unchanged. The supplied Pokemon
+file already uses `name: PkmnPlayer`; keep that name. The dedicated player folder
+should contain just these two YAMLs, not the earlier two-Pathogenic test files.
+
+#### 2. Plan for the Pokemon base ROM (needed to play, not generate)
+
+Your downloaded YAML currently uses `game_version: random`, so generation can
+select Red or Blue. AP 0.6.7 generates a procedural patch without reading a ROM.
+You need a compatible, legally obtained US/Europe ROM only when applying the
+generated patch to play. Provide the version matching `.apred` or `.apblue`.
+AP's configured default filenames, relative to the runtime, are:
+
+```text
+$SESSION_FILES/ap-runtime/Pokemon Red (UE) [S][!].gb
+$SESSION_FILES/ap-runtime/Pokemon Blue (UE) [S][!].gb
+```
+
+Alternatively, select your ROM when Archipelago requests it. Renaming an
+incompatible ROM does not make it compatible. Do not upload a base ROM.
+
+#### 3. Generate the combined seed
+
+Run in Terminal:
+
+```bash
+SESSION_FILES="$SESSION_FILES"
+cd "$SESSION_FILES/ap-runtime"
+SKIP_REQUIREMENTS_UPDATE=1 "$SESSION_FILES/ap311/bin/python" Generate.py \
+  --player_files_path "./players-pokemon-pathogenic" \
+  --outputpath "./dist/multiworld"
+```
+
+This uses the existing Python 3.11 environment, not the system's Python 3.14.
+Wait for successful completion and the final archive message. If generation
+fails, resolve the reported error; do not upload an old test archive instead.
+Mixed generation was successfully executed with your YAML on October 17, 2026,
+producing `AP_72893771011827805672.zip` and a Red patch without a base ROM.
+
+The output is `./dist/multiworld/AP_<seed>.zip`.
+The exact numeric filename is printed by the generator and cannot be known
+before generation. Open that exact output directory in Finder:
+
+```bash
+open "./dist/multiworld"
+```
+
+#### 4. Upload and connect
+
+1. At https://archipelago.gg/uploads select the newly generated `AP_<seed>.zip`,
+   then create a room from that seed.
+2. Check its tracker lists **Pathogenic1 / Pathogenic Demo** and
+   **PkmnPlayer / Pokemon Red and Blue**.
+3. Launch `./launch-modded.command` and open
+   Settings > Archipelago.
+4. Use slot name **Pathogenic1**. If the new room says
+   `/connect archipelago.gg:12345`, enter **ws://archipelago.gg:12345**.
+   Replace `12345` with the port on the new room page. Do not enter the HTTPS
+   room URL, a numeric slot ID, or the old room's port.
+5. The Pokemon player downloads their generated patch from the seed/room page,
+   follows the Pokemon client setup, and connects as **PkmnPlayer**.
+
+The actual new connection URL is only available after creating the room.
+The old `archipelago.gg:63477` room lacks Pathogenic and cannot gain another
+world just by changing the connection name.
+
+To regenerate, repeat step 3 without `--seed` to request a fresh random seed,
+then upload the new ZIP and create a new room. Steps 1 and 2 need repeating only
+when their inputs change. Neither rebuilding the mod nor making a new APWorld
+plugin is necessary. Keep the journal for existing campaigns intact.
+
+### Prepared local two-player server with room page and tracker
+
+No website upload is needed for local hosting. The recommended launcher runs a
+local copy of the archipelago.gg website (WebHost) with one room for the prepared
+seed. It provides the room page, server log, slot trackers and the multiworld server:
+
+```bash
+"./start-local-webhost.command"
+```
+
+| Page | URL |
+| --- | --- |
+| Room (connect info, server log, patch downloads) | http://127.0.0.1:38280/room/LUzHmihgSiqZRNwZ5ZgPbQ |
+| Multiworld tracker | http://127.0.0.1:38280/tracker/4A6gnpn2TVi9OTenHSBIDg |
+| Pathogenic1 tracker | http://127.0.0.1:38280/generic_tracker/4A6gnpn2TVi9OTenHSBIDg/0/1 |
+
+The IDs are created on first start and stored in `local-webhost/room.json`; the
+launcher prints them. Room progress is stored in `local-webhost/ap.db3`, separate
+from the standalone server's `.apsave`. Delete `local-webhost/` only to start the
+room over. Both ports bind only to `127.0.0.1`, without a password.
+
+Alternatively, the plain server without website (do not run both, they share port 38281):
+
+```bash
+"./start-local-server.command"
+```
+
+The launchers depend on the prepared runtime and Python environment in the
+session-files path above; keep those directories.
+
+| Player | Client address | Slot name |
+| --- | --- | --- |
+| Pathogenic Demo | `ws://127.0.0.1:38281` | `Pathogenic1` |
+| Pokemon Red and Blue | `127.0.0.1:38281` | `PkmnPlayer` |
+
+Launch `launch-modded.command`, open Settings > Archipelago, and enter the Pathogenic address/name.
+For Pokemon, the generated patch is:
+
+```text
+./dist/multiworld/AP_72893771011827805672_P2_PkmnPlayer.apred
+```
+
+Apply it using the Archipelago client with your compatible Pokemon Red ROM
+(expected MD5 `3d45c1ee9abd5738df46d2bdda8b57dc`), then follow the Pokemon
+Red/Blue BizHawk setup to launch and connect the game. The server is prepared;
+the emulator/ROM and actual Pokemon gameplay are not installed or verified here.
+
+The campaign and the standalone server's persistent progress are:
+
+```text
+./dist/multiworld/AP_72893771011827805672.zip
+./dist/multiworld/AP_72893771011827805672.apsave
+```
+
+Keep both files and the Pathogenic journal to resume. Stop with `/exit` in the
+server console or Ctrl+C. Restarting the launcher resumes this seed, not a new
+one. For a fresh seed, repeat generation step 3, then supply its exact ZIP path
+as the launcher's first argument. Old campaign saves are kept separately.
 
 ## Saves, removal and limits
 
@@ -134,7 +328,8 @@ python3 tools/test.py --godot "/path/to/Godot"
 
 Tests cover deterministic packaging, guarded installation/configuration, failed
 build publication, purchases, eligibility, offline refusal, journaling, check
-acknowledgment and item replay.
+acknowledgment, item replay, single-pedestal designation, the settings tab, the
+log and the remote-unlock tooltip.
 
 An opt-in destructive-to-its-test-slot live test requires a **fresh test seed**:
 two slots named `Pathogenic1` and `Pathogenic2`, with player 1's shipment 2 addressed
@@ -145,15 +340,26 @@ python3 tools/test.py --godot "/path/to/Godot" \
   --live-server ws://127.0.0.1:38289
 ```
 
-The actual game engine has verified bootstrap loading, separate-save routing and
-extension of the actual packed shop scene. The real AP server has verified
-cross-player delivery, confirmation, redemption and reconnect replay using the
-production client with original game-state test doubles. **A full interactive
-run, visual F8 operation, actual shop entry and vanilla save/reload behavior have
-not been verified.** Treat this as an experimental implementation, not a finished
+The actual game engine has verified bootstrap loading, separate-save routing,
+the injected Settings > Archipelago tab, the remote-unlock tooltip, and that the
+real `shop.tscn`/`heart_shop.tscn` designate one AP pedestal whose real pick signal
+is routed to Archipelago (blocked offline, no local reward). The real AP server has
+verified cross-player delivery, confirmation, redemption and reconnect replay using
+the production client with original game-state test doubles. **A full interactive
+run with an online paid shipment and vanilla save/reload behavior have not been
+verified.** Treat this as an experimental implementation, not a finished
 gameplay-certified release. Native headless logs contain engine/resource and
 disabled-Sentry initialization errors; the smoke requires no GDScript errors,
 the expected hook marker and successful exit, not a completely clean engine log.
 
-Before relying on a campaign, manually check the overlay, one paid shipment,
-absence of its local upgrade, AP receipt, and save/reload in a disposable seed.
+Before relying on a campaign, check the tab, one paid shipment (client.log shows
+`-> ARCHIPELAGO`, the tracker shows the check), absence of its local upgrade, and
+save/reload in a disposable seed.
+
+### Anti-cheat
+
+Neither the demo (4029380) nor the full game (3808690) lists Valve Anti-Cheat in
+its Steam categories, and the app bundles no anti-cheat component (only Steam API,
+GodotSteam, Sentry, LimboAI and GoZen libraries). The mod uses no process
+injection or debugger: it is GDScript loaded by the game's own Mod Loader in a
+separate private copy with a separate save directory. The original install is untouched.

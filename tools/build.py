@@ -38,7 +38,8 @@ def build() -> dict:
         "pathogenic_demo.apworld": archive(
             ROOT / "dist" / "pathogenic_demo.apworld",
             [(world / name, f"pathogenic_demo/{name}")
-             for name in ("__init__.py", "archipelago.json")],
+             for name in ("__init__.py", "archipelago.json",
+                          "docs/en_Pathogenic Demo.md", "docs/setup_en.md")],
         ),
     }
     (ROOT / "dist" / "SHA256SUMS").write_text(

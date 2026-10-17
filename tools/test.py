@@ -26,6 +26,9 @@ def engine_tests(godot: str, live_server: str | None = None) -> None:
         room = project / "scn/environ/rooms/special"
         room.mkdir(parents=True)
         shutil.copy(ROOT / "tests/stubs/shop.gd", room / "shop.gd")
+        ui = project / "scn/ui"
+        ui.mkdir(parents=True)
+        shutil.copy(ROOT / "tests/stubs/options_menu.gd", ui / "options_menu.gd")
         (project / "project.godot").write_text(
             'config_version=5\n[application]\nconfig/name="Pathogenic AP isolated tests"\n'
             'config/use_custom_user_dir=true\n'
