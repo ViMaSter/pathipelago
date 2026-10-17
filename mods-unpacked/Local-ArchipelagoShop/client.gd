@@ -31,7 +31,7 @@ const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
 
 var socket := WebSocketPeer.new()
 var authenticated := false
-var status := "Open Settings > Archipelago to connect. The AP pedestal in each shop needs a connection."
+var status := "Open Settings > Archipelago to connect. Remote unlocks need a connection."
 var server := "ws://localhost:38281"
 var slot_name := ""
 var password := ""
@@ -39,6 +39,11 @@ var team := -1
 var slot := -1
 var seed_name := ""
 var count := 0
+# Where remote unlocks appear; set by the slot's YAML and remembered for offline play.
+const SOURCES := ["shops", "item_rooms", "boss_rewards", "level_ups"]
+const SOURCE_LABELS := {"shops": "shops", "item_rooms": "blue item rooms",
+	"boss_rewards": "boss rewards", "level_ups": "level-up drafts"}
+var sources := {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}
 var campaign: RefCounted
 var scouts: Dictionary = {}
 var players: Dictionary = {}
@@ -86,6 +91,8 @@ func _ready() -> void:
 	if err == OK:
 		server = str(config.get_value("connection", "server", server))
 		slot_name = str(config.get_value("connection", "slot", ""))
+		for key in SOURCES:
+			sources[key] = config.get_value("sources", key, true) == true
 	elif err != ERR_FILE_NOT_FOUND:
 		_fail("Cannot read AP connection configuration: " + error_string(err))
 	log_line("Client log: " + ProjectSettings.globalize_path(LOG_FILE))
@@ -154,10 +161,7 @@ func connect_server() -> void:
 	if not (server.begins_with("ws://") or server.begins_with("wss://")) or slot_name.is_empty():
 		notify("Enter a ws:// or wss:// server URL and a nonempty slot name.")
 		return
-	var config := ConfigFile.new()
-	config.set_value("connection", "server", server)
-	config.set_value("connection", "slot", slot_name)
-	var err := config.save(ROOT + "/connection.cfg")
+	var err := _save_config()
 	if err != OK:
 		_fail("Could not save connection configuration: " + error_string(err))
 		return
@@ -323,18 +327,49 @@ func _print_part(part: Dictionary) -> String:
 				return location_name(int(text))
 	return text
 
+func _save_config() -> Error:
+	var config := ConfigFile.new()
+	config.set_value("connection", "server", server)
+	config.set_value("connection", "slot", slot_name)
+	for key in SOURCES:
+		config.set_value("sources", key, sources[key])
+	return config.save(ROOT + "/connection.cfg")
+
+# Schema 1 slots predate the source options and enable every source.
+static func parse_sources(data: Dictionary) -> Variant:
+	var parsed := {}
+	if int(data.schema) == 1:
+		for key in SOURCES:
+			parsed[key] = true
+		return parsed
+	var raw: Variant = data.get("sources")
+	if not raw is Dictionary:
+		return null
+	for key in SOURCES:
+		if not raw.get(key) is bool:
+			return null
+		parsed[key] = raw[key]
+	return parsed if parsed.values().has(true) else null
+
+func sources_text() -> String:
+	var enabled: Array = SOURCES.filter(func(key): return sources[key]).map(func(key): return SOURCE_LABELS[key])
+	return ", ".join(enabled) if not enabled.is_empty() else "nowhere"
+
 func _connected(message: Dictionary) -> void:
 	var data: Variant = message.get("slot_data")
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(data.get("shop_checks")) \
-			or not State.integer(data.get("schema")) or int(data.schema) != 1 or int(data.shop_checks) < 1 \
-			or int(data.shop_checks) > 100:
+			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2] or int(data.shop_checks) < 1 \
+			or int(data.shop_checks) > 100 or parse_sources(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic Demo APWorld.")
 		socket.close()
 		return
 	team = int(message.team)
 	slot = int(message.slot)
 	count = int(data.shop_checks)
+	sources = parse_sources(data)
+	if _save_config() != OK:
+		log_line("Could not remember this slot's remote unlock sources.")
 	var identity := JSON.stringify([seed_name, team, slot])
 	campaign = State.new()
 	if not campaign.open(ROOT + "/" + identity.sha256_text() + ".json", identity, count):
@@ -372,8 +407,8 @@ func _connected(message: Dictionary) -> void:
 	_send({"cmd": "LocationScouts", "locations": range(FIRST_LOCATION, FIRST_LOCATION + count), "create_as_hint": 0})
 	_send({"cmd": "Sync"})
 	_send_checks()
-	notify("Connected as %s (slot %d). %d/%d checks confirmed. Each shop has one AP pedestal." % [
-		slot_name, slot, campaign.confirmed.size(), count])
+	notify("Connected as %s (slot %d). %d/%d checks confirmed. Remote unlocks in: %s." % [
+		slot_name, slot, campaign.confirmed.size(), count, sources_text()])
 
 func _update_players(list: Variant) -> void:
 	if not list is Array:
@@ -480,7 +515,7 @@ func designated(room: Node) -> Node:
 	return choice
 
 func is_ap(shop: Node) -> bool:
-	if not is_instance_valid(shop) or shop.pay_with_blood:
+	if not sources.shops or not is_instance_valid(shop) or shop.pay_with_blood:
 		return false
 	if campaign != null and authenticated and campaign.next_location() < 0:
 		return false
@@ -605,8 +640,16 @@ func _track_free_reward(reward: Node) -> void:
 		ap_rewards.append(reward)
 		_mask_rewards()
 
+func free_source_enabled(reward: Node) -> bool:
+	var room := free_room(reward)
+	if room == null:
+		return false
+	return sources.boss_rewards if _is_boss_room(room) else sources.item_rooms
+
 func is_free_ap(reward: Variant) -> bool:
 	if not is_instance_valid(reward) or reward.deleted or reward.consumed or not reward.has_meta("archipelago_free"):
+		return false
+	if not free_source_enabled(reward):
 		return false
 	return not (campaign != null and authenticated and campaign.next_location() < 0)
 
@@ -614,7 +657,8 @@ func _free_pick(reward: Node) -> void:
 	if not is_instance_valid(reward) or reward.deleted or reward.consumed:
 		return
 	var room := free_room(reward)
-	var exhausted: bool = campaign != null and authenticated and campaign.next_location() < 0
+	var exhausted: bool = (campaign != null and authenticated and campaign.next_location() < 0) \
+			or not free_source_enabled(reward)
 	log_line("Free reward pick %s/%s -> %s" % [room.name if room != null else "-", reward.name,
 		"vanilla free upgrade" if exhausted else "ARCHIPELAGO"])
 	if exhausted:
@@ -675,11 +719,13 @@ func _watch_level_up() -> void:
 	var current: Variant = mutations[LEVEL_CARD]
 	if current == null:
 		return
+	if level_card != null and not sources.level_ups:
+		_restore_level_card(editor)
 	var gen := int(editor.get("_mutation_gen"))
 	if gen != level_gen:
 		level_gen = gen
 		level_card = null
-		if _level_exhausted():
+		if _level_exhausted() or not sources.level_ups:
 			return
 		level_original = current
 		level_texture = level_button.texture_normal if is_instance_valid(level_button) else null
@@ -1226,6 +1272,7 @@ func _refresh_pages() -> void:
 		if campaign != null:
 			widgets.progress.text = "Checks: %d sent, %d/%d confirmed. Next: %s." % [
 				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
+			widgets.progress.text += "\nRemote unlocks in: %s." % sources_text()
 			if campaign.bank > 0:
 				widgets.progress.text += " %d Research Grant(s) waiting for a living run." % campaign.bank
 		else:

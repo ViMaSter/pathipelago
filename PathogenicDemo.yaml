@@ -1,7 +1,13 @@
 name: Pathogenic{number}
 game: Pathogenic Demo
-description: Persistent numbered shop shipments across repeatable demo runs.
+description: Persistent numbered remote unlocks across repeatable demo runs.
 Pathogenic Demo:
   progression_balancing: 50
   accessibility: full
+  # Number of Remote Unlock checks across all runs (5-100).
   shop_checks: 20
+  # Where Remote Unlocks appear; at least one must be true.
+  shop_unlocks: false        # one coin pedestal per shop
+  item_room_unlocks: true    # one free pedestal per blue item room
+  boss_reward_unlocks: false # one choice per boss bodypart reward
+  level_up_unlocks: false    # last card of each level-up mutation draft

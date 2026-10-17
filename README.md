@@ -6,8 +6,9 @@ See [EVIDENCE.md](EVIDENCE.md) for the shop investigation and verification bound
 
 ## What it does
 
-Every shop room (normal and heart shop) gets **exactly one designated Archipelago
-pedestal**, chosen deterministically (first ordinary bodypart offer by node name,
+Remote unlocks can appear in four places, each switched on or off in the YAML (see
+[Player options](#player-options)). With every source on, every shop room (normal and heart shop)
+gets **exactly one designated Archipelago pedestal**, chosen deterministically (first ordinary bodypart offer by node name,
 else the first non-blood pedestal). It keeps the normal coin price, but always shows
 the **Enhancer** icon (`res://gfx/player/bodyparts/internal/upgrade.png`) instead of
 the rolled upgrade. Its floating name becomes **Remote Unlock 3/20** (next shipment of the
@@ -36,6 +37,24 @@ neither has a remote unlock.
 evolution levels (2, 6 and 10) this is the skip card. Picking it sends the next check and
 fills the level's gene the way skipping does. The other cards stay vanilla, and every
 reroll or new level gets a fresh remote unlock.
+
+### Player options
+
+| YAML option | Default | Remote unlock location |
+| --- | --- | --- |
+| `shop_checks` | 20 | Number of checks (5-100) across all runs |
+| `shop_unlocks` | true | One coin pedestal in every shop |
+| `item_room_unlocks` | true | One free pedestal in every blue item room |
+| `boss_reward_unlocks` | true | One choice of every boss bodypart reward |
+| `level_up_unlocks` | true | Last card of every level-up mutation draft |
+
+At least one source must be true; generation fails otherwise. Disabled sources are
+completely vanilla. The client receives the sources in slot data (schema 2) and remembers
+them in `connection.cfg` for offline play. The Archipelago tab lists them under the
+check counter. Seeds generated before these options (schema 1) enable every source.
+The core `progression_balancing` and `accessibility` options are hidden. The world has only
+filler items and every location is always reachable, so they cannot change a seed.
+[PathogenicDemo.yaml](PathogenicDemo.yaml) currently enables only blue item rooms.
 
 - A persistent campaign spans multiple demo runs: default 20 purchases, configurable
   from 5 to 100 in the YAML.
@@ -114,7 +133,8 @@ Steam updates fail the supported-build fingerprint check; do not bypass it.
    Archipelago installation that supports custom worlds; tested with AP 0.6.7.
    Restart the generator after installation.
 2. Copy [PathogenicDemo.yaml](PathogenicDemo.yaml) into its `Players` directory.
-   Use a unique player name and adjust `shop_checks`. Add the other players' YAMLs.
+   Use a unique player name and adjust `shop_checks` and the unlock-source options.
+   Add the other players' YAMLs.
 3. Generate a seed and host its `.archipelago` multidata using Archipelago
    MultiServer. A public generator need not have this custom world installed;
    use a local/custom-world-capable generator.
@@ -135,7 +155,7 @@ automatic reconnection after a lost connection; reconnect from the tab.
 | --- | --- |
 | AP client (flushed, every shop pick and server message) | `~/Library/Application Support/Pathogenic Archipelago/archipelago_shop/client.log` (rotates to `client.log.1`) |
 | Godot engine / game | `~/Library/Application Support/Pathogenic Archipelago/logs/godot.log` |
-| Local WebHost room server | room page > "Server log", or `$SESSION_FILES/ap-runtime/logs/2d4cc79a-2860-4a2a-9944-dc19e5980f6d.txt` |
+| Local WebHost room server | room page > "Server log", or `$SESSION_FILES/ap-runtime/logs/83166e17-24c7-4995-ba5b-18fde871dcc4.txt` |
 | Standalone MultiServer | `$SESSION_FILES/ap-runtime/logs/Server_*.txt` |
 
 The Archipelago tab shows the last 200 client log lines and has an "Open log
@@ -225,6 +245,7 @@ Wait for successful completion and the final archive message. If generation
 fails, resolve the reported error; do not upload an old test archive instead.
 Mixed generation was successfully executed with your YAML on October 17, 2026,
 producing `AP_72893771011827805672.zip` and a Red patch without a base ROM.
+The current seed, `AP_69318679617106091104.zip`, enables only blue item room remote unlocks.
 
 The output is `./dist/multiworld/AP_<seed>.zip`.
 The exact numeric filename is printed by the generator and cannot be known
@@ -270,14 +291,16 @@ seed. It provides the room page, server log, slot trackers and the multiworld se
 
 | Page | URL |
 | --- | --- |
-| Room (connect info, server log, patch downloads) | http://127.0.0.1:38280/room/LUzHmihgSiqZRNwZ5ZgPbQ |
-| Multiworld tracker | http://127.0.0.1:38280/tracker/4A6gnpn2TVi9OTenHSBIDg |
-| Pathogenic1 tracker | http://127.0.0.1:38280/generic_tracker/4A6gnpn2TVi9OTenHSBIDg/0/1 |
+| Room (connect info, server log, patch downloads) | http://127.0.0.1:38280/room/gxZuFyTHSZW6Wxj96HHcxA |
+| Multiworld tracker | http://127.0.0.1:38280/tracker/m7uTi9p4RNOZjF-PLH6a8g |
+| Pathogenic1 tracker | http://127.0.0.1:38280/generic_tracker/m7uTi9p4RNOZjF-PLH6a8g/0/1 |
 
 The IDs are created on first start and stored in `local-webhost/room.json`; the
 launcher prints them. Room progress is stored in `local-webhost/ap.db3`, separate
 from the standalone server's `.apsave`. Delete `local-webhost/` only to start the
-room over. Both ports bind only to `127.0.0.1`, without a password.
+room over. Both ports bind only to `127.0.0.1`, without a password. Starting the launcher
+with a different campaign creates a new room and puts earlier rooms to sleep. Their
+progress stays in the database, and the new room takes port 38281.
 
 Alternatively, the plain server without website (do not run both, they share port 38281):
 
@@ -297,7 +320,7 @@ Launch `launch-modded.command`, open Settings > Archipelago, and enter the Patho
 For Pokemon, the generated patch is:
 
 ```text
-./dist/multiworld/AP_72893771011827805672_P2_PkmnPlayer.apred
+./dist/multiworld/AP_69318679617106091104_P2_PkmnPlayer.apred
 ```
 
 Apply it using the Archipelago client with your compatible Pokemon Red ROM
@@ -308,8 +331,8 @@ the emulator/ROM and actual Pokemon gameplay are not installed or verified here.
 The campaign and the standalone server's persistent progress are:
 
 ```text
-./dist/multiworld/AP_72893771011827805672.zip
-./dist/multiworld/AP_72893771011827805672.apsave
+./dist/multiworld/AP_69318679617106091104.zip
+./dist/multiworld/AP_69318679617106091104.apsave
 ```
 
 Keep both files and the Pathogenic journal to resume. Stop with `/exit` in the

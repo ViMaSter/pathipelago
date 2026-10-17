@@ -77,9 +77,14 @@ def ensure_room(app, data: Path, campaign: Path, room_port: int) -> dict:
             state = {"campaign": str(campaign), "seed": str(seed.id), "room": str(room.id),
                      "tracker": str(room.tracker), "owner": str(owner)}
             state_file.write_text(json.dumps(state, indent=2) + "\n")
+        # Rooms from earlier campaigns keep their saves but stay asleep, so they
+        # cannot claim the fixed room port before the current campaign does.
+        for other in Room.select(lambda r: r.id != room.id):
+            other.last_activity = utcnow() - timedelta(seconds=other.timeout + 60)
+            if other.last_port == room_port:
+                other.last_port = 0
         room.timeout = ROOM_TIMEOUT
-        if room.last_port <= 0:
-            room.last_port = room_port
+        room.last_port = room_port
         # Wakes the room on every launcher start.
         room.last_activity = utcnow()
         commit()

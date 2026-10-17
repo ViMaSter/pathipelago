@@ -299,6 +299,37 @@ func _network_and_purchase() -> void:
 	editor.draft(["A2", "C2", "G2", "T2"])
 	await process_frame
 	check(editor.mutations[3] == client.level_card and editor.mutations[3].resource_name != "T2", "reroll/next level gets a fresh remote unlock")
+	check(Client.parse_sources({"schema": 1}).values().all(func(v): return v), "schema 1 slots enable every source")
+	check(Client.parse_sources({"schema": 2, "sources": {"shops": false, "item_rooms": true,
+			"boss_rewards": false, "level_ups": false}}).item_rooms == true, "schema 2 sources parsed")
+	check(Client.parse_sources({"schema": 2, "sources": {"shops": false, "item_rooms": false,
+			"boss_rewards": false, "level_ups": false}}) == null, "slot with no sources rejected")
+	check(Client.parse_sources({"schema": 2, "sources": {"shops": 1}}) == null, "malformed sources rejected")
+	client.sources = {"shops": false, "item_rooms": true, "boss_rewards": false, "level_ups": false}
+	editor.draft(["A3", "C3", "G3", "T3"])
+	await process_frame
+	check(editor.mutations[3].resource_name == "T3" and client.level_card == null, "level_ups=false keeps the draft vanilla")
+	var gated_shop_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
+	root.add_child(gated_shop_room)
+	var gated_shop: Node = _pedestal(gated_shop_room, "Item1", true)
+	var gated_rooms: Array = []
+	for script_path in ["res://scn/environ/rooms/special/item_room.gd", "res://tests/stubs/room.gd"]:
+		var gated_room: Node2D = load(script_path).new()
+		if script_path.ends_with("room.gd") and not script_path.ends_with("item_room.gd"):
+			gated_room.res.type = 1
+		root.add_child(gated_room)
+		var gated_reward: Node2D = load("res://scn/environ/pickups/bodypart_reward.gd").new()
+		gated_reward.unique_from = [gated_reward]
+		gated_room.add_child(gated_reward)
+		gated_rooms.append(gated_reward)
+	await process_frame
+	check(not client.is_ap(gated_shop), "shop_unlocks=false keeps shops vanilla")
+	check(client.is_free_ap(gated_rooms[0]), "item_room_unlocks=true keeps item-room remote unlocks")
+	check(not client.is_free_ap(gated_rooms[1]), "boss_reward_unlocks=false keeps boss rewards vanilla")
+	gated_rooms[1].pickup_area.picked.emit()
+	check(gated_rooms[1].vanilla_picks == 1 and client.campaign.checks.size() == 4, "disabled boss reward picks normally")
+	client.sources = {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}
+	gated_shop_room.queue_free()
 	editor.mutations[3] = null
 	editor.queue_free()
 	var grants := [{"item": 402939001, "location": 100, "player": 2, "flags": 0}]

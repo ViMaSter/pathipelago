@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 SESSION_FILES="$SESSION_FILES"
 PYTHON="$SESSION_FILES/ap311/bin/python"
 RUNTIME="$SESSION_FILES/ap-runtime"
-CAMPAIGN="${1:-$ROOT/dist/multiworld/AP_72893771011827805672.zip}"
+CAMPAIGN="${1:-$ROOT/dist/multiworld/AP_69318679617106091104.zip}"
 
 if [[ $# -gt 1 ]]; then
     echo "Usage: $0 [absolute-path-to-generated-multiworld.zip]" >&2

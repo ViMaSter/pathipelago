@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 
 from BaseClasses import Item, ItemClassification, Location, Region, Tutorial
-from Options import PerGameCommonOptions, Range
+from Options import (Accessibility, DefaultOnToggle, OptionError, PerGameCommonOptions,
+                     ProgressionBalancing, Range, Visibility)
 from worlds.AutoWorld import WebWorld, World
 
 
@@ -16,9 +17,49 @@ class ShopChecks(Range):
     default = 20
 
 
+class ShopUnlocks(DefaultOnToggle):
+    """One pedestal in every coin shop is a Remote Unlock bought with coins."""
+
+    display_name = "Remote Unlocks in Shops"
+
+
+class ItemRoomUnlocks(DefaultOnToggle):
+    """One free pedestal in every blue item room is a Remote Unlock."""
+
+    display_name = "Remote Unlocks in Blue Item Rooms"
+
+
+class BossRewardUnlocks(DefaultOnToggle):
+    """One choice of every boss bodypart reward is a Remote Unlock."""
+
+    display_name = "Remote Unlocks in Boss Rewards"
+
+
+class LevelUpUnlocks(DefaultOnToggle):
+    """The last card of every level-up mutation draft is a Remote Unlock."""
+
+    display_name = "Remote Unlocks in Level-Up Drafts"
+
+
+# Every Pathogenic location is always reachable and every item is filler, so
+# these core options cannot change a seed; hide them from templates and the UI.
+class HiddenProgressionBalancing(ProgressionBalancing):
+    visibility = Visibility.none
+
+
+class HiddenAccessibility(Accessibility):
+    visibility = Visibility.none
+
+
 @dataclass
 class PathogenicOptions(PerGameCommonOptions):
+    progression_balancing: HiddenProgressionBalancing
+    accessibility: HiddenAccessibility
     shop_checks: ShopChecks
+    shop_unlocks: ShopUnlocks
+    item_room_unlocks: ItemRoomUnlocks
+    boss_reward_unlocks: BossRewardUnlocks
+    level_up_unlocks: LevelUpUnlocks
 
 
 class PathogenicWeb(WebWorld):
@@ -55,6 +96,21 @@ class PathogenicWorld(World):
         for index in range(1, 101)
     }
 
+    def unlock_sources(self) -> dict:
+        return {
+            "shops": bool(self.options.shop_unlocks.value),
+            "item_rooms": bool(self.options.item_room_unlocks.value),
+            "boss_rewards": bool(self.options.boss_reward_unlocks.value),
+            "level_ups": bool(self.options.level_up_unlocks.value),
+        }
+
+    def generate_early(self) -> None:
+        if not any(self.unlock_sources().values()):
+            raise OptionError(
+                f"{self.player_name}: enable at least one Remote Unlock source "
+                "(shop_unlocks, item_room_unlocks, boss_reward_unlocks or level_up_unlocks)."
+            )
+
     def create_regions(self) -> None:
         menu = Region("Menu", self.player, self.multiworld)
         campaign = Region("Shop Campaign", self.player, self.multiworld)
@@ -85,4 +141,8 @@ class PathogenicWorld(World):
         return "Research Grant"
 
     def fill_slot_data(self) -> dict:
-        return {"schema": 1, "shop_checks": self.options.shop_checks.value}
+        return {
+            "schema": 2,
+            "shop_checks": self.options.shop_checks.value,
+            "sources": self.unlock_sources(),
+        }
