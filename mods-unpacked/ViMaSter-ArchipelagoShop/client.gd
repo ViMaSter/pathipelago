@@ -3,6 +3,10 @@ extends Node
 const GAME := "Pathogenic"
 const FIRST_LOCATION := 402938001
 const GRANT_ITEM := 402939001
+# Must match the APWorld's location table (ShopChecks.range_end).
+const MAX_CHECKS := 10000
+# Godot's 64 KiB default closes the socket (1009) on large data packages such as Stardew's.
+const INBOUND_BUFFER := 16 * 1024 * 1024
 const GRANT_COINS := 15
 const ROOT := "user://archipelago_shop"
 const LOG_FILE := ROOT + "/client.log"
@@ -228,6 +232,7 @@ func connect_server() -> void:
 		return
 	socket.close()
 	socket = WebSocketPeer.new()
+	socket.inbound_buffer_size = INBOUND_BUFFER
 	authenticated = false
 	room_seen = false
 	item_stream_ready = false
@@ -423,7 +428,7 @@ func _connected(message: Dictionary) -> void:
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(data.get("shop_checks")) \
 			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2] or int(data.shop_checks) < 1 \
-			or int(data.shop_checks) > 100 or parse_sources(data) == null:
+			or int(data.shop_checks) > MAX_CHECKS or parse_sources(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
 		socket.close()
 		return
@@ -466,7 +471,12 @@ func _connected(message: Dictionary) -> void:
 	_accept_checks(checked)
 	if fatal:
 		return
-	_send({"cmd": "GetDataPackage"})
+	# Archipelago 0.6.8+ answers only for explicitly listed games.
+	var games: Array = []
+	for game_name in slot_games.values():
+		if not game_name in games:
+			games.append(game_name)
+	_send({"cmd": "GetDataPackage", "games": games})
 	_send({"cmd": "LocationScouts", "locations": range(FIRST_LOCATION, FIRST_LOCATION + count), "create_as_hint": 0})
 	_send({"cmd": "Sync"})
 	_send_checks()

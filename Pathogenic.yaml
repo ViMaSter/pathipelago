@@ -4,8 +4,9 @@ description: Persistent numbered remote unlocks across repeatable runs.
 Pathogenic:
   progression_balancing: 50  # ignored: every location is always reachable
   accessibility: full        # ignored: the world has only filler items
-  # Total Remote Unlock checks across all runs (5-100, default 20).
-  shop_checks: 20
+  # Total Remote Unlock checks across all runs (1-10000, default 20).
+  # 194 = one per Stardew Valley item in the example seed (Daniel.yaml).
+  shop_checks: 194
   # Where Remote Unlocks appear (default: all true). At least one must be true;
   # a disabled source stays completely vanilla.
   shop_unlocks: false        # one coin pedestal in every shop

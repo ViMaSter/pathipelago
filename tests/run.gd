@@ -228,6 +228,17 @@ func _network_and_purchase() -> void:
 	messages = await _collect(peer, 15)
 	check(client.authenticated, "authenticate slot")
 	check(not _find(messages, "LocationScouts").is_empty(), "scout finite location pool")
+	var package_request := _find(messages, "GetDataPackage")
+	check(package_request.get("games") is Array and "Example" in package_request.games \
+		and "Pathogenic" in package_request.games, "request data package for every slot game")
+	check(client.socket.inbound_buffer_size >= 1024 * 1024, "accept large data packages")
+	var big_names := {}
+	for i in 4000:
+		big_names["Large Package Item %04d" % i] = 700000 + i
+	peer.outbound_buffer_size = 4 * 1024 * 1024
+	_send(peer, [{"cmd": "DataPackage", "data": {"games": {"Large": {"item_name_to_id": big_names}}}}])
+	await _collect(peer, 15)
+	check(client.authenticated and client.item_names.get("Large", {}).size() == 4000, "parse data package over 64 KiB")
 	check(client.offer_text(402938001) == "Remote Sword for Remote Friend (Example)", "show item, recipient and game")
 	var card: Dictionary = client.tooltip_card()
 	check(card.get("name") == "Remote Unlock 1/5", "tooltip title shows shipment progress")

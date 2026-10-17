@@ -116,7 +116,7 @@ missing acknowledgments retry. It never invokes the vanilla local-upgrade handof
 for an AP purchase.
 
 The AP server owns item placement; the game does not roll a recipient.
-Location IDs are 402938001 through 402938100. Research Grant is item 402939001.
+Location IDs are 402938001 through 402948000. Research Grant is item 402939001.
 The journal is keyed by seed/team/slot. Limitations: AP purchases are blocked
 offline, killing the shopkeeper does not make the AP pedestal free, the campaign is
 finite (vanilla after the last check), and the journal and run save are not one

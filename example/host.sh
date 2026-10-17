@@ -23,7 +23,8 @@ fi
 SEED="$(ls -t "${seeds[@]}" | head -n 1)"
 
 # Patch files (for example .apred for Pokemon Red) for the other players.
-unzip -o -q "$SEED" -x '*.archipelago' '*_Spoiler.txt' -d "$DIR/output"
+# Exit code 11 means the seed has none (e.g. Stardew Valley uses a mod instead).
+unzip -o -q "$SEED" -x '*.archipelago' '*_Spoiler.txt' -d "$DIR/output" || [[ $? -eq 11 ]]
 
 echo "Hosting $(basename "$SEED") on port $PORT."
 echo "Patches: $DIR/output"

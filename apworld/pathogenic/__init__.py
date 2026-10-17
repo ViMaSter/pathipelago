@@ -12,8 +12,9 @@ class ShopChecks(Range):
     """Number of shipments purchased across any number of runs. Rerolls add no checks."""
 
     display_name = "Shop Shipments"
-    range_start = 5
-    range_end = 100
+    range_start = 1
+    # Archipelago needs a fixed location table; this is its size, not a gameplay limit.
+    range_end = 10000
     default = 20
 
 
@@ -93,7 +94,7 @@ class PathogenicWorld(World):
     item_name_to_id = {"Research Grant": 402939001}
     location_name_to_id = {
         f"Shop Shipment {index:03d}": 402938000 + index
-        for index in range(1, 101)
+        for index in range(1, ShopChecks.range_end + 1)
     }
 
     def unlock_sources(self) -> dict:
