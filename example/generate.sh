@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generates an Archipelago multiworld from every *.yaml and *.apworld next to this script.
-# Output: ./output/AP_<seed>.zip (upload it at https://archipelago.gg/uploads).
+# Output: ./output/AP_<seed>.zip; host it with ./host.sh.
 set -euo pipefail
 shopt -s nullglob
 
@@ -47,4 +47,4 @@ cd "$AP"
 "$AP/.venv/bin/python" ModuleUpdate.py --yes
 SKIP_REQUIREMENTS_UPDATE=1 "$AP/.venv/bin/python" Generate.py \
     --player_files_path "$AP/players" --outputpath "$DIR/output" </dev/null
-echo "Done. Upload the newest AP_*.zip from $DIR/output at https://archipelago.gg/uploads"
+echo "Done. Host it with ./host.sh"
