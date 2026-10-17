@@ -59,6 +59,13 @@ var sources := {"shops": true, "item_rooms": true, "boss_rewards": true, "level_
 var enabled := false
 var run_multiworld := false
 var run_seed := ""
+var death_link := false
+var run_generation := 0
+var pending_death: Dictionary = {}
+var death_events: Dictionary = {}
+var death_reported := false
+var applying_death := false
+var last_death_time := 0.0
 var campaign: RefCounted
 var scouts: Dictionary = {}
 var players: Dictionary = {}
@@ -145,6 +152,9 @@ func _run_active() -> bool:
 # Called when main.tscn enters the tree: after apply_run_save restored the seed
 # on Continue, before any room or reward spawns.
 func begin_run() -> void:
+	run_generation += 1
+	pending_death.clear()
+	death_reported = false
 	var globals := get_node_or_null("/root/G")
 	var saves := get_node_or_null("/root/RunSaveManager")
 	run_seed = str(globals.get("rng_seed")) if globals != null else ""
@@ -234,6 +244,7 @@ func connect_server() -> void:
 		_fail("Could not save connection configuration: " + error_string(err))
 		return
 	socket.close()
+	_reset_deathlink()
 	socket = WebSocketPeer.new()
 	socket.inbound_buffer_size = INBOUND_BUFFER
 	authenticated = false
@@ -271,6 +282,7 @@ func _process(delta: float) -> void:
 					return
 				_handle(message)
 	elif state == WebSocketPeer.STATE_CLOSED and (connecting or authenticated):
+		_reset_deathlink()
 		connecting = false
 		authenticated = false
 		item_stream_ready = false
@@ -289,6 +301,7 @@ func _process(delta: float) -> void:
 	_watch_level_up()
 	_update_start_tip()
 	_track_player(delta)
+	_apply_pending_death()
 	refresh_time += delta
 	if refresh_time >= 0.5:
 		refresh_time = 0.0
@@ -331,6 +344,8 @@ func _handle(message: Dictionary) -> void:
 			socket.close()
 		"Connected":
 			_connected(message)
+		"Bounced":
+			_receive_death(message)
 		"RoomUpdate":
 			if not authenticated:
 				return
@@ -427,11 +442,13 @@ func sources_text() -> String:
 	return ", ".join(enabled) if not enabled.is_empty() else "nowhere"
 
 func _connected(message: Dictionary) -> void:
+	_reset_deathlink()
 	var data: Variant = message.get("slot_data")
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(data.get("shop_checks")) \
 			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2] or int(data.shop_checks) < 1 \
-			or int(data.shop_checks) > MAX_CHECKS or parse_sources(data) == null:
+			or int(data.shop_checks) > MAX_CHECKS or parse_sources(data) == null \
+			or parse_death_link(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
 		socket.close()
 		return
@@ -471,6 +488,18 @@ func _connected(message: Dictionary) -> void:
 		return
 	authenticated = true
 	connecting = false
+	death_link = parse_death_link(data)
+	if death_link:
+		var bus := get_node_or_null("/root/SignalBus")
+		if bus == null or not bus.has_signal("player_died"):
+			_disable_deathlink("The game's player-death signal is unavailable.")
+		elif not bus.is_connected("player_died", _on_player_died):
+			bus.connect("player_died", _on_player_died)
+	if not _send({"cmd": "ConnectUpdate", "tags": ["AP", "DeathLink"] if death_link else ["AP"]}):
+		authenticated = false
+		_reset_deathlink()
+		notify("Could not update DeathLink subscription. Reconnect in Settings > MultiworldGG.")
+		return
 	_accept_checks(checked)
 	if fatal:
 		return
@@ -483,8 +512,140 @@ func _connected(message: Dictionary) -> void:
 	_send({"cmd": "LocationScouts", "locations": range(FIRST_LOCATION, FIRST_LOCATION + count), "create_as_hint": 0})
 	_send({"cmd": "Sync"})
 	_send_checks()
-	notify("Connected as %s (slot %d). %d/%d checks confirmed. Remote unlocks in: %s." % [
-		slot_name, slot, campaign.confirmed.size(), count, sources_text()])
+	notify("Connected as %s (slot %d). %d/%d checks confirmed. Remote unlocks in: %s. DeathLink %s." % [
+		slot_name, slot, campaign.confirmed.size(), count, sources_text(), "on" if death_link else "off"])
+
+static func parse_death_link(data: Dictionary) -> Variant:
+	var value: Variant = data.get("death_link", false)
+	if value is bool:
+		return value
+	if State.integer(value) and int(value) in [0, 1]:
+		return int(value) == 1
+	return null
+
+func _reset_deathlink() -> void:
+	death_link = false
+	pending_death.clear()
+	death_events.clear()
+
+func _disable_deathlink(reason: String) -> void:
+	death_link = false
+	pending_death.clear()
+	notify("DeathLink disabled: " + reason)
+	if authenticated:
+		_send({"cmd": "ConnectUpdate", "tags": ["AP"]})
+
+func _deathlink_player() -> Node:
+	if fatal or not authenticated or not death_link or not run_multiworld or not _run_active():
+		return null
+	var globals := get_node("/root/G")
+	var player: Node = globals.get("player")
+	return player if is_instance_valid(player) and player.is_inside_tree() else null
+
+func _remember_death(source: String, timestamp: float) -> bool:
+	var key := JSON.stringify([source, timestamp])
+	if death_events.has(key):
+		return false
+	death_events[key] = true
+	# Bounces are transient; keep a bounded replay window, not a death cooldown.
+	if death_events.size() > 256:
+		death_events.erase(death_events.keys()[0])
+	return true
+
+func _receive_death(message: Dictionary) -> void:
+	if not authenticated or not death_link:
+		return
+	var tags: Variant = message.get("tags")
+	if not tags is Array or not "DeathLink" in tags:
+		return
+	var data: Variant = message.get("data")
+	if not data is Dictionary or not data.get("source") is String \
+			or str(data.source).is_empty() or not (data.get("time") is int or data.get("time") is float) \
+			or not is_finite(float(data.time)) or float(data.time) <= 0.0 \
+			or (data.has("cause") and not data.cause is String):
+		log_line("Ignored malformed DeathLink event.")
+		return
+	if data.source == slot_name or not _remember_death(data.source, float(data.time)):
+		return
+	var player := _deathlink_player()
+	if player == null or player.get("dead") == true:
+		log_line("Ignored DeathLink from %s: no living MultiworldGG run." % data.source)
+		return
+	if not pending_death.is_empty():
+		return
+	pending_death = {
+		"generation": run_generation, "player": player.get_instance_id(),
+		"main": get_node("/root/G").main.get_instance_id(),
+	}
+	var cause: String = data.get("cause", "%s died." % data.source)
+	notify("DeathLink from %s: %s" % [data.source, cause])
+	show_toast("DeathLink from %s" % data.source)
+
+func _apply_pending_death() -> void:
+	if pending_death.is_empty():
+		return
+	var player := _deathlink_player()
+	if player == null or player.get("dead") == true \
+			or pending_death.generation != run_generation \
+			or pending_death.player != player.get_instance_id() \
+			or pending_death.main != get_node("/root/G").main.get_instance_id():
+		pending_death.clear()
+		log_line("Discarded DeathLink: its living run is no longer active.")
+		return
+	var editor: Node = get_node("/root/G").get("editor")
+	if get_tree().paused or not player.is_node_ready() or not player.can_process() or (is_instance_valid(editor) \
+			and (editor.get("active") == true or editor.get("state") != _enum_value("EditorState", "HIDDEN"))):
+		return
+	var body: Variant = player.get("center_body")
+	if not player.has_method("hit_no_signal") or not is_instance_valid(body) or not body is Node2D:
+		_disable_deathlink("The game's player damage API is unavailable.")
+		return
+	var defenses := {}
+	for property in ["armor", "invulnerability", "player_damage_mult", "hp"]:
+		var value: Variant = player.get(property)
+		if not (value is int or value is float) or not is_finite(float(value)):
+			_disable_deathlink("Invalid player damage property: " + property)
+			return
+		if property != "hp":
+			defenses[property] = value
+	if not player.get("damage_blocked") is bool:
+		_disable_deathlink("The game's damage-blocking API is unavailable.")
+		return
+	defenses["damage_blocked"] = player.get("damage_blocked")
+	pending_death.clear()
+	applying_death = true
+	player.set("armor", 0)
+	player.set("invulnerability", 0.0)
+	player.set("player_damage_mult", 1)
+	player.set("damage_blocked", false)
+	# This native entry point retains damage/death effects without pre-hit mutations.
+	player.call("hit_no_signal", maxf(1.0, float(player.get("hp"))), body.global_position)
+	applying_death = false
+	if is_instance_valid(player):
+		for property in defenses:
+			player.set(property, defenses[property])
+	if not is_instance_valid(player) or player.get("dead") != true:
+		_disable_deathlink("Lethal damage did not end the run. See the client log.")
+	else:
+		log_line("DeathLink lethal damage ended the run.")
+
+func _on_player_died() -> void:
+	var player := _deathlink_player()
+	if player == null or player.get("dead") != true or death_reported:
+		return
+	death_reported = true
+	pending_death.clear()
+	if applying_death:
+		return
+	# Keep distinct local deaths distinct even when the system clock moves back.
+	last_death_time = maxf(Time.get_unix_time_from_system(), last_death_time + 0.001)
+	_remember_death(slot_name, last_death_time)
+	if _send({"cmd": "Bounce", "tags": ["DeathLink"], "data": {
+			"time": last_death_time, "source": slot_name,
+			"cause": "%s died in Pathogenic." % slot_name}}):
+		log_line("Sent DeathLink for this run's death.")
+	else:
+		notify("Could not send DeathLink. The death will not be replayed after reconnecting.")
 
 func _update_players(list: Variant) -> void:
 	if not list is Array:

@@ -25,9 +25,25 @@ https://multiworld.gg/uploads and create a room.
 Custom-world lobbies can collect files, but require downloading the package for
 local generation. Browser-only generation is not supported for Pathogenic.
 The room's generic tracker is supported; there is no dedicated Pathogenic tracker,
-DeathLink, in-game text client, or admin interface. Use https://chat.multiworld.gg
+in-game text client, or admin interface. Use https://chat.multiworld.gg
 for text commands. macOS support for other games depends on their own clients and
 libraries.
+
+## DeathLink
+
+`death_link: true` is the default YAML setting. DeathLink shares deaths in both
+directions with other participating games. Received deaths deal guaranteed lethal
+damage to your current MultiworldGG run, bypassing armor, invulnerability,
+damage blocking, and damage reduction for that hit only.
+
+If paused or editing upgrades, the hit waits until gameplay resumes in the same
+run. Deaths received without a living active MultiworldGG run are ignored;
+they never carry into the next run. Vanilla runs are unaffected, incoming deaths
+are not echoed, and deaths while disconnected are not replayed on reconnect.
+
+Set `death_link: false` in your YAML before generation to disable both directions.
+There is no separate local DeathLink toggle. Existing seeds without this slot
+option leave it off; regenerate with the updated APWorld to enable it.
 
 The Godot transport does not negotiate WebSocket compression. MultiworldGG
 0.7.273 accepts uncompressed connections but warns that they may be unsupported

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from BaseClasses import Item, ItemClassification, Location, Region, Tutorial
-from Options import (Accessibility, DefaultOnToggle, OptionError, PerGameCommonOptions,
+from Options import (Accessibility, DeathLink, DefaultOnToggle, OptionError, PerGameCommonOptions,
                      ProgressionBalancing, Range, Visibility)
 from worlds.AutoWorld import WebWorld, World
 
@@ -42,6 +42,15 @@ class LevelUpUnlocks(DefaultOnToggle):
     display_name = "Remote Unlocks in Level-Up Drafts"
 
 
+class PathogenicDeathLink(DeathLink):
+    """Share deaths with other DeathLink games. Incoming deaths lethally damage
+    the current run, waiting until gameplay resumes if paused or editing upgrades.
+    Deaths outside a living MultiworldGG run are ignored.
+    """
+
+    default = 1
+
+
 # Every Pathogenic location is always reachable and every item is filler, so
 # these core options cannot change a seed; hide them from templates and the UI.
 class HiddenProgressionBalancing(ProgressionBalancing):
@@ -61,6 +70,7 @@ class PathogenicOptions(PerGameCommonOptions):
     item_room_unlocks: ItemRoomUnlocks
     boss_reward_unlocks: BossRewardUnlocks
     level_up_unlocks: LevelUpUnlocks
+    death_link: PathogenicDeathLink
 
 
 class PathogenicWeb(WebWorld):
@@ -146,4 +156,5 @@ class PathogenicWorld(World):
             "schema": 2,
             "shop_checks": self.options.shop_checks.value,
             "sources": self.unlock_sources(),
+            "death_link": bool(self.options.death_link.value),
         }

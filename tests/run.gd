@@ -53,6 +53,9 @@ func _run() -> void:
 	quit(1 if failures else 0)
 
 func _network_and_purchase() -> void:
+	var bus: Node = load("res://tests/stubs/signal_bus.gd").new()
+	bus.name = "SignalBus"
+	root.add_child(bus)
 	var globals: Node = load("res://tests/stubs/globals.gd").new()
 	globals.name = "G"
 	var player: Node = load("res://tests/stubs/player.gd").new()
@@ -217,7 +220,7 @@ func _network_and_purchase() -> void:
 		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
 		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic"}, "2": {"name": "Friend", "game": "Example"}},
 		"missing_locations": range(402938001, 402938006),
-		"checked_locations": [], "slot_data": {"schema": 1, "shop_checks": 5}
+		"checked_locations": [], "slot_data": {"schema": 1, "shop_checks": 5, "death_link": true}
 	}, {
 		"cmd": "DataPackage",
 		"data": {"games": {"Example": {"item_name_to_id": {"Remote Sword": 9001}},
@@ -232,6 +235,8 @@ func _network_and_purchase() -> void:
 	}, {"cmd": "ReceivedItems", "index": 0, "items": []}])
 	messages = await _collect(peer, 15)
 	check(client.authenticated, "authenticate slot")
+	check(client.death_link and _find(messages, "ConnectUpdate").get("tags") == ["AP", "DeathLink"],
+			"enabled slot subscribes to DeathLink after authentication")
 	check(not _find(messages, "LocationScouts").is_empty(), "scout finite location pool")
 	var package_request := _find(messages, "GetDataPackage")
 	check(package_request.get("games") is Array and "Example" in package_request.games \
@@ -443,12 +448,140 @@ func _network_and_purchase() -> void:
 	_send(peer, [{"cmd": "RoomUpdate", "checked_locations": range(402938001, 402938006)}])
 	messages = await _collect(peer, 10)
 	check(_find(messages, "StatusUpdate").get("status") == 30, "goal only after every server-confirmed check")
+	await _deathlink(client, peer, globals, player)
 	peer.close()
 	for i in 15:
 		peer.poll()
 		await process_frame
 	check(not client.authenticated, "disconnect blocks transactions")
+	check(not client.death_link and client.pending_death.is_empty(), "disconnect clears DeathLink state")
 	tcp.stop()
+
+func _deathlink(client: Node, peer: WebSocketPeer, globals: Node, player: Node) -> void:
+	check(Client.parse_death_link({}) == false, "legacy seeds do not enable DeathLink")
+	for value in [true, 1, 1.0]:
+		check(Client.parse_death_link({"death_link": value}) == true, "DeathLink enabled encoding")
+	for value in [false, 0, 0.0]:
+		check(Client.parse_death_link({"death_link": value}) == false, "DeathLink disabled encoding")
+	for value in [null, "true", 2, -1, [], {}]:
+		check(Client.parse_death_link({"death_link": value}) == null, "invalid DeathLink option rejected")
+	var event := {"cmd": "Bounced", "tags": ["DeathLink"],
+		"data": {"time": 1.0, "source": "Remote Friend", "cause": "Remote Friend fell."}}
+	client._handle({"cmd": "Bounced", "tags": ["Other"], "data": {}})
+	client._handle({"cmd": "Bounced", "tags": ["DeathLink"], "data": {"time": "bad"}})
+	check(client.pending_death.is_empty() and not client.fatal, "unrelated and malformed bounces cannot kill or block purchases")
+	client.death_link = false
+	client._handle(event)
+	check(client.pending_death.is_empty(), "disabled DeathLink ignores received events")
+	client.death_link = true
+	client.run_multiworld = false
+	client._handle(event)
+	check(client.pending_death.is_empty(), "vanilla run ignores DeathLink")
+	client.run_multiworld = true
+	client._handle(event)
+	check(client.pending_death.is_empty(), "ignored event cannot kill a subsequent run on replay")
+	event.data.time = 2.0
+	var main: Node = globals.main
+	globals.main = null
+	client._handle(event)
+	check(client.pending_death.is_empty(), "inactive run ignores DeathLink")
+	globals.main = main
+	event.data.time = 3.0
+	player.dead = true
+	client._handle(event)
+	check(client.pending_death.is_empty(), "already dead player ignores DeathLink")
+	player.dead = false
+	event.data.source = client.slot_name
+	event.data.time = 4.0
+	client._handle(event)
+	check(client.pending_death.is_empty(), "own bounced death ignored")
+	event.data.source = "Remote Friend"
+	event.data.time = 5.0
+	player.armor = 50
+	player.invulnerability = 100.0
+	player.damage_blocked = true
+	player.player_damage_mult = 0
+	var editor: Node = load("res://tests/stubs/editor.gd").new()
+	root.add_child(editor)
+	globals.editor = editor
+	editor.state = globals.EditorState.ACTIVE
+	editor.active = true
+	paused = true
+	client._handle(event)
+	await _collect(peer, 3)
+	check(not player.dead and not client.pending_death.is_empty(), "paused run defers DeathLink")
+	paused = false
+	await _collect(peer, 3)
+	check(not player.dead and player.damage_calls.is_empty(), "upgrade editor defers lethal damage")
+	editor.active = false
+	editor.state = globals.EditorState.ANIMATING_OUT
+	await _collect(peer, 3)
+	check(not player.dead, "editor closing animation also defers damage")
+	editor.state = globals.EditorState.HIDDEN
+	var messages := await _collect(peer, 5)
+	check(player.dead and player.hp == 0 and player.damage_calls.size() == 1
+			and player.damage_calls[0][0] == 6.0, "DeathLink deals lethal native damage despite every defense")
+	check(player.armor == 50 and player.invulnerability == 100.0 and player.damage_blocked
+			and player.player_damage_mult == 0, "DeathLink bypass is limited to its own hit")
+	check(_find(messages, "Bounce").is_empty(), "received lethal damage is not echoed")
+	player.dead = false
+	player.hp = 6
+	client.begin_run()
+	client._handle(event)
+	await _collect(peer, 3)
+	check(not player.dead and player.damage_calls.size() == 1, "duplicate death cannot kill another run")
+	paused = true
+	event.data.time = 6.0
+	client._handle(event)
+	client.begin_run()
+	paused = false
+	await _collect(peer, 3)
+	check(not player.dead and client.pending_death.is_empty(), "restart invalidates a paused pending death")
+	paused = true
+	event.data.time = 7.0
+	client._handle(event)
+	var replacement: Node = load("res://tests/stubs/player.gd").new()
+	root.add_child(replacement)
+	globals.player = replacement
+	paused = false
+	await _collect(peer, 3)
+	check(not replacement.dead and client.pending_death.is_empty(), "player replacement invalidates deferred death")
+	globals.player = player
+	replacement.queue_free()
+	event.data.time = 8.0
+	paused = true
+	client._handle(event)
+	client.authenticated = false
+	client._apply_pending_death()
+	paused = false
+	client.authenticated = true
+	check(client.pending_death.is_empty() and not player.dead, "connection loss invalidates deferred death")
+	player.dead = true
+	root.get_node("SignalBus").emit_signal("player_died")
+	root.get_node("SignalBus").emit_signal("player_died")
+	messages = await _collect(peer, 5)
+	var sent: Array = messages.filter(func(m): return m.get("cmd") == "Bounce")
+	check(sent.size() == 1 and sent[0].tags == ["DeathLink"] and sent[0].data.source == client.slot_name
+			and sent[0].data.time > 0 and sent[0].data.cause.contains("Pathogenic"), "ordinary death sends exactly one valid DeathLink")
+	client.begin_run()
+	client.death_link = false
+	root.get_node("SignalBus").emit_signal("player_died")
+	messages = await _collect(peer, 3)
+	check(_find(messages, "Bounce").is_empty(), "disabled DeathLink sends nothing")
+	client.death_link = true
+	player.dead = false
+	player.refuse_damage = true
+	event.data.time = 9.0
+	client._handle(event)
+	await _collect(peer, 3)
+	check(not player.dead and not client.death_link and client.status.contains("Lethal damage did not end"),
+			"damage failure is explicit and does not fake death or disable purchases")
+	player.refuse_damage = false
+	# Leave an event pending while the fixture closes the connection.
+	client.death_link = true
+	editor.active = true
+	event.data.time = 10.0
+	client._handle(event)
 
 func _pedestal(room: Node, pedestal_name: String, with_reward: bool) -> Node:
 	var pedestal: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/shop_item.gd").new()

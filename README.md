@@ -36,6 +36,15 @@ Pathogenic:
   item_room_unlocks: true     # blue item rooms
   boss_reward_unlocks: false  # boss rewards
   level_up_unlocks: false     # level-up drafts
+  death_link: true            # share deaths with other DeathLink games (default true)
 ```
 
 Keep at least one source enabled.
+
+DeathLink works in both directions: deaths in other participating games deal
+guaranteed lethal damage to your current MultiworldGG run, and your deaths are
+sent to them. While paused or editing upgrades, the hit waits until gameplay
+resumes in that same run. Deaths outside a living MultiworldGG run are ignored,
+and deaths are not replayed after reconnecting. Vanilla runs are unaffected.
+Set `death_link: false` before generating to disable it. Older seeds without
+this option keep DeathLink off; regenerate with the updated APWorld to enable it.

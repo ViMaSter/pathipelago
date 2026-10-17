@@ -55,12 +55,14 @@ def main(runtime: Path, godot: str) -> None:
             output = directory / "output"
             output.mkdir()
 
-            def generate(count: int, flags: dict, two_players: bool = False):
+            def generate(count: int, flags: dict, three_players: bool = False):
                 for path in players.glob("*.yaml"):
                     path.unlink()
-                for player in range(1, 3 if two_players else 2):
+                for player in range(1, 4 if three_players else 2):
                     options = {"shop_checks": count, **flags}
-                    if two_players and player == 2:
+                    if three_players and player == 3:
+                        options["death_link"] = False
+                    if three_players and player == 2:
                         options["plando_items"] = [{
                             "item": "Research Grant", "location": "Shop Shipment 002",
                             "world": "Pathogenic1", "from_pool": True, "force": True,
@@ -83,10 +85,14 @@ def main(runtime: Path, godot: str) -> None:
                 flags = {option: source == selected for source, option in source_names.items()}
                 multiworld = generate(1, flags)
                 world = multiworld.worlds[1]
-                expected = {"schema": 2, "shop_checks": 1,
+                expected = {"schema": 2, "shop_checks": 1, "death_link": True,
                             "sources": {source: source == selected for source in source_names}}
                 if world.fill_slot_data() != expected or len(multiworld.get_locations(1)) != 1:
                     raise AssertionError(f"Incorrect single-source slot data: {selected}")
+            for enabled in (False, True):
+                multiworld = generate(1, {"death_link": enabled})
+                if multiworld.worlds[1].fill_slot_data()["death_link"] is not enabled:
+                    raise AssertionError(f"Incorrect DeathLink slot data: {enabled}")
             multiworld = generate(10000, {})
             if len(multiworld.get_locations(1)) != 10000:
                 raise AssertionError("10,000-check boundary was not generated")
@@ -97,13 +103,13 @@ def main(runtime: Path, godot: str) -> None:
                     raise
             else:
                 raise AssertionError("All-disabled sources were accepted")
-            multiworld = generate(2, {}, two_players=True)
+            multiworld = generate(2, {}, three_players=True)
             location = multiworld.get_location("Shop Shipment 002", 1)
             if location.item.player != 2:
                 raise AssertionError("Cross-player fixture was not placed as requested")
             archive = output / f"AP_{multiworld.seed_name}.zip"
             live_test(runtime, godot, archive, directory)
-            print("MULTIWORLDGG_TEST generation_boundaries=true sources=true live=true", flush=True)
+            print("MULTIWORLDGG_TEST generation_boundaries=true sources=true death_link=true live=true", flush=True)
     finally:
         world_archive.unlink()
 

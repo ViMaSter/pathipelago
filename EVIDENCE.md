@@ -204,6 +204,37 @@ from both PCKs; recovered files are not included here.
 Not verified on the full game: an interactive run with a paid online shipment,
 and loading from an actual Workshop subscription (no item exists yet).
 
+## DeathLink verification
+
+The installed full-game PCK still matches
+`dda98093c77d74290a0503fc8ff9d5b8a45370ed2c290a2db75bf8ce3ae99d9d`.
+Focused private GDRE 2.7.4 recovery confirmed `player.gd:380-431` exposes
+`hit_no_signal`, its defense guards, and the synchronous `player_died` signal.
+The native method performs HP damage, death effects, and run-end presentation.
+`editor.gd` exposes `active` and the editor transition state. This is static
+evidence, not a newly observed interactive death. Recovered source is not
+included in this project.
+
+| Recovered interface | SHA-256 |
+| --- | --- |
+| `scn/player/player.gd` | `976b57960b562152d4af1ccff846665e580c960f9ba99b152f5f2fcfb582f1cb` |
+| `scn/signal_bus.gd` | `5c01f7299d2bf286528b8dcf3a08f7dfda23f5ff622b573846c88727908632c3` |
+
+| Layer | Observed result | Limitation |
+| --- | --- | --- |
+| Python tooling | 25 tests pass, including reproducible builds using the tracked top-level mod source | No gameplay |
+| Isolated Godot fixtures | 159 assertions pass; incoming damage bypasses defenses, pause/editor closing defers damage, obsolete pending deaths are discarded, local deaths send once, received deaths do not echo, damage failures are explicit | Original API doubles, not native scenes |
+| MultiworldGG 0.7.273 generation | Default-on and explicit on/off DeathLink settings reach exact slot data; source selection and 10,000-check boundary remain valid | Generated logic, not game execution |
+| Real MultiworldGG server | Three slots: two enabled and one disabled; local death sends a tagged event, the other enabled client takes lethal damage once, the disabled slot receives no DeathLink bounce, and reconnect restores subscription. Shipment delivery, grant replay protection, and persisted goal/checks still pass | Clients share one doubled game; test selects whose run/death it represents |
+
+The live tests use an isolated runtime copy, generated seed, loopback-only server,
+and temporary game data. No hosted room or installed game files are changed.
+Server startup also logged an unrelated Oracle of Ages world import failure
+because the local Python lacks Tkinter; Pathogenic generation and all live
+assertions completed successfully.
+An interactive death/animation/save transition in the full game remains
+unverified; API-double and live-protocol tests do not establish that result.
+
 ## Requested references
 
 - [Godot Modding: mod developer](https://wiki.godotmodding.com/#mod-developer):

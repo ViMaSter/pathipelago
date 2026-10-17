@@ -28,7 +28,8 @@ def engine_tests(godot: str, live_server: str | None = None) -> None:
     with tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-test-") as temporary, \
             tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-test-", dir=data_root) as user:
         project = Path(temporary)
-        shutil.copytree(ROOT / "mods-unpacked", project / "mods-unpacked")
+        shutil.copytree(ROOT / "ViMaSter-MultiworldGGShop",
+                        project / "mods-unpacked/ViMaSter-MultiworldGGShop")
         shutil.copytree(ROOT / "tests", project / "tests")
         shop = project / "scn/environ/pickups"
         shop.mkdir(parents=True)
@@ -65,7 +66,7 @@ def engine_tests(godot: str, live_server: str | None = None) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--godot", required=True)
-    parser.add_argument("--live-server", help="Fresh two-slot test seed: Pathogenic1/Pathogenic2; shipment 2 crosses to slot 2")
+    parser.add_argument("--live-server", help="Fresh three-slot seed: Pathogenic1/2 enabled, Pathogenic3 DeathLink off; shipment 2 crosses to slot 2")
     args = parser.parse_args()
     suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern="test_*.py")
     if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():

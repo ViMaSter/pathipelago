@@ -14,6 +14,19 @@ The mod is off by default. Enable it in Settings > MultiworldGG before starting 
 Each run keeps the mode it started with: turning the setting on mid-run does not
 add remote unlocks, and turning it off or disconnecting does not remove them.
 
+## Does this game support DeathLink?
+
+Yes, in both directions. The YAML option `death_link` defaults to `true`.
+Other participating games' deaths deal lethal damage to the current
+MultiworldGG run, bypassing defenses for that hit, and Pathogenic deaths are sent
+to those games. Pausing or editing upgrades defers the hit until gameplay resumes
+in that same run. Deaths with no living active MultiworldGG run are ignored, never
+queued for the next run. Incoming deaths are not echoed and disconnected deaths
+are not replayed. Vanilla runs are unaffected.
+
+Generate with `death_link: false` to disable it. Older seeds without the option
+keep DeathLink off and must be regenerated to enable it.
+
 ## What items can appear in other players' worlds?
 
 "Research Grant", which is redeemed automatically for 15 coins in the current

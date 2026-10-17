@@ -29,7 +29,7 @@ def archive(output: Path, entries: list[tuple[Path, str]]) -> str:
 
 
 def manifest(root: Path = ROOT) -> dict:
-    data = json.loads((root / "mods-unpacked" / MOD_ID / "manifest.json").read_text())
+    data = json.loads((root / MOD_ID / "manifest.json").read_text())
     if data["namespace"] + "-" + data["name"] != MOD_ID:
         raise ValueError("Manifest ID does not match the archive directory")
     return data
@@ -57,7 +57,7 @@ def stage_workshop(mod_zip: Path, workshop: Path) -> None:
 
 def build(root: Path = ROOT) -> dict:
     manifest(root)
-    source = root / "mods-unpacked" / MOD_ID
+    source = root / MOD_ID
     dist = root / "dist"
     mod_zip = dist / f"{MOD_ID}.zip"
     world = root / "apworld" / APWORLD

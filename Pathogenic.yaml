@@ -2,11 +2,12 @@ name: Pathogenic{number}   # slot name; {number} becomes 1, 2, ... (Pathogenic1)
 game: Pathogenic
 description: Persistent numbered remote unlocks across repeatable runs.
 Pathogenic:
+  # Share deaths in both directions. Paused/editor runs die when gameplay resumes.
+  death_link: true
   progression_balancing: 50  # ignored: every location is always reachable
   accessibility: full        # ignored: the world has only filler items
   # Total Remote Unlock checks across all runs (1-10000, default 20).
-  # 194 = one per Stardew Valley item in the example seed (Daniel.yaml).
-  shop_checks: 194
+  shop_checks: 20
   # Where Remote Unlocks appear (default: all true). At least one must be true;
   # a disabled source stays completely vanilla.
   shop_unlocks: false        # one coin pedestal in every shop

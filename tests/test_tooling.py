@@ -46,7 +46,7 @@ class BuildTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-build-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        for folder in ("mods-unpacked", "apworld"):
+        for folder in (builder.MOD_ID, "apworld"):
             shutil.copytree(ROOT / folder, self.root / folder)
 
     def test_reproducible_archive(self):
@@ -78,7 +78,7 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(builder.build(self.root), hashes)
 
     def test_manifest_id_must_match_directory(self):
-        path = self.root / "mods-unpacked" / builder.MOD_ID / "manifest.json"
+        path = self.root / builder.MOD_ID / "manifest.json"
         data = json.loads(path.read_text())
         data["namespace"] = "Local"
         path.write_text(json.dumps(data))

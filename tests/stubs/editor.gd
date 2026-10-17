@@ -8,6 +8,7 @@ var state := 2
 var pending_mutation_index := -1
 var vanilla_presses: Array = []
 var committed: Array = []
+var active := false
 
 func _init() -> void:
 	var container := Control.new()
