@@ -44,7 +44,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" --generate-notes --verify-tag \
-            dist/ViMaSter-ArchipelagoShop.zip dist/pathogenic.apworld dist/SHA256SUMS
+            dist/ViMaSter-MultiworldGGShop.zip dist/pathogenic.apworld dist/SHA256SUMS
 
   steam-workshop:
     needs: build
@@ -70,8 +70,8 @@ jobs:
 
       - name: Workshop content is exactly the mod ZIP
         run: |
-          test "$(ls -A dist/workshop)" = "ViMaSter-ArchipelagoShop.zip"
-          cmp dist/workshop/ViMaSter-ArchipelagoShop.zip dist/ViMaSter-ArchipelagoShop.zip
+          test "$(ls -A dist/workshop)" = "ViMaSter-MultiworldGGShop.zip"
+          cmp dist/workshop/ViMaSter-MultiworldGGShop.zip dist/ViMaSter-MultiworldGGShop.zip
 
       - name: Upload to Steam Workshop
         # v4, pinned: v1-v3 could upload .git contents.

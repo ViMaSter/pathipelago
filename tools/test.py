@@ -25,8 +25,8 @@ def godot_data_root() -> Path:
 def engine_tests(godot: str, live_server: str | None = None) -> None:
     data_root = godot_data_root()
     data_root.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="pathogenic-ap-test-") as temporary, \
-            tempfile.TemporaryDirectory(prefix="pathogenic-ap-test-", dir=data_root) as user:
+    with tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-test-") as temporary, \
+            tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-test-", dir=data_root) as user:
         project = Path(temporary)
         shutil.copytree(ROOT / "mods-unpacked", project / "mods-unpacked")
         shutil.copytree(ROOT / "tests", project / "tests")
@@ -44,7 +44,7 @@ def engine_tests(godot: str, live_server: str | None = None) -> None:
         (ui / "start_menus").mkdir()
         shutil.copy(ROOT / "tests/stubs/player_selection_menu.gd", ui / "start_menus/player_selection_menu.gd")
         (project / "project.godot").write_text(
-            'config_version=5\n[application]\nconfig/name="Pathogenic AP isolated tests"\n'
+            'config_version=5\n[application]\nconfig/name="Pathogenic MultiworldGG isolated tests"\n'
             'config/use_custom_user_dir=true\n'
             f'config/custom_user_dir_name="{Path(user).name}"\n'
             '[rendering]\nrenderer/rendering_method="gl_compatibility"\n'

@@ -67,7 +67,7 @@ func next_location() -> int:
 
 func purchase(location: int) -> bool:
 	if location != next_location() or location < 0:
-		error = "Attempted duplicate or out-of-order AP purchase."
+		error = "Attempted duplicate or out-of-order MultiworldGG purchase."
 		return false
 	checks.append(location)
 	if not _save():

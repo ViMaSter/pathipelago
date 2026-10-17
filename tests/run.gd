@@ -1,7 +1,7 @@
 extends SceneTree
 
-const State = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/state.gd")
-const Client = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/client.gd")
+const State = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/state.gd")
+const Client = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/client.gd")
 var failures := 0
 var assertions := 0
 
@@ -71,50 +71,54 @@ func _network_and_purchase() -> void:
 	var pickups: Node = _pedestal(room, "Item4", false)
 	var early_menu: Node = load("res://scn/ui/options_menu.gd").new()
 	root.add_child(early_menu)
-	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://archipelago_shop/connection.cfg"))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://multiworldgg_shop/connection.cfg"))
 	var client := Client.new()
-	client.name = "ArchipelagoShop"
+	client.name = "MultiworldGGShop"
 	root.add_child(client)
 	await process_frame
 	await process_frame
-	check(early_menu.tab_buttons.size() == 3 and early_menu.tab_buttons[2].text == "Archipelago",
+	check(client.server.is_empty(), "fresh configuration has no guessed room endpoint")
+	client.connect_server()
+	check(not client.connecting and client.status.contains("room page"),
+			"empty endpoint gives an explicit room-address instruction")
+	check(early_menu.tab_buttons.size() == 3 and early_menu.tab_buttons[2].text == "MultiworldGG",
 			"menu created before the mod (main menu) also gets the tab")
 	early_menu.queue_free()
-	check(not client.enabled and not client.is_ap(shop), "Archipelago is off by default")
+	check(not client.enabled and not client.is_multiworld(shop), "MultiworldGG is off by default")
 	var main := Node.new()
 	root.add_child(main)
 	globals.main = main
 	client.begin_run()
-	check(not client.run_ap, "run started while off is vanilla")
+	check(not client.run_multiworld, "run started while off is vanilla")
 	client.set_enabled(true)
-	check(client.enabled and not client.run_ap and not client.is_ap(shop), "enabling mid-run keeps the run vanilla")
+	check(client.enabled and not client.run_multiworld and not client.is_multiworld(shop), "enabling mid-run keeps the run vanilla")
 	saves.is_loading_run = true
 	client.begin_run()
-	check(not client.run_ap, "continuing a vanilla run stays vanilla")
+	check(not client.run_multiworld, "continuing a vanilla run stays vanilla")
 	saves.is_loading_run = false
 	globals.rng_seed = "SEEDBBBB"
 	client.begin_run()
-	check(client.run_ap and client.is_ap(shop), "new run while on uses Archipelago")
+	check(client.run_multiworld and client.is_multiworld(shop), "new run while on uses MultiworldGG")
 	client.set_enabled(false)
-	check(client.run_ap and client.is_ap(shop), "disabling mid-run keeps the Archipelago run")
+	check(client.run_multiworld and client.is_multiworld(shop), "disabling mid-run keeps the MultiworldGG run")
 	saves.is_loading_run = true
 	client.begin_run()
-	check(client.run_ap, "continuing an Archipelago run restores its mode")
+	check(client.run_multiworld, "continuing a MultiworldGG run restores its mode")
 	globals.rng_seed = "SEEDCCCC"
 	client.begin_run()
-	check(not client.run_ap, "continue with an unknown seed stays vanilla")
+	check(not client.run_multiworld, "continue with an unknown seed stays vanilla")
 	saves.is_loading_run = false
 	globals.rng_seed = "SEEDBBBB"
 	client.set_enabled(true)
 	client.begin_run()
-	check(client.is_ap(shop), "first bodypart pedestal is the AP pedestal")
+	check(client.is_multiworld(shop), "first bodypart pedestal is the MultiworldGG pedestal")
 	var start_menu: Control = load("res://scn/ui/start_menus/player_selection_menu.gd").new()
 	root.add_child(start_menu)
 	await process_frame
 	await process_frame
 	var start: Button = start_menu.get_node("ButtonSelect")
-	var start_tip: Control = start.get_node_or_null("ArchipelagoStartTooltip")
-	check(start_tip != null and start.has_meta("archipelago_start"), "start button gets the Archipelago warning")
+	var start_tip: Control = start.get_node_or_null("MultiworldGGStartTooltip")
+	check(start_tip != null and start.has_meta("multiworldgg_start"), "start button gets the MultiworldGG warning")
 	start.pressed.emit()
 	check(start_menu.starts == 1, "tube selection press is not confirmed")
 	start_menu.loadout_active = true
@@ -123,26 +127,26 @@ func _network_and_purchase() -> void:
 	check(start.text == "Really Start" and start_menu.starts == 1, "vanilla organelle confirmation comes first")
 	start.pressed.emit()
 	await process_frame
-	check(start.text == "Start Archipelago" and start_menu.starts == 1 and start_tip.visible,
-			"Archipelago confirmation stacks after the vanilla one")
+	check(start.text == "Start MultiworldGG" and start_menu.starts == 1 and start_tip.visible,
+			"MultiworldGG confirmation stacks after the vanilla one")
 	start.pressed.emit()
 	check(start_menu.starts == 2 and start_menu.clicks == 2 and start.text == "Start", "third press starts the run")
 	start_menu.full = true
 	start.pressed.emit()
-	check(start.text == "Start Archipelago" and start_menu.starts == 2, "full loadout asks only the Archipelago confirmation")
+	check(start.text == "Start MultiworldGG" and start_menu.starts == 2, "full loadout asks only the MultiworldGG confirmation")
 	start.mouse_exited.emit()
 	start.pressed.emit()
-	check(start.text == "Start Archipelago" and start_menu.starts == 2, "leaving the button restarts the stack")
+	check(start.text == "Start MultiworldGG" and start_menu.starts == 2, "leaving the button restarts the stack")
 	start.pressed.emit()
-	check(start_menu.starts == 3, "confirmed Archipelago start runs")
+	check(start_menu.starts == 3, "confirmed MultiworldGG start runs")
 	var hint := Client.start_hint()
-	check(hint.contains("[color=#ff9a2e]Archipelago enabled![/color]") and hint.contains("[color=#66e6ff]for other players[/color]")
+	check(hint.contains("[color=#ff9a2e]MultiworldGG enabled![/color]") and hint.contains("[color=#66e6ff]for other players[/color]")
 			and hint.contains("[b]still spawn but can't be redeemed[/b]") and hint.contains("[b]start a new run[/b]"),
 			"hint has orange headline, blue recipients and bold key phrases")
 	client.enabled = false
 	start_menu._start_button_hovered = true
 	await process_frame
-	check(not start_tip.visible, "Archipelago warning hidden while disabled")
+	check(not start_tip.visible, "MultiworldGG warning hidden while disabled")
 	start.pressed.emit()
 	check(start_menu.starts == 4, "disabled with full loadout starts immediately")
 	start_menu.full = false
@@ -151,11 +155,11 @@ func _network_and_purchase() -> void:
 	check(start_menu.starts == 5, "disabled keeps the vanilla single confirmation")
 	client.enabled = true
 	start_menu.queue_free()
-	check(not client.is_ap(second) and not client.is_ap(pickups), "exactly one AP pedestal per shop")
+	check(not client.is_multiworld(second) and not client.is_multiworld(pickups), "exactly one MultiworldGG pedestal per shop")
 	second._on_picked()
 	check(second.vanilla_purchases == 1, "other pedestals stay vanilla local purchases")
 	shop._on_picked()
-	check(player.money == 50 and shop.vanilla_purchases == 0, "offline AP buy neither charges nor grants vanilla")
+	check(player.money == 50 and shop.vanilla_purchases == 0, "offline MultiworldGG buy neither charges nor grants vanilla")
 	shop.pay_with_blood = true
 	shop._on_picked()
 	check(shop.vanilla_purchases == 1, "blood purchase stays vanilla")
@@ -165,18 +169,18 @@ func _network_and_purchase() -> void:
 	var choose: Node = _pedestal(challenge_room, "Item1", true)
 	choose._rewards[0].choose_one = true
 	var fallback: Node = _pedestal(challenge_room, "Item2", true)
-	check(not client.is_ap(choose) and client.is_ap(fallback), "choose-one pedestal skipped for designation")
-	var orphan: Node = load("res://mods-unpacked/ViMaSter-ArchipelagoShop/shop_item.gd").new()
+	check(not client.is_multiworld(choose) and client.is_multiworld(fallback), "choose-one pedestal skipped for designation")
+	var orphan: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/shop_item.gd").new()
 	root.add_child(orphan)
-	check(not client.is_ap(orphan), "pedestals outside shop rooms stay vanilla")
-	var log_text := FileAccess.get_file_as_string("user://archipelago_shop/client.log")
+	check(not client.is_multiworld(orphan), "pedestals outside shop rooms stay vanilla")
+	var log_text := FileAccess.get_file_as_string("user://multiworldgg_shop/client.log")
 	check(log_text.contains("Shop pick ShopRoom/Item2") and log_text.contains("vanilla local purchase") \
-			and log_text.contains("-> ARCHIPELAGO"), "every pick is written to the flushed client log")
+			and log_text.contains("-> MULTIWORLDGG"), "every pick is written to the flushed client log")
 	var menu: Node = load("res://scn/ui/options_menu.gd").new()
 	root.add_child(menu)
 	await process_frame
 	await process_frame
-	check(menu.tab_buttons.size() == 3 and menu.tab_buttons[2].text == "Archipelago", "settings tab injected")
+	check(menu.tab_buttons.size() == 3 and menu.tab_buttons[2].text == "MultiworldGG", "settings tab injected")
 	check(menu.tab_content.get_child_count() == 3, "settings page injected")
 	menu.tab_buttons[2].pressed.emit()
 	check(menu.current_tab == 2 and menu.tab_content.get_child(2).visible, "settings tab selectable")
@@ -205,8 +209,9 @@ func _network_and_purchase() -> void:
 	_send(peer, [{"cmd": "RoomInfo", "seed_name": "fixture-campaign"}])
 	var messages := await _collect(peer, 15)
 	var connect_message := _find(messages, "Connect")
-	check(connect_message.get("game") == "Pathogenic", "real AP handshake game")
+	check(connect_message.get("game") == "Pathogenic", "real MultiworldGG handshake game")
 	check(connect_message.get("items_handling") == 7, "request local, remote, starting items")
+	check(connect_message.get("tags") == ["AP"], "preserve protocol-defined AP tag")
 	_send(peer, [{
 		"cmd": "Connected", "team": 0, "slot": 1,
 		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
@@ -264,7 +269,7 @@ func _network_and_purchase() -> void:
 	client._refresh_offers()
 	client._mask_rewards()
 	check(icon.visible and icon.texture == client.remote_icon and icon.scale == client.REMOTE_ICON_SCALE \
-			and not reward.bodypart.visible, "AP pedestal shows the Enhancer icon instead of the rolled upgrade")
+			and not reward.bodypart.visible, "MultiworldGG pedestal shows the Enhancer icon instead of the rolled upgrade")
 	check(client.REMOTE_ICON == "res://gfx/player/bodyparts/internal/upgrade.png", "remote icon is Enhancer's texture")
 	player.money = 2
 	shop._on_picked()
@@ -304,7 +309,7 @@ func _network_and_purchase() -> void:
 	for i in free.size():
 		choice.get_child(i).add_child(free[i])
 	await process_frame
-	check(free[0].has_meta("archipelago_free") and not free[1].has_meta("archipelago_free"),
+	check(free[0].has_meta("multiworldgg_free") and not free[1].has_meta("multiworldgg_free"),
 			"blue item room gets exactly one remote unlock")
 	client._refresh_offers()
 	client._mask_rewards()
@@ -344,9 +349,9 @@ func _network_and_purchase() -> void:
 		boss_free.append(rewards)
 	await process_frame
 	var boss: Array = boss_free[0]
-	check(boss[0].has_meta("archipelago_free") and not boss[1].has_meta("archipelago_free")
-			and not boss[2].has_meta("archipelago_free"), "boss reward choice gets exactly one remote unlock")
-	check(boss_free[1].all(func(r): return not r.has_meta("archipelago_free")), "non-boss rooms stay vanilla")
+	check(boss[0].has_meta("multiworldgg_free") and not boss[1].has_meta("multiworldgg_free")
+			and not boss[2].has_meta("multiworldgg_free"), "boss reward choice gets exactly one remote unlock")
+	check(boss_free[1].all(func(r): return not r.has_meta("multiworldgg_free")), "non-boss rooms stay vanilla")
 	client._refresh_offers()
 	client._mask_rewards()
 	check(boss[0].get_node("%Label").text == "Remote Unlock 3/5" and boss[0].get_node("%MutationIcon").texture == client.remote_icon,
@@ -411,9 +416,9 @@ func _network_and_purchase() -> void:
 		gated_room.add_child(gated_reward)
 		gated_rooms.append(gated_reward)
 	await process_frame
-	check(not client.is_ap(gated_shop), "shop_unlocks=false keeps shops vanilla")
-	check(client.is_free_ap(gated_rooms[0]), "item_room_unlocks=true keeps item-room remote unlocks")
-	check(not client.is_free_ap(gated_rooms[1]), "boss_reward_unlocks=false keeps boss rewards vanilla")
+	check(not client.is_multiworld(gated_shop), "shop_unlocks=false keeps shops vanilla")
+	check(client.is_free_multiworld(gated_rooms[0]), "item_room_unlocks=true keeps item-room remote unlocks")
+	check(not client.is_free_multiworld(gated_rooms[1]), "boss_reward_unlocks=false keeps boss rewards vanilla")
 	gated_rooms[1].pickup_area.picked.emit()
 	check(gated_rooms[1].vanilla_picks == 1 and client.campaign.checks.size() == 4, "disabled boss reward picks normally")
 	client.sources = {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}
@@ -430,7 +435,7 @@ func _network_and_purchase() -> void:
 	client.player_age = 1.99
 	await create_timer(0.7).timeout
 	check(player.money == 55 and client.campaign.bank == 0, "grant auto-redeems 15 coins without a button")
-	check(client.toast.visible and client.toast.text == "Archipelago: received 1 Research Grant: +15 coins",
+	check(client.toast.visible and client.toast.text == "MultiworldGG: received 1 Research Grant: +15 coins",
 			"auto-redeemed grant shown in the blue toast")
 	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
 	await _collect(peer, 10)
@@ -446,7 +451,7 @@ func _network_and_purchase() -> void:
 	tcp.stop()
 
 func _pedestal(room: Node, pedestal_name: String, with_reward: bool) -> Node:
-	var pedestal: Node = load("res://mods-unpacked/ViMaSter-ArchipelagoShop/shop_item.gd").new()
+	var pedestal: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/shop_item.gd").new()
 	pedestal.name = pedestal_name
 	room.add_child(pedestal)
 	pedestal.add_to_group("shop_item")

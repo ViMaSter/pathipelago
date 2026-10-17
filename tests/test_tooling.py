@@ -43,7 +43,7 @@ class WorkshopVdfTests(unittest.TestCase):
 
 class BuildTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="pathogenic-ap-build-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-build-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         for folder in ("mods-unpacked", "apworld"):
@@ -112,7 +112,7 @@ class BuildTests(unittest.TestCase):
 
 class InstallTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="pathogenic-ap-tooling-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="pathogenic-multiworld-tooling-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.steamapps = self.root / "steamapps"
@@ -134,7 +134,7 @@ class InstallTests(unittest.TestCase):
     def write_mod(self, namespace="ViMaSter", version=1):
         with zipfile.ZipFile(self.archive, "w") as archive:
             archive.writestr(f"mods-unpacked/{installer.MOD_ID}/manifest.json",
-                             json.dumps({"namespace": namespace, "name": "ArchipelagoShop",
+                             json.dumps({"namespace": namespace, "name": "MultiworldGGShop",
                                          "version": version}))
 
     def test_replace_only_owned_mod_and_backup(self):
@@ -205,6 +205,22 @@ class InstallTests(unittest.TestCase):
         (self.game.parent / "mods-unpacked" / installer.MOD_ID).mkdir(parents=True)
         with self.assertRaisesRegex(ValueError, "Conflicting"):
             installer.install(self.game)
+
+    def test_refuse_legacy_mod_without_deleting_it(self):
+        legacy_paths = [
+            self.mods / f"{installer.LEGACY_MOD_ID}.zip",
+            self.game.parent / "mods-unpacked" / installer.LEGACY_MOD_ID,
+            self.steamapps / "workshop/content/3808690/123" / f"{installer.LEGACY_MOD_ID}.zip",
+        ]
+        for legacy in legacy_paths:
+            with self.subTest(path=legacy):
+                legacy.parent.mkdir(parents=True, exist_ok=True)
+                legacy.write_bytes(b"legacy")
+                with self.assertRaisesRegex(ValueError, "Legacy Archipelago"):
+                    installer.install(self.game)
+                self.assertEqual(legacy.read_bytes(), b"legacy")
+                self.assertFalse((self.mods / installer.MOD_NAME).exists())
+                legacy.unlink()
 
     def test_corrupt_archive_does_not_replace_previous_install(self):
         target = installer.install(self.game)

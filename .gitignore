@@ -7,6 +7,10 @@
 /players-stardew-pathogenic/
 /local-webhost/
 /shop-sprites/
+/example/.multiworldgg-*/
+/example/.multiworldgg-download-*/
+/example/output/
+/example/*.apworld
 
 # Python and Godot caches
 __pycache__/

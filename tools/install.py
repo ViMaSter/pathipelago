@@ -13,8 +13,9 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-MOD_ID = "ViMaSter-ArchipelagoShop"
+MOD_ID = "ViMaSter-MultiworldGGShop"
 MOD_NAME = f"{MOD_ID}.zip"
+LEGACY_MOD_ID = "ViMaSter-ArchipelagoShop"
 APP_ID = "3808690"
 DEFAULT_GAME = Path.home() / "Library/Application Support/Steam/steamapps/common/Pathogenic/Pathogenic.app"
 
@@ -46,6 +47,13 @@ def install(game: Path) -> Path:
     mods = game.parent / "mods"
     if mods.is_symlink():
         raise ValueError("Refusing a symlinked mods directory")
+    legacy = [mods / f"{LEGACY_MOD_ID}.zip", game.parent / "mods-unpacked" / LEGACY_MOD_ID]
+    workshop = game.parent.parent.parent / "workshop/content" / APP_ID
+    legacy.extend(workshop.glob(f"*/{LEGACY_MOD_ID}.zip"))
+    for path in legacy:
+        if path.exists() or path.is_symlink():
+            raise ValueError(f"Legacy Archipelago mod would load alongside MultiworldGG; "
+                             f"remove or update it manually before installing: {path}")
     mods.mkdir(exist_ok=True)
     destination = mods / MOD_NAME
     unpacked = game.parent / "mods-unpacked" / MOD_ID

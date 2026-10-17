@@ -34,4 +34,4 @@ if pgrep -x Pathogenic >/dev/null; then
     exit 1
 fi
 "$PYTHON" "$ROOT/tools/install.py" --game "$GAME"
-echo "Start Pathogenic from Steam and open Settings > Archipelago."
+echo "Start Pathogenic from Steam and open Settings > MultiworldGG."

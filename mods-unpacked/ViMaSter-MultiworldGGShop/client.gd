@@ -8,7 +8,7 @@ const MAX_CHECKS := 10000
 # Godot's 64 KiB default closes the socket (1009) on large data packages such as Stardew's.
 const INBOUND_BUFFER := 16 * 1024 * 1024
 const GRANT_COINS := 15
-const ROOT := "user://archipelago_shop"
+const ROOT := "user://multiworldgg_shop"
 const LOG_FILE := ROOT + "/client.log"
 const LOG_LIMIT := 512 * 1024
 const LOG_LINES := 200
@@ -16,20 +16,20 @@ const SHOP_ROOM_SCRIPT := "res://scn/environ/rooms/special/shop.gd"
 const OPTIONS_SCRIPT := "res://scn/ui/options_menu.gd"
 const MAIN_SCRIPT := "res://scn/main.gd"
 const START_MENU_SCRIPT := "res://scn/ui/start_menus/player_selection_menu.gd"
-const START_TEXT := "Start Archipelago"
+const START_TEXT := "Start MultiworldGG"
 const ORANGE := "#ff9a2e"
 const BLUE := "#66e6ff"
 const RUN_FILE := ROOT + "/run.cfg"
 # Blue "item rooms" offer 1-3 free choose-one BodypartRewards.
 const ITEM_ROOM_SCRIPT := "res://scn/environ/rooms/special/item_room.gd"
 const REWARD_SCRIPT := "res://scn/environ/pickups/bodypart_reward.gd"
-const TAB_TITLE := "Archipelago"
+const TAB_TITLE := "MultiworldGG"
 const FONT_SIZE := 18
 const SMALL_FONT_SIZE := 12
 const PAGE_MIN_HEIGHT := 300.0
 const PAGE_MAX_HEIGHT := 640.0
 const BUTTON_COLOR := Color(0.12, 0.42, 0.68)
-# Enhancer's icon; every AP pedestal shows it instead of the rolled upgrade.
+# Enhancer's icon; every MultiworldGG pedestal shows it instead of the rolled upgrade.
 const REMOTE_ICON := "res://gfx/player/bodyparts/internal/upgrade.png"
 const MUTATION_SKIP := "res://scn/player/evolutions/skip_evolution.tres"
 const MUTATION_PLACEHOLDER := "res://gfx/player/mutations/mutation_placeholder.png"
@@ -37,12 +37,12 @@ const MUTATION_PLACEHOLDER := "res://gfx/player/mutations/mutation_placeholder.p
 # on evolution levels.
 const LEVEL_CARD := 3
 const REMOTE_ICON_SCALE := Vector2(3.0, 3.0)
-const State = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/state.gd")
+const State = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/state.gd")
 
 var socket := WebSocketPeer.new()
 var authenticated := false
-var status := "Archipelago is off. Enable it in Settings > Archipelago before starting a run."
-var server := "ws://localhost:38281"
+var status := "MultiworldGG is off. Enable it in Settings > MultiworldGG before starting a run."
+var server := ""
 var slot_name := ""
 var password := ""
 var team := -1
@@ -54,10 +54,10 @@ const SOURCES := ["shops", "item_rooms", "boss_rewards", "level_ups"]
 const SOURCE_LABELS := {"shops": "shops", "item_rooms": "blue item rooms",
 	"boss_rewards": "boss rewards", "level_ups": "level-up drafts"}
 var sources := {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}
-# The setting decides new runs; run_ap is locked when a run starts (or is
+# The setting decides new runs; run_multiworld is locked when a run starts (or is
 # continued) so toggling mid-run never changes that run's rewards.
 var enabled := false
-var run_ap := false
+var run_multiworld := false
 var run_seed := ""
 var campaign: RefCounted
 var scouts: Dictionary = {}
@@ -76,7 +76,7 @@ var log_revision := 0
 var pages: Array = []
 var toast: Label
 var toast_time := 0.0
-var ap_rewards: Array = []
+var remote_rewards: Array = []
 var free_rewards: Array = []
 var remote_icon: Texture2D
 var remote_card: Texture2D
@@ -98,7 +98,7 @@ func _ready() -> void:
 	# Run after the game UI so the tooltip override wins each frame.
 	process_priority = 1000
 	if DirAccess.make_dir_recursive_absolute(ROOT) != OK:
-		_fail("Cannot create AP campaign directory.")
+		_fail("Cannot create MultiworldGG campaign directory.")
 	_open_log()
 	_build_toast()
 	get_tree().node_added.connect(_on_node_added)
@@ -111,9 +111,9 @@ func _ready() -> void:
 		for key in SOURCES:
 			sources[key] = config.get_value("sources", key, true) == true
 	elif err != ERR_FILE_NOT_FOUND:
-		_fail("Cannot read AP connection configuration: " + error_string(err))
+		_fail("Cannot read MultiworldGG connection configuration: " + error_string(err))
 	log_line("Client log: " + ProjectSettings.globalize_path(LOG_FILE))
-	notify(status if not enabled else "Archipelago is on for new runs.")
+	notify(status if not enabled else "MultiworldGG is on for new runs.")
 	# The main menu (and its options panel) exists before this node joins the tree.
 	_scan_existing.call_deferred(get_tree().root)
 	if enabled and not slot_name.is_empty() and not fatal:
@@ -131,10 +131,10 @@ func set_enabled(value: bool) -> void:
 	enabled = value
 	var err := _save_config()
 	if err != OK:
-		_fail("Could not save Archipelago setting: " + error_string(err))
+		_fail("Could not save MultiworldGG setting: " + error_string(err))
 		return
-	var current := " This run stays %s." % ("Archipelago" if run_ap else "vanilla") if _run_active() else ""
-	notify("Archipelago %s for new runs.%s" % ["enabled" if enabled else "disabled", current])
+	var current := " This run stays %s." % ("MultiworldGG" if run_multiworld else "vanilla") if _run_active() else ""
+	notify("MultiworldGG %s for new runs.%s" % ["enabled" if enabled else "disabled", current])
 	if enabled and not authenticated and not connecting and not slot_name.is_empty() and not fatal:
 		connect_server()
 
@@ -151,19 +151,19 @@ func begin_run() -> void:
 	var continuing: bool = saves != null and saves.get("is_loading_run") == true
 	var config := ConfigFile.new()
 	if continuing:
-		run_ap = config.load(RUN_FILE) == OK and str(config.get_value("run", "seed", "")) == run_seed \
-				and config.get_value("run", "archipelago", false) == true
+		run_multiworld = config.load(RUN_FILE) == OK and str(config.get_value("run", "seed", "")) == run_seed \
+				and config.get_value("run", "multiworldgg", false) == true
 	else:
-		run_ap = enabled
+		run_multiworld = enabled
 		config.set_value("run", "seed", run_seed)
-		config.set_value("run", "archipelago", run_ap)
+		config.set_value("run", "multiworldgg", run_multiworld)
 		var err := config.save(RUN_FILE)
 		if err != OK:
 			log_line("Cannot save run mode: " + error_string(err))
-	ap_rewards.clear()
+	remote_rewards.clear()
 	free_rewards.clear()
 	notify("%s run %s: %s." % ["Continued" if continuing else "New", run_seed,
-		"Archipelago remote unlocks active" if run_ap else "vanilla (Archipelago off for this run)"])
+		"MultiworldGG remote unlocks active" if run_multiworld else "vanilla (MultiworldGG off for this run)"])
 
 func _open_log() -> void:
 	if FileAccess.file_exists(LOG_FILE) and FileAccess.open(LOG_FILE, FileAccess.READ).get_length() > LOG_LIMIT:
@@ -175,7 +175,7 @@ func _open_log() -> void:
 	else:
 		_log = FileAccess.open(LOG_FILE, FileAccess.WRITE)
 	if _log == null:
-		push_error("[ArchipelagoShop] Cannot open client log: " + error_string(FileAccess.get_open_error()))
+		push_error("[MultiworldGGShop] Cannot open client log: " + error_string(FileAccess.get_open_error()))
 
 func log_line(message: String) -> void:
 	var line := "%s %s" % [Time.get_datetime_string_from_system(), message]
@@ -183,7 +183,7 @@ func log_line(message: String) -> void:
 	if log_lines.size() > LOG_LINES:
 		log_lines = log_lines.slice(log_lines.size() - LOG_LINES)
 	log_revision += 1
-	print("[ArchipelagoShop] ", message)
+	print("[MultiworldGGShop] ", message)
 	if _log != null:
 		_log.store_line(line)
 		_log.flush()
@@ -195,7 +195,7 @@ func notify(message: String) -> void:
 func _fail(message: String) -> void:
 	fatal = true
 	authenticated = false
-	push_error("[ArchipelagoShop] " + message)
+	push_error("[MultiworldGGShop] " + message)
 	notify(message + " Purchases are blocked; see the client log.")
 
 func _build_toast() -> void:
@@ -213,11 +213,14 @@ func _build_toast() -> void:
 
 func show_toast(message: String) -> void:
 	if is_instance_valid(toast):
-		toast.text = "Archipelago: " + message
+		toast.text = "MultiworldGG: " + message
 		toast.visible = true
 		toast_time = 5.0
 
 func connect_server() -> void:
+	if server.strip_edges().is_empty():
+		notify("Enter the WebSocket address from your multiworld.gg room page before connecting.")
+		return
 	if fatal:
 		notify("Restart after resolving the campaign/configuration error in the log.")
 		return
@@ -258,12 +261,12 @@ func _process(delta: float) -> void:
 			var parser := JSON.new()
 			var err := parser.parse(socket.get_packet().get_string_from_utf8())
 			if err != OK or not parser.data is Array:
-				_fail("Malformed Archipelago packet.")
+				_fail("Malformed MultiworldGG packet.")
 				socket.close()
 				return
 			for message in parser.data:
 				if not message is Dictionary or not message.get("cmd") is String:
-					_fail("Malformed Archipelago command.")
+					_fail("Malformed MultiworldGG command.")
 					socket.close()
 					return
 				_handle(message)
@@ -271,7 +274,7 @@ func _process(delta: float) -> void:
 		connecting = false
 		authenticated = false
 		item_stream_ready = false
-		notify("Disconnected (code %d). AP pedestals are blocked; reconnect in Settings > Archipelago." % socket.get_close_code())
+		notify("Disconnected (code %d). MultiworldGG pedestals are blocked; reconnect in Settings > MultiworldGG." % socket.get_close_code())
 	if authenticated and not fatal:
 		retry_time += delta
 		if retry_time >= 5.0:
@@ -301,7 +304,7 @@ func _send(message: Dictionary) -> bool:
 	var err := socket.send_text(JSON.stringify([message]))
 	if err != OK:
 		authenticated = false
-		notify("Network send failed: " + error_string(err) + ". Reconnect in Settings > Archipelago.")
+		notify("Network send failed: " + error_string(err) + ". Reconnect in Settings > MultiworldGG.")
 		return false
 	return true
 
@@ -471,7 +474,7 @@ func _connected(message: Dictionary) -> void:
 	_accept_checks(checked)
 	if fatal:
 		return
-	# Archipelago 0.6.8+ answers only for explicitly listed games.
+	# Request every slot's game so cross-game item names are available.
 	var games: Array = []
 	for game_name in slot_games.values():
 		if not game_name in games:
@@ -563,12 +566,12 @@ func _offers_bodypart(shop: Node) -> bool:
 			return false
 	return true
 
-# Exactly one pedestal per shop room is the AP pedestal: the first pedestal in
+# Exactly one pedestal per shop room is the MultiworldGG pedestal: the first pedestal in
 # name order that offers a bodypart, else the first currency pedestal. The
 # choice is cached on the room instance so it stays put after the purchase.
 func designated(room: Node) -> Node:
-	if room.has_meta("archipelago_pedestal"):
-		var cached: Variant = room.get_meta("archipelago_pedestal")
+	if room.has_meta("multiworldgg_pedestal"):
+		var cached: Variant = room.get_meta("multiworldgg_pedestal")
 		return cached if is_instance_valid(cached) else null
 	var candidates: Array = []
 	for node in room.find_children("*", "", true, false):
@@ -583,12 +586,12 @@ func designated(room: Node) -> Node:
 		if _offers_bodypart(node):
 			choice = node
 			break
-	room.set_meta("archipelago_pedestal", choice)
-	log_line("AP pedestal for shop room %s: %s" % [room.name, choice.name])
+	room.set_meta("multiworldgg_pedestal", choice)
+	log_line("MultiworldGG pedestal for shop room %s: %s" % [room.name, choice.name])
 	return choice
 
-func is_ap(shop: Node) -> bool:
-	if not run_ap or not sources.shops or not is_instance_valid(shop) or shop.pay_with_blood:
+func is_multiworld(shop: Node) -> bool:
+	if not run_multiworld or not sources.shops or not is_instance_valid(shop) or shop.pay_with_blood:
 		return false
 	if campaign != null and authenticated and campaign.next_location() < 0:
 		return false
@@ -597,19 +600,19 @@ func is_ap(shop: Node) -> bool:
 
 # Kept for callers/tests written against the earlier API.
 func eligible(shop: Node) -> bool:
-	return is_ap(shop)
+	return is_multiworld(shop)
 
-# Returns true when the pick was consumed by the AP path; false lets the
+# Returns true when the pick was consumed by the MultiworldGG path; false lets the
 # vanilla shop purchase run.
 func handle_pick(shop: Node, theft := false) -> bool:
-	var ap := is_ap(shop)
+	var multiworld := is_multiworld(shop)
 	var room := shop_room(shop)
 	var globals := get_node_or_null("/root/G")
 	var money: Variant = globals.player.money if globals != null and is_instance_valid(globals.player) else null
 	log_line("Shop pick %s/%s cost=%s money=%s paid=%s blood=%s theft=%s -> %s" % [
 		room.name if room != null else "-", shop.name, shop.cost, money, shop.paid,
-		shop.pay_with_blood, theft, "ARCHIPELAGO" if ap else "vanilla local purchase"])
-	if not ap:
+		shop.pay_with_blood, theft, "MULTIWORLDGG" if multiworld else "vanilla local purchase"])
+	if not multiworld:
 		return false
 	purchase(shop)
 	return true
@@ -630,7 +633,7 @@ func _on_node_added(node: Node) -> void:
 		_track_shop.call_deferred(node)
 
 func _track_shop(shop: Node) -> void:
-	if not is_instance_valid(shop) or shop.has_method("_ap_client"):
+	if not is_instance_valid(shop) or shop.has_method("_multiworld_client"):
 		return
 	# The script takeover did not apply to this pedestal; route its picks here.
 	var area := shop.get_node_or_null("PickupArea")
@@ -680,8 +683,8 @@ static func _is_reward(node: Node) -> bool:
 # One free reward per item/boss room becomes the remote unlock: the first in
 # scene-tree order (Reward, Reward2, Reward3), cached on the room so it stays put.
 func designated_free(room: Node) -> Node:
-	if room.has_meta("archipelago_reward"):
-		var cached: Variant = room.get_meta("archipelago_reward")
+	if room.has_meta("multiworldgg_reward"):
+		var cached: Variant = room.get_meta("multiworldgg_reward")
 		if is_instance_valid(cached) and not cached.deleted:
 			return cached
 	var candidates: Array = []
@@ -691,13 +694,13 @@ func designated_free(room: Node) -> Node:
 			candidates.append(node)
 	if candidates.is_empty():
 		return null
-	room.set_meta("archipelago_reward", candidates[0])
-	log_line("AP pedestal for %s room %s: %s" % ["boss" if _is_boss_room(room) else "item",
+	room.set_meta("multiworldgg_reward", candidates[0])
+	log_line("MultiworldGG pedestal for %s room %s: %s" % ["boss" if _is_boss_room(room) else "item",
 		room.name, room.get_path_to(candidates[0])])
 	return candidates[0]
 
 func _track_free_reward(reward: Node) -> void:
-	if not is_instance_valid(reward) or reward.deleted or reward.has_meta("archipelago_free") \
+	if not is_instance_valid(reward) or reward.deleted or reward.has_meta("multiworldgg_free") \
 			or _shop_wrapper(reward) != null:
 		return
 	var room := free_room(reward)
@@ -711,20 +714,20 @@ func _track_free_reward(reward: Node) -> void:
 	if area.picked.is_connected(vanilla):
 		area.picked.disconnect(vanilla)
 	area.picked.connect(_free_pick.bind(reward))
-	reward.set_meta("archipelago_free", true)
+	reward.set_meta("multiworldgg_free", true)
 	free_rewards.append(reward)
-	if is_free_ap(reward):
-		ap_rewards.append(reward)
+	if is_free_multiworld(reward):
+		remote_rewards.append(reward)
 		_mask_rewards()
 
 func free_source_enabled(reward: Node) -> bool:
 	var room := free_room(reward)
-	if room == null or not run_ap:
+	if room == null or not run_multiworld:
 		return false
 	return sources.boss_rewards if _is_boss_room(room) else sources.item_rooms
 
-func is_free_ap(reward: Variant) -> bool:
-	if not is_instance_valid(reward) or reward.deleted or reward.consumed or not reward.has_meta("archipelago_free"):
+func is_free_multiworld(reward: Variant) -> bool:
+	if not is_instance_valid(reward) or reward.deleted or reward.consumed or not reward.has_meta("multiworldgg_free"):
 		return false
 	if not free_source_enabled(reward):
 		return false
@@ -737,7 +740,7 @@ func _free_pick(reward: Node) -> void:
 	var exhausted: bool = (campaign != null and authenticated and campaign.next_location() < 0) \
 			or not free_source_enabled(reward)
 	log_line("Free reward pick %s/%s -> %s" % [room.name if room != null else "-", reward.name,
-		"vanilla free upgrade" if exhausted else "ARCHIPELAGO"])
+		"vanilla free upgrade" if exhausted else "MULTIWORLDGG"])
 	if exhausted:
 		_unmask_reward(reward)
 		_rename_reward(reward, "")
@@ -796,19 +799,19 @@ func _watch_level_up() -> void:
 	var current: Variant = mutations[LEVEL_CARD]
 	if current == null:
 		return
-	if level_card != null and not (run_ap and sources.level_ups):
+	if level_card != null and not (run_multiworld and sources.level_ups):
 		_restore_level_card(editor)
 	var gen := int(editor.get("_mutation_gen"))
 	if gen != level_gen:
 		level_gen = gen
 		level_card = null
-		if _level_exhausted() or not run_ap or not sources.level_ups:
+		if _level_exhausted() or not run_multiworld or not sources.level_ups:
 			return
 		level_original = current
 		level_texture = level_button.texture_normal if is_instance_valid(level_button) else null
 		level_card = (load(MUTATION_SKIP) as Resource).duplicate() if ResourceLoader.exists(MUTATION_SKIP) else Resource.new()
 		mutations[LEVEL_CARD] = level_card
-		log_line("AP card for level-up draft %d (replaces %s)." % [gen, _resource_label(current)])
+		log_line("MultiworldGG card for level-up draft %d (replaces %s)." % [gen, _resource_label(current)])
 	if level_card == null or mutations[LEVEL_CARD] != level_card:
 		return
 	if is_instance_valid(level_button):
@@ -818,7 +821,7 @@ func _watch_level_up() -> void:
 	var tooltip := editor.get_node_or_null("%MutationTooltip") as Control
 	if tooltip != null and tooltip.visible:
 		var item: Variant = tooltip.get("item")
-		if (item is Object and item == level_card) or (item is Dictionary and item.get("archipelago", false)):
+		if (item is Object and item == level_card) or (item is Dictionary and item.get("multiworldgg", false)):
 			_style_tooltip(tooltip)
 
 static func _resource_label(resource: Variant) -> String:
@@ -834,14 +837,14 @@ func _hook_level_button(editor: Node) -> void:
 	if not buttons is Array or buttons.size() <= LEVEL_CARD or not buttons[LEVEL_CARD] is BaseButton:
 		return
 	var button: BaseButton = buttons[LEVEL_CARD]
-	if button == level_button and button.has_meta("archipelago_level"):
+	if button == level_button and button.has_meta("multiworldgg_level"):
 		return
 	for connection in button.pressed.get_connections():
 		var callable: Callable = connection.callable
 		if callable.get_object() == editor and callable.get_method() == &"_on_mutation_pressed":
 			button.pressed.disconnect(callable)
 	button.pressed.connect(_level_pick.bind(editor))
-	button.set_meta("archipelago_level", true)
+	button.set_meta("multiworldgg_level", true)
 	level_button = button
 	level_gen = -1
 	level_card = null
@@ -856,7 +859,7 @@ func _level_pick(editor: Node) -> void:
 	if int(editor.state) != _enum_value("EditorState", "ACTIVE"):
 		return
 	if _level_exhausted():
-		log_line("Level-up pick -> vanilla card (all AP checks sent)")
+		log_line("Level-up pick -> vanilla card (all MultiworldGG checks sent)")
 		_restore_level_card(editor)
 		editor._on_mutation_pressed(LEVEL_CARD)
 		return
@@ -866,7 +869,7 @@ func _level_pick(editor: Node) -> void:
 	if not campaign.purchase(location):
 		_fail(campaign.error)
 		return
-	log_line("Level-up pick -> ARCHIPELAGO")
+	log_line("Level-up pick -> MULTIWORLDGG")
 	if int(editor.pending_mutation_index) >= 0:
 		editor._revert_pending_selection()
 	# Commit through the vanilla skip path so the level still consumes its gene.
@@ -927,16 +930,16 @@ func _error_sound() -> void:
 func _claim_location() -> int:
 	if fatal or not authenticated or campaign == null:
 		_error_sound()
-		show_toast("not connected - open Settings > Archipelago.")
-		notify("AP pedestal blocked: not connected to an Archipelago slot.")
+		show_toast("not connected - open Settings > MultiworldGG.")
+		notify("MultiworldGG pedestal blocked: not connected to a MultiworldGG slot.")
 		return -1
 	var location: int = campaign.next_location()
 	if location < 0:
-		notify("All AP checks purchased. Waiting for confirmation, or campaign complete.")
+		notify("All MultiworldGG checks purchased. Waiting for confirmation, or campaign complete.")
 		return -1
 	if not scouts.has(location):
 		_error_sound()
-		notify("AP pedestal blocked: waiting for scouting data from the server.")
+		notify("MultiworldGG pedestal blocked: waiting for scouting data from the server.")
 		return -1
 	return location
 
@@ -950,10 +953,10 @@ func purchase(shop: Node) -> void:
 	var player: Node = globals.player
 	if not is_instance_valid(player) or int(player.money) < int(shop.cost):
 		_error_sound()
-		notify("Not enough money for this AP unlock.")
+		notify("Not enough money for this MultiworldGG unlock.")
 		return
 	# Persist the location before charging. A crash between the two saves can
-	# forgive payment, but cannot lose or duplicate an Archipelago check.
+	# forgive payment, but cannot lose or duplicate a MultiworldGG check.
 	if not campaign.purchase(location):
 		_fail(campaign.error)
 		return
@@ -1014,7 +1017,7 @@ static func _bb(text: String) -> String:
 
 func tooltip_body() -> String:
 	if fatal or not authenticated or campaign == null:
-		return "[color=orange]Not connected: open Settings > Archipelago.[/color]"
+		return "[color=orange]Not connected: open Settings > MultiworldGG.[/color]"
 	var location: int = campaign.next_location()
 	if not scouts.has(location):
 		return "An external unlock for another multiworld player."
@@ -1027,7 +1030,7 @@ func tooltip_body() -> String:
 	return body
 
 func tooltip_card() -> Dictionary:
-	return {"name": tooltip_title(), "hint": tooltip_body(), "archipelago": true}
+	return {"name": tooltip_title(), "hint": tooltip_body(), "multiworldgg": true}
 
 func _shop_wrapper(node: Node) -> Node:
 	while node != null:
@@ -1038,7 +1041,7 @@ func _shop_wrapper(node: Node) -> Node:
 
 func _reward_ancestor(node: Node) -> Node:
 	while node != null:
-		if node.has_meta("archipelago_free"):
+		if node.has_meta("multiworldgg_free"):
 			return node
 		node = node.get_parent()
 	return null
@@ -1056,9 +1059,9 @@ func _override_tooltip() -> void:
 		return
 	var shop := _shop_wrapper(anchor)
 	if shop != null:
-		if shop.paid or not is_ap(shop):
+		if shop.paid or not is_multiworld(shop):
 			return
-	elif not is_free_ap(_reward_ancestor(anchor)):
+	elif not is_free_multiworld(_reward_ancestor(anchor)):
 		return
 	if _style_tooltip(tooltip):
 		ui.set("_last_tooltip_item", tooltip.item)
@@ -1074,8 +1077,8 @@ func _style_tooltip(tooltip: Control) -> bool:
 	if name_label != null and name_label.text != card.name:
 		name_label.text = card.name
 	var type_label := tooltip.get_node_or_null("%Type")
-	if type_label != null and type_label.text != "ARCHIPELAGO":
-		type_label.text = "ARCHIPELAGO"
+	if type_label != null and type_label.text != "MULTIWORLDGG":
+		type_label.text = "MULTIWORLDGG"
 		var panel := tooltip.get_node_or_null("%TypePanel")
 		if panel != null:
 			panel.self_modulate = Color(0.1, 0.35, 0.55, 1.0)
@@ -1086,7 +1089,7 @@ func _refresh_offers() -> void:
 	for shop in get_tree().get_nodes_in_group("shop_item"):
 		if not is_instance_valid(shop):
 			continue
-		if shop.paid or not is_ap(shop):
+		if shop.paid or not is_multiworld(shop):
 			_rename_rewards(shop, "")
 			for reward in shop.get("_rewards"):
 				_unmask_reward(reward)
@@ -1100,7 +1103,7 @@ func _refresh_offers() -> void:
 		if not is_instance_valid(reward) or reward.deleted:
 			continue
 		live.append(reward)
-		if not is_free_ap(reward):
+		if not is_free_multiworld(reward):
 			if not reward.consumed:
 				_rename_reward(reward, "")
 				_unmask_reward(reward)
@@ -1108,12 +1111,12 @@ func _refresh_offers() -> void:
 		_rename_reward(reward, tooltip_title())
 		masked.append(reward)
 	free_rewards = live
-	ap_rewards = masked
+	remote_rewards = masked
 
 # Hides the rolled bodypart/mutation and shows the Enhancer icon instead. Runs
 # every frame because the game re-spawns the visual on rerolls.
 func _mask_rewards() -> void:
-	for reward in ap_rewards:
+	for reward in remote_rewards:
 		if not is_instance_valid(reward) or reward.is_queued_for_deletion():
 			continue
 		var icon := reward.get_node_or_null("%MutationIcon") as Sprite2D
@@ -1123,8 +1126,8 @@ func _mask_rewards() -> void:
 			if not ResourceLoader.exists(REMOTE_ICON):
 				return
 			remote_icon = load(REMOTE_ICON) as Texture2D
-		if not icon.has_meta("archipelago_original"):
-			icon.set_meta("archipelago_original", [icon.texture, icon.scale])
+		if not icon.has_meta("multiworldgg_original"):
+			icon.set_meta("multiworldgg_original", [icon.texture, icon.scale])
 		if icon.texture != remote_icon or not icon.visible:
 			icon.texture = remote_icon
 			icon.scale = REMOTE_ICON_SCALE
@@ -1137,10 +1140,10 @@ func _unmask_reward(reward: Variant) -> void:
 	if not is_instance_valid(reward):
 		return
 	var icon := reward.get_node_or_null("%MutationIcon") as Sprite2D
-	if icon == null or not icon.has_meta("archipelago_original"):
+	if icon == null or not icon.has_meta("multiworldgg_original"):
 		return
-	var original: Array = icon.get_meta("archipelago_original")
-	icon.remove_meta("archipelago_original")
+	var original: Array = icon.get_meta("multiworldgg_original")
+	icon.remove_meta("multiworldgg_original")
 	icon.texture = original[0]
 	icon.scale = original[1]
 	var part: Variant = reward.get("bodypart")
@@ -1148,7 +1151,7 @@ func _unmask_reward(reward: Variant) -> void:
 	if part is CanvasItem and is_instance_valid(part):
 		part.visible = true
 
-# Replaces the floating bodypart name under the AP pedestal; "" restores it.
+# Replaces the floating bodypart name under the MultiworldGG pedestal; "" restores it.
 func _rename_rewards(shop: Node, title: String) -> void:
 	for reward in shop.get("_rewards"):
 		_rename_reward(reward, title)
@@ -1160,11 +1163,11 @@ func _rename_reward(reward: Variant, title: String) -> void:
 	if name_label == null:
 		return
 	if title.is_empty():
-		if name_label.has_meta("archipelago_original"):
-			name_label.text = name_label.get_meta("archipelago_original")
-			name_label.remove_meta("archipelago_original")
+		if name_label.has_meta("multiworldgg_original"):
+			name_label.text = name_label.get_meta("multiworldgg_original")
+			name_label.remove_meta("multiworldgg_original")
 	elif name_label.text != title:
-		name_label.set_meta("archipelago_original", name_label.text)
+		name_label.set_meta("multiworldgg_original", name_label.text)
 		name_label.text = title
 
 func _track_player(delta: float) -> void:
@@ -1189,9 +1192,9 @@ func grant_text(amount: int) -> String:
 # Called automatically whenever grants arrive and every 0.5 s while some are
 # banked; grants wait in the journal until a living run exists.
 func redeem_grants(automatic := false) -> void:
-	if fatal or not run_ap or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
+	if fatal or not run_multiworld or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
 		if not automatic:
-			notify("No synchronized Research Grants available for an Archipelago run.")
+			notify("No synchronized Research Grants available for a MultiworldGG run.")
 		return
 	var globals := get_node_or_null("/root/G")
 	var player: Variant = globals.get("player") if globals != null else null
@@ -1216,15 +1219,15 @@ static func _strong(text: String, color := "") -> String:
 
 static func start_hint() -> String:
 	return "\n".join([
-		"[center][font_size=34]%s[/font_size][/center]" % _strong("Archipelago enabled!", ORANGE),
+		"[center][font_size=34]%s[/font_size][/center]" % _strong("MultiworldGG enabled!", ORANGE),
 		"• This run contains unlocks %s" % _strong("for other players", BLUE),
 		"• If you get %s or %s in the settings, they %s until you reconnect" % [
-			_strong("disconnected"), _strong("disable Archipelago"), _strong("still spawn but can't be redeemed")],
+			_strong("disconnected"), _strong("disable MultiworldGG"), _strong("still spawn but can't be redeemed")],
 		"• To only spawn advancements for you, %s in the settings then %s" % [
-			_strong("disable Archipelago"), _strong("start a new run")]])
+			_strong("disable MultiworldGG"), _strong("start a new run")]])
 
 # ButtonConfirmation allows a single "Really Start" press. Its pressed wrapper is
-# replaced by a stage list (vanilla organelle warning, then the Archipelago
+# replaced by a stage list (vanilla organelle warning, then the MultiworldGG
 # warning); the wrapper is called with confirmation off once every stage passed,
 # which runs the original start handler and click sound.
 func _hook_start(menu: Node) -> void:
@@ -1232,9 +1235,9 @@ func _hook_start(menu: Node) -> void:
 		return
 	var button := menu.get_node_or_null("%ButtonSelect") as Button
 	var vanilla_tip := menu.get_node_or_null("%StartWarningTooltip") as Control
-	if button == null or vanilla_tip == null or button.has_meta("archipelago_start") \
+	if button == null or vanilla_tip == null or button.has_meta("multiworldgg_start") \
 			or not button.get("should_confirm") is Callable or not button.has_method("confirm"):
-		log_line("Start menu layout changed; Archipelago start warning not added.")
+		log_line("Start menu layout changed; MultiworldGG start warning not added.")
 		return
 	var wrappers: Array[Callable] = []
 	for connection in button.pressed.get_connections():
@@ -1243,18 +1246,18 @@ func _hook_start(menu: Node) -> void:
 			button.pressed.disconnect(callable)
 			wrappers.append(callable)
 	if wrappers.is_empty():
-		log_line("Start button confirmation changed; Archipelago start warning not added.")
+		log_line("Start button confirmation changed; MultiworldGG start warning not added.")
 		return
 	var gate: Callable = button.should_confirm
 	button.should_confirm = func(): return false
-	button.set_meta("archipelago_start", {"menu": menu, "gate": gate, "wrappers": wrappers, "stage": 0})
+	button.set_meta("multiworldgg_start", {"menu": menu, "gate": gate, "wrappers": wrappers, "stage": 0})
 	button.pressed.connect(_start_pressed.bind(button))
 	button.mouse_exited.connect(_start_reset.bind(button))
 	button.focus_exited.connect(_start_reset.bind(button))
 	var tip := vanilla_tip.duplicate(0) as PanelContainer
 	for child in tip.get_children():
 		child.free()
-	tip.name = "ArchipelagoStartTooltip"
+	tip.name = "MultiworldGGStartTooltip"
 	tip.unique_name_in_owner = false
 	tip.visible = false
 	tip.custom_minimum_size.x = 560
@@ -1271,7 +1274,7 @@ func _hook_start(menu: Node) -> void:
 		margin.add_theme_constant_override("margin_" + side, 8)
 	tip.add_child(margin)
 	var label := RichTextLabel.new()
-	label.name = "ArchipelagoStartLabel"
+	label.name = "MultiworldGGStartLabel"
 	label.bbcode_enabled = true
 	label.fit_content = true
 	label.scroll_active = false
@@ -1285,23 +1288,23 @@ func _hook_start(menu: Node) -> void:
 	label.text = start_hint()
 	margin.add_child(label)
 	button.add_child(tip)
-	button.get_meta("archipelago_start").tip = tip
+	button.get_meta("multiworldgg_start").tip = tip
 	start_buttons.append(button)
-	log_line("Archipelago start warning added to the Start button.")
+	log_line("MultiworldGG start warning added to the Start button.")
 
 func start_stages(button: Button) -> Array:
-	var hook: Dictionary = button.get_meta("archipelago_start")
+	var hook: Dictionary = button.get_meta("multiworldgg_start")
 	var stages: Array = []
 	if not hook.menu.get("loadout_active"):
 		return stages
 	if hook.gate.is_valid() and hook.gate.call():
 		stages.append("vanilla")
 	if enabled:
-		stages.append("archipelago")
+		stages.append("multiworldgg")
 	return stages
 
 func _start_pressed(button: Button) -> void:
-	var hook: Dictionary = button.get_meta("archipelago_start")
+	var hook: Dictionary = button.get_meta("multiworldgg_start")
 	var stages := start_stages(button)
 	var stage: int = hook.stage
 	if stage < stages.size():
@@ -1317,16 +1320,16 @@ func _start_pressed(button: Button) -> void:
 		return
 	hook.stage = 0
 	if enabled and hook.menu.get("loadout_active"):
-		log_line("Start confirmed with Archipelago enabled.")
+		log_line("Start confirmed with MultiworldGG enabled.")
 	for wrapper in hook.wrappers:
 		if wrapper.is_valid():
 			wrapper.call()
 
 func _start_reset(button: Button) -> void:
-	if is_instance_valid(button) and button.has_meta("archipelago_start"):
-		button.get_meta("archipelago_start").stage = 0
+	if is_instance_valid(button) and button.has_meta("multiworldgg_start"):
+		button.get_meta("multiworldgg_start").stage = 0
 
-# Stacks the Archipelago warning above the vanilla one while Start is hovered,
+# Stacks the MultiworldGG warning above the vanilla one while Start is hovered,
 # focused or mid-confirmation.
 func _update_start_tip() -> void:
 	start_buttons = start_buttons.filter(func(button): return is_instance_valid(button))
@@ -1334,7 +1337,7 @@ func _update_start_tip() -> void:
 		_place_start_tip(button)
 
 func _place_start_tip(button: Button) -> void:
-	var hook: Dictionary = button.get_meta("archipelago_start")
+	var hook: Dictionary = button.get_meta("multiworldgg_start")
 	var menu: Node = hook.menu
 	var tip: Control = hook.get("tip")
 	if not is_instance_valid(tip) or not is_instance_valid(menu):
@@ -1351,22 +1354,22 @@ func _place_start_tip(button: Button) -> void:
 	tip.size = tip.get_combined_minimum_size()
 	tip.position = Vector2((button.size.x - tip.size.x) / 2.0, bottom - tip.size.y)
 
-# --- Settings > Archipelago tab --------------------------------------------
+# --- Settings > MultiworldGG tab --------------------------------------------
 
 func _inject_tab(menu: Node) -> void:
-	if not is_instance_valid(menu) or menu.has_meta("archipelago_tab"):
+	if not is_instance_valid(menu) or menu.has_meta("multiworldgg_tab"):
 		return
 	var buttons: Variant = menu.get("tab_buttons")
 	var content: Variant = menu.get("tab_content")
 	if not buttons is Array or buttons.is_empty() or not content is Control \
 			or content.get_child_count() != buttons.size():
-		log_line("Options menu layout changed; Archipelago tab not added.")
+		log_line("Options menu layout changed; MultiworldGG tab not added.")
 		return
-	menu.set_meta("archipelago_tab", true)
+	menu.set_meta("multiworldgg_tab", true)
 	var template: Button = buttons[buttons.size() - 1]
 	var button := Button.new()
 	button.set_script(template.get_script())
-	button.name = "TabArchipelago"
+	button.name = "TabMultiworldGG"
 	button.text = TAB_TITLE
 	button.theme_type_variation = template.theme_type_variation
 	button.toggle_mode = true
@@ -1390,7 +1393,7 @@ func _inject_tab(menu: Node) -> void:
 func _build_page() -> Control:
 	# A scroll page capped to the height of the vanilla tabs keeps the tab row on screen.
 	var page := ScrollContainer.new()
-	page.name = "button_archipelago"
+	page.name = "button_multiworldgg"
 	page.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	page.custom_minimum_size = Vector2(0, PAGE_MIN_HEIGHT)
 	var box := VBoxContainer.new()
@@ -1400,7 +1403,7 @@ func _build_page() -> Control:
 	page.add_child(box)
 	var widgets := {"page": page}
 	widgets.toggle = CheckButton.new()
-	widgets.toggle.text = "Enable Archipelago for new runs"
+	widgets.toggle.text = "Enable MultiworldGG for new runs"
 	widgets.toggle.button_pressed = enabled
 	widgets.toggle.add_theme_font_size_override("font_size", FONT_SIZE)
 	widgets.toggle.add_theme_color_override("font_pressed_color", Color(0.4, 0.9, 1.0))
@@ -1448,9 +1451,9 @@ func _build_page() -> Control:
 func run_text() -> String:
 	if not _run_active():
 		return "Takes effect when a run starts; a continued run keeps the mode it started with."
-	if run_ap:
-		return "This run uses Archipelago (locked at run start). Disconnects block remote unlocks until you reconnect."
-	return "This run is vanilla (Archipelago was off when it started). Enabling applies to the next run."
+	if run_multiworld:
+		return "This run uses MultiworldGG (locked at run start). Disconnects block remote unlocks until you reconnect."
+	return "This run is vanilla (MultiworldGG was off when it started). Enabling applies to the next run."
 
 func _label(parent: Control, font_size: int) -> Label:
 	var label := Label.new()
@@ -1511,7 +1514,7 @@ func _refresh_pages() -> void:
 				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
 			widgets.progress.text += "\nRemote unlocks in: %s." % sources_text()
 			if campaign.bank > 0:
-				widgets.progress.text += " %d Research Grant(s) waiting for a living Archipelago run." % campaign.bank
+				widgets.progress.text += " %d Research Grant(s) waiting for a living MultiworldGG run." % campaign.bank
 		else:
 			widgets.progress.text = "No campaign loaded yet."
 		if widgets.revision != log_revision:

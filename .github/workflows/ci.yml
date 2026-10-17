@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install Godot ${{ env.GODOT_VERSION }}
         run: |
@@ -44,11 +44,34 @@ jobs:
       - name: Build
         run: python tools/build.py
 
+      - name: Resolve latest stable MultiworldGG
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from example.generate import latest_release, prepare_runtime
+          tag = latest_release()
+          runtime = prepare_runtime(Path(os.environ["RUNNER_TEMP"]), tag)
+          print(f"Testing MultiworldGG {tag}", flush=True)
+          with open(os.environ["GITHUB_ENV"], "a") as environment:
+              environment.write(f"MWGG_RUNTIME={runtime}\n")
+          PY
+
+      - name: Install MultiworldGG dependencies
+        run: |
+          cd "$MWGG_RUNTIME"
+          .venv/bin/python ModuleUpdate.py --yes
+
+      - name: Test real MultiworldGG generation and client protocol
+        run: |
+          "$MWGG_RUNTIME/.venv/bin/python" tools/test_multiworldgg.py \
+            --runtime "$MWGG_RUNTIME" --godot "$GODOT"
+
       - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: |
-            dist/ViMaSter-ArchipelagoShop.zip
+            dist/ViMaSter-MultiworldGGShop.zip
             dist/pathogenic.apworld
             dist/SHA256SUMS
             dist/workshop/

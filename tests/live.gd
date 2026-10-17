@@ -1,6 +1,6 @@
 extends SceneTree
 
-const Client = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/client.gd")
+const Client = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/client.gd")
 
 func _init() -> void:
 	_run.call_deferred()
@@ -16,7 +16,7 @@ func _wait_for(predicate: Callable) -> bool:
 
 func _run() -> void:
 	var passed: bool = await _live()
-	print("GODOT_TEST_RESULT live_archipelago=true failures=", 0 if passed else 1)
+	print("GODOT_TEST_RESULT live_multiworldgg=true failures=", 0 if passed else 1)
 	quit(0 if passed else 1)
 
 func _live() -> bool:
@@ -36,13 +36,15 @@ func _live() -> bool:
 	var room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
 	root.add_child(room)
 	var sender := Client.new()
-	sender.name = "ArchipelagoShop"
+	sender.name = "MultiworldGGShop"
 	var receiver := Client.new()
 	receiver.name = "Receiver"
 	root.add_child(sender)
 	root.add_child(receiver)
 	await process_frame
 	for pair in [[sender, "Pathogenic1"], [receiver, "Pathogenic2"]]:
+		pair[0].set_enabled(true)
+		pair[0].begin_run()
 		pair[0].server = args[1]
 		pair[0].slot_name = pair[1]
 		pair[0].connect_server()
@@ -58,7 +60,7 @@ func _live() -> bool:
 	for index in 2:
 		var shop_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
 		root.add_child(shop_room)
-		var shop: Node = load("res://mods-unpacked/ViMaSter-ArchipelagoShop/shop_item.gd").new()
+		var shop: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/shop_item.gd").new()
 		shop_room.add_child(shop)
 		shop.add_to_group("shop_item")
 		var reward: Node = load("res://tests/stubs/reward.gd").new()
@@ -80,7 +82,7 @@ func _live() -> bool:
 			and receiver.campaign.bank == 0):
 		return false
 	var granted: int = receiver.campaign.received.size() - received_before
-	print("LIVE_AP_CROSS_PLAYER sender=", sender.slot, " check=402938002 recipient=",
+	print("LIVE_MWGG_CROSS_PLAYER sender=", sender.slot, " check=402938002 recipient=",
 		receiver.slot, " auto_redeemed=", granted)
 	if player.money != start_money - 20 + 15 * granted:
 		push_error("TEST FAILED: received grants did not auto-redeem")
@@ -91,7 +93,7 @@ func _live() -> bool:
 	if receiver.campaign.bank != 0:
 		push_error("TEST FAILED: server replay duplicated redeemed items")
 		return false
-	print("LIVE_AP_RECONNECT replay_preserved=true")
+	print("LIVE_MWGG_RECONNECT replay_preserved=true")
 	sender.socket.close()
 	receiver.socket.close()
 	return true

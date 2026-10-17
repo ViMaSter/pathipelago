@@ -9,7 +9,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-MOD_ID = "ViMaSter-ArchipelagoShop"
+MOD_ID = "ViMaSter-MultiworldGGShop"
 MOD_FILES = ("manifest.json", "mod_main.gd", "shop_item.gd", "client.gd", "state.gd")
 APWORLD = "pathogenic"
 APWORLD_FILES = ("__init__.py", "archipelago.json", "docs/en_Pathogenic.md", "docs/setup_en.md")

@@ -1,8 +1,8 @@
 {
-  "name": "ArchipelagoShop",
+  "name": "MultiworldGGShop",
   "namespace": "ViMaSter",
   "version_number": "0.1.0",
-  "description": "Archipelago multiworld client: Remote Unlocks in shops, item rooms, boss rewards and level-ups send checks to other players.",
+  "description": "MultiworldGG multiworld client: Remote Unlocks in shops, item rooms, boss rewards and level-ups send checks to other players.",
   "website_url": "https://github.com/ViMaSter/pathipelago",
   "dependencies": [],
   "extra": {

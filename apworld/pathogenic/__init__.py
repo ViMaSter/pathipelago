@@ -13,7 +13,7 @@ class ShopChecks(Range):
 
     display_name = "Shop Shipments"
     range_start = 1
-    # Archipelago needs a fixed location table; this is its size, not a gameplay limit.
+    # MultiworldGG needs a fixed location table; this is its size, not a gameplay limit.
     range_end = 10000
     default = 20
 
@@ -66,7 +66,7 @@ class PathogenicOptions(PerGameCommonOptions):
 class PathogenicWeb(WebWorld):
     tutorials = [Tutorial(
         "Multiworld Setup Guide",
-        "Subscribe to the Archipelago Shop Workshop mod and connect Pathogenic to a multiworld.",
+        "Subscribe to the MultiworldGG Shop Workshop mod and connect Pathogenic to a multiworld.",
         "English",
         "setup_en.md",
         "setup/en",

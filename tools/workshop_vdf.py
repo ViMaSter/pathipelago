@@ -13,13 +13,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_ID = "3808690"
-TITLE = "Archipelago Multiworld (Remote Unlocks)"
+TITLE = "MultiworldGG Multiworld (Remote Unlocks)"
 DESCRIPTION = (
-    "Connects Pathogenic to an [url=https://archipelago.gg]Archipelago[/url] multiworld.\n\n"
+    "Connects Pathogenic to an [url=https://multiworld.gg]MultiworldGG[/url] multiworld.\n\n"
     "One pedestal in shops, blue item rooms, boss rewards and level-up drafts becomes a "
     "Remote Unlock that sends a check to another player's game. Received Research Grants "
     "pay out coins.\n\n"
-    "Off by default: enable and connect in Settings > Archipelago.\n"
+    "Off by default: enable and connect in Settings > MultiworldGG.\n"
     "APWorld, setup guide and source: [url=https://github.com/ViMaSter/pathipelago]"
     "github.com/ViMaSter/pathipelago[/url]"
 )
