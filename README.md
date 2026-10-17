@@ -155,22 +155,36 @@ To try a ZIP without touching the game folder, start the game with Mod Loader's
   Workshop item `STEAM_WORKSHOP_ITEM_ID` with
   [steam-workshop-deploy](https://github.com/m00nl1ght-dev/steam-workshop-deploy) v4 (pinned).
 
-One-time setup:
+One-time setup (done for item
+[3821496115](https://steamcommunity.com/sharedfiles/filedetails/?id=3821496115), private):
 
-1. Create the Workshop item once from a machine with SteamCMD (the action only updates items):
+1. Create the Workshop item once from a machine with SteamCMD (the action only updates items).
+   On Apple Silicon, use Valve's native
+   [macOS SteamCMD](https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz):
+   the Linux `cm2network/steamcmd` image segfaults under Docker's x86 emulation. Run it with
+   a separate `HOME` so it does not share `config.vdf` with the desktop Steam client:
    ```bash
    python3 tools/build.py
-   python3 tools/workshop_vdf.py --preview /absolute/preview.png > /tmp/item.vdf
-   steamcmd +login <steam user> +workshop_build_item /tmp/item.vdf +quit
+   python3 tools/workshop_vdf.py --visibility private --content "$PWD/dist/workshop" \
+     [--preview /absolute/preview.png] > /tmp/item.vdf
+   HOME=/path/to/steamcmd-home ./steamcmd.sh +login <steam user> +quit   # password + Steam Guard
+   HOME=/path/to/steamcmd-home ./steamcmd.sh +login <steam user> +workshop_build_item /tmp/item.vdf +quit
    ```
-   Note the printed PublishedFileId. The item starts private; set tags (Rooms, GUI),
-   visibility and description on its Steam page.
-2. Create the GitHub environment `steam` (with required reviewers) holding:
+   Note the printed PublishedFileId. Releases never change title, description or visibility;
+   set tags (Rooms, GUI), visibility and the preview on its Steam page or by rerunning
+   `workshop_vdf.py --item-id <id>`.
+2. Create the GitHub environment `steam` (required reviewers, deployments only from tags
+   `v*.*.*`) holding:
    - variable `STEAM_WORKSHOP_ITEM_ID`: the PublishedFileId
    - secret `STEAM_USERNAME`: the Steam account that owns the item and the game
    - secret `STEAM_CONFIG_VDF`: contents of SteamCMD's `config/config.vdf` after a
-     successful local `steamcmd +login <user> +quit` (Steam Guard completed). Refresh it if a
-     run fails with a Steam Guard request.
+     successful local `steamcmd +login <user> +quit` (Steam Guard completed), found at
+     `$HOME/Library/Application Support/Steam/config/config.vdf` for macOS SteamCMD. Refresh it
+     if a run fails with a Steam Guard request.
+
+   The maintainer keeps these values in Bitwarden under
+   `Services/Webservice/GitHub Builds/ViMaSter/pathipelago` and mirrors them to Codespaces
+   secrets.
 3. Release: bump both versions, commit, `git tag v0.2.0 && git push --tags`.
 
 ## Generate and host a multiworld
