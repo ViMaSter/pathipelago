@@ -1,13 +1,14 @@
-name: Pathogenic{number}
+name: Pathogenic{number}   # slot name; {number} becomes 1, 2, ... (Pathogenic1)
 game: Pathogenic
 description: Persistent numbered remote unlocks across repeatable runs.
 Pathogenic:
-  progression_balancing: 50
-  accessibility: full
-  # Number of Remote Unlock checks across all runs (5-100).
+  progression_balancing: 50  # ignored: every location is always reachable
+  accessibility: full        # ignored: the world has only filler items
+  # Total Remote Unlock checks across all runs (5-100, default 20).
   shop_checks: 20
-  # Where Remote Unlocks appear; at least one must be true.
-  shop_unlocks: false        # one coin pedestal per shop
-  item_room_unlocks: true    # one free pedestal per blue item room
-  boss_reward_unlocks: false # one choice per boss bodypart reward
-  level_up_unlocks: false    # last card of each level-up mutation draft
+  # Where Remote Unlocks appear (default: all true). At least one must be true;
+  # a disabled source stays completely vanilla.
+  shop_unlocks: false        # one coin pedestal in every shop
+  item_room_unlocks: true    # one free pedestal in every blue item room
+  boss_reward_unlocks: false # one choice of every boss bodypart reward
+  level_up_unlocks: false    # last card of every level-up mutation draft

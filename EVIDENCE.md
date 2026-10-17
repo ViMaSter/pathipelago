@@ -117,8 +117,10 @@ for an AP purchase.
 
 The AP server owns item placement; the game does not roll a recipient.
 Location IDs are 402938001 through 402938100. Research Grant is item 402939001.
-The journal is keyed by seed/team/slot. See [README.md](README.md) for offline,
-theft, finite-campaign and crash-consistency limitations.
+The journal is keyed by seed/team/slot. Limitations: AP purchases are blocked
+offline, killing the shopkeeper does not make the AP pedestal free, the campaign is
+finite (vanilla after the last check), and the journal and run save are not one
+atomic transaction (a crash between them can forgive a debit or lose grant coins).
 
 ## Executed verification
 
