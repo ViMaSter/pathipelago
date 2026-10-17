@@ -25,6 +25,12 @@ costs nothing, and taking it sends the next check instead of the free upgrade an
 consumes the other choices, as picking any item there does. In a one-item room the
 only pedestal is the remote unlock.
 
+**Boss rewards** work the same way. The skin, stomach, intestine and liver bosses drop a
+choose-one bodypart selection (`bodypart_reward_3_choice`). Its first pedestal becomes a free
+remote unlock, and the other choices stay vanilla. The money drop and devil teleport are
+not affected. The heart boss drops only money and the brain boss drops nothing, so
+neither has a remote unlock.
+
 - A persistent campaign spans multiple demo runs: default 20 purchases, configurable
   from 5 to 100 in the YAML.
 - The AP pedestal offers the **next** unpurchased shipment. Rerolling does not add checks.

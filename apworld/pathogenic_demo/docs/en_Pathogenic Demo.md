@@ -2,9 +2,9 @@
 
 ## What does randomization do to this game?
 
-Every shop room and every blue item room contains one Archipelago pedestal,
+Every shop room, blue item room and boss bodypart selection contains one Archipelago pedestal,
 shown as an Enhancer icon named "Remote Unlock n/N". Buying it with in-game coins
-(or taking it for free in an item room) sends the next "Shop Shipment" location
+(or taking it for free in an item room or after a boss) sends the next "Shop Shipment" location
 to the multiworld instead of granting an upgrade. All other pedestals stay vanilla.
 
 ## What items can appear in other players' worlds?

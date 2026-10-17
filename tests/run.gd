@@ -143,7 +143,8 @@ func _network_and_purchase() -> void:
 	}, {
 		"cmd": "LocationInfo", "locations": [
 			{"location": 402938001, "item": 9001, "player": 2, "flags": 1},
-			{"location": 402938002, "item": 9001, "player": 2, "flags": 1}
+			{"location": 402938002, "item": 9001, "player": 2, "flags": 1},
+			{"location": 402938003, "item": 9001, "player": 2, "flags": 1}
 		]
 	}, {"cmd": "ReceivedItems", "index": 0, "items": []}])
 	messages = await _collect(peer, 15)
@@ -230,6 +231,44 @@ func _network_and_purchase() -> void:
 	messages = await _collect(peer, 10)
 	sent = _find(messages, "LocationChecks").get("locations", [])
 	check(402938002 in sent.map(func(l): return int(l)), "item-room check sent to the server")
+	var boss_free: Array = []
+	for room_type in [1, 0]:
+		var boss_room: Node2D = load("res://tests/stubs/room.gd").new()
+		boss_room.name = "BossRoom" if room_type == 1 else "NormalRoom"
+		boss_room.res.type = room_type
+		root.add_child(boss_room)
+		var group := Node2D.new()
+		group.name = "BodypartReward3Choice"
+		boss_room.add_child(group)
+		var rewards: Array = []
+		for slot_name in ["Reward", "Reward2", "Reward3"]:
+			var holder := Node2D.new()
+			holder.name = slot_name
+			group.add_child(holder)
+			var boss_reward: Node2D = load("res://scn/environ/pickups/bodypart_reward.gd").new()
+			boss_reward.choose_one = true
+			rewards.append(boss_reward)
+		for boss_reward_ref in rewards:
+			boss_reward_ref.unique_from = rewards
+		for i in rewards.size():
+			group.get_child(i).add_child(rewards[i])
+		boss_free.append(rewards)
+	await process_frame
+	var boss: Array = boss_free[0]
+	check(boss[0].has_meta("archipelago_free") and not boss[1].has_meta("archipelago_free")
+			and not boss[2].has_meta("archipelago_free"), "boss reward choice gets exactly one remote unlock")
+	check(boss_free[1].all(func(r): return not r.has_meta("archipelago_free")), "non-boss rooms stay vanilla")
+	client._refresh_offers()
+	client._mask_rewards()
+	check(boss[0].get_node("%Label").text == "Remote Unlock 3/5" and boss[0].get_node("%MutationIcon").texture == client.remote_icon,
+			"boss remote unlock renamed with the Enhancer icon")
+	boss[0].pickup_area.picked.emit()
+	check(boss[0].vanilla_picks == 0 and boss[0].deleted and boss[1].consumed and boss[2].consumed,
+			"boss pick grants nothing locally and consumes the other choices")
+	check(player.money == coins and client.campaign.checks.size() == 3, "boss remote unlock is free and sends the next check")
+	messages = await _collect(peer, 10)
+	sent = _find(messages, "LocationChecks").get("locations", [])
+	check(402938003 in sent.map(func(l): return int(l)), "boss check sent to the server")
 	var grants := [{"item": 402939001, "location": 100, "player": 2, "flags": 0}]
 	client.player_seen = player.get_instance_id()
 	client.settled_player = 0

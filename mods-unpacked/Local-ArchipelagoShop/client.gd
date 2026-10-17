@@ -521,22 +521,39 @@ func _fallback_pick(shop: Node) -> void:
 	if is_instance_valid(shop) and not handle_pick(shop):
 		shop._on_picked()
 
-# --- Free item-room pedestals -------------------------------------------------
+# --- Free choose-one pedestals (blue item rooms and boss rewards) ------------
 
-func item_room(node: Node) -> Node:
+# The Room that owns a free reward when it is a blue item room or a boss room;
+# null for every other room, which keeps those rewards vanilla.
+func free_room(node: Node) -> Node:
 	var ancestor := node.get_parent()
 	while ancestor != null:
 		var script: Script = ancestor.get_script()
 		if script != null and script.resource_path == ITEM_ROOM_SCRIPT:
 			return ancestor
+		if ancestor.get("res") != null:
+			return ancestor if _is_boss_room(ancestor) else null
 		ancestor = ancestor.get_parent()
 	return null
+
+func _is_boss_room(room: Node) -> bool:
+	var res: Variant = room.get("res")
+	if not res is Object or res.get("type") == null:
+		return false
+	var globals := get_node_or_null("/root/G")
+	var script: Script = globals.get_script() if globals != null else null
+	var types: Variant = script.get_script_constant_map().get("RoomType") if script != null else null
+	return types is Dictionary and types.has("Boss") and int(res.type) == int(types.Boss)
+
+# Kept for callers/tests written against the item-room-only API.
+func item_room(node: Node) -> Node:
+	return free_room(node)
 
 static func _is_reward(node: Node) -> bool:
 	var script: Script = node.get_script()
 	return script != null and script.resource_path == REWARD_SCRIPT
 
-# One free reward per item room becomes the remote unlock: the first in
+# One free reward per item/boss room becomes the remote unlock: the first in
 # scene-tree order (Reward, Reward2, Reward3), cached on the room so it stays put.
 func designated_free(room: Node) -> Node:
 	if room.has_meta("archipelago_reward"):
@@ -546,24 +563,25 @@ func designated_free(room: Node) -> Node:
 	var candidates: Array = []
 	for node in room.find_children("*", "", true, false):
 		if _is_reward(node) and not node.deleted and not node.consumed and not node.is_queued_for_deletion() \
-				and _shop_wrapper(node) == null and item_room(node) == room:
+				and _shop_wrapper(node) == null and free_room(node) == room:
 			candidates.append(node)
 	if candidates.is_empty():
 		return null
 	room.set_meta("archipelago_reward", candidates[0])
-	log_line("AP pedestal for item room %s: %s" % [room.name, room.get_path_to(candidates[0])])
+	log_line("AP pedestal for %s room %s: %s" % ["boss" if _is_boss_room(room) else "item",
+		room.name, room.get_path_to(candidates[0])])
 	return candidates[0]
 
 func _track_free_reward(reward: Node) -> void:
 	if not is_instance_valid(reward) or reward.deleted or reward.has_meta("archipelago_free") \
 			or _shop_wrapper(reward) != null:
 		return
-	var room := item_room(reward)
+	var room := free_room(reward)
 	if room == null or designated_free(room) != reward:
 		return
 	var area: Variant = reward.get("pickup_area")
 	if not area is Node or not area.has_signal("picked"):
-		log_line("Item-room reward layout changed; %s stays vanilla." % reward.name)
+		log_line("Free reward layout changed; %s stays vanilla." % reward.name)
 		return
 	var vanilla := Callable(reward, "_player_entered")
 	if area.picked.is_connected(vanilla):
@@ -583,9 +601,9 @@ func is_free_ap(reward: Variant) -> bool:
 func _free_pick(reward: Node) -> void:
 	if not is_instance_valid(reward) or reward.deleted or reward.consumed:
 		return
-	var room := item_room(reward)
+	var room := free_room(reward)
 	var exhausted: bool = campaign != null and authenticated and campaign.next_location() < 0
-	log_line("Item room pick %s/%s -> %s" % [room.name if room != null else "-", reward.name,
+	log_line("Free reward pick %s/%s -> %s" % [room.name if room != null else "-", reward.name,
 		"vanilla free upgrade" if exhausted else "ARCHIPELAGO"])
 	if exhausted:
 		_unmask_reward(reward)
