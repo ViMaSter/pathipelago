@@ -10,6 +10,8 @@ const LOG_LIMIT := 512 * 1024
 const LOG_LINES := 200
 const SHOP_ROOM_SCRIPT := "res://scn/environ/rooms/special/shop.gd"
 const OPTIONS_SCRIPT := "res://scn/ui/options_menu.gd"
+const MAIN_SCRIPT := "res://scn/main.gd"
+const RUN_FILE := ROOT + "/run.cfg"
 # Blue "item rooms" offer 1-3 free choose-one BodypartRewards.
 const ITEM_ROOM_SCRIPT := "res://scn/environ/rooms/special/item_room.gd"
 const REWARD_SCRIPT := "res://scn/environ/pickups/bodypart_reward.gd"
@@ -31,7 +33,7 @@ const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
 
 var socket := WebSocketPeer.new()
 var authenticated := false
-var status := "Open Settings > Archipelago to connect. Remote unlocks need a connection."
+var status := "Archipelago is off. Enable it in Settings > Archipelago before starting a run."
 var server := "ws://localhost:38281"
 var slot_name := ""
 var password := ""
@@ -44,6 +46,11 @@ const SOURCES := ["shops", "item_rooms", "boss_rewards", "level_ups"]
 const SOURCE_LABELS := {"shops": "shops", "item_rooms": "blue item rooms",
 	"boss_rewards": "boss rewards", "level_ups": "level-up drafts"}
 var sources := {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}
+# The setting decides new runs; run_ap is locked when a run starts (or is
+# continued) so toggling mid-run never changes that run's rewards.
+var enabled := false
+var run_ap := false
+var run_seed := ""
 var campaign: RefCounted
 var scouts: Dictionary = {}
 var players: Dictionary = {}
@@ -91,14 +98,63 @@ func _ready() -> void:
 	if err == OK:
 		server = str(config.get_value("connection", "server", server))
 		slot_name = str(config.get_value("connection", "slot", ""))
+		enabled = config.get_value("mod", "enabled", false) == true
 		for key in SOURCES:
 			sources[key] = config.get_value("sources", key, true) == true
 	elif err != ERR_FILE_NOT_FOUND:
 		_fail("Cannot read AP connection configuration: " + error_string(err))
 	log_line("Client log: " + ProjectSettings.globalize_path(LOG_FILE))
-	notify(status)
-	if not slot_name.is_empty() and not fatal:
+	notify(status if not enabled else "Archipelago is on for new runs.")
+	# The main menu (and its options panel) exists before this node joins the tree.
+	_scan_existing.call_deferred(get_tree().root)
+	if enabled and not slot_name.is_empty() and not fatal:
 		connect_server()
+
+func _scan_existing(node: Node) -> void:
+	for child in node.get_children():
+		if child != self:
+			_on_node_added(child)
+			_scan_existing(child)
+
+func set_enabled(value: bool) -> void:
+	if value == enabled:
+		return
+	enabled = value
+	var err := _save_config()
+	if err != OK:
+		_fail("Could not save Archipelago setting: " + error_string(err))
+		return
+	var current := " This run stays %s." % ("Archipelago" if run_ap else "vanilla") if _run_active() else ""
+	notify("Archipelago %s for new runs.%s" % ["enabled" if enabled else "disabled", current])
+	if enabled and not authenticated and not connecting and not slot_name.is_empty() and not fatal:
+		connect_server()
+
+func _run_active() -> bool:
+	var globals := get_node_or_null("/root/G")
+	return globals != null and is_instance_valid(globals.get("main")) and globals.main.is_inside_tree()
+
+# Called when main.tscn enters the tree: after apply_run_save restored the seed
+# on Continue, before any room or reward spawns.
+func begin_run() -> void:
+	var globals := get_node_or_null("/root/G")
+	var saves := get_node_or_null("/root/RunSaveManager")
+	run_seed = str(globals.get("rng_seed")) if globals != null else ""
+	var continuing: bool = saves != null and saves.get("is_loading_run") == true
+	var config := ConfigFile.new()
+	if continuing:
+		run_ap = config.load(RUN_FILE) == OK and str(config.get_value("run", "seed", "")) == run_seed \
+				and config.get_value("run", "archipelago", false) == true
+	else:
+		run_ap = enabled
+		config.set_value("run", "seed", run_seed)
+		config.set_value("run", "archipelago", run_ap)
+		var err := config.save(RUN_FILE)
+		if err != OK:
+			log_line("Cannot save run mode: " + error_string(err))
+	ap_rewards.clear()
+	free_rewards.clear()
+	notify("%s run %s: %s." % ["Continued" if continuing else "New", run_seed,
+		"Archipelago remote unlocks active" if run_ap else "vanilla (Archipelago off for this run)"])
 
 func _open_log() -> void:
 	if FileAccess.file_exists(LOG_FILE) and FileAccess.open(LOG_FILE, FileAccess.READ).get_length() > LOG_LIMIT:
@@ -331,6 +387,7 @@ func _save_config() -> Error:
 	var config := ConfigFile.new()
 	config.set_value("connection", "server", server)
 	config.set_value("connection", "slot", slot_name)
+	config.set_value("mod", "enabled", enabled)
 	for key in SOURCES:
 		config.set_value("sources", key, sources[key])
 	return config.save(ROOT + "/connection.cfg")
@@ -515,7 +572,7 @@ func designated(room: Node) -> Node:
 	return choice
 
 func is_ap(shop: Node) -> bool:
-	if not sources.shops or not is_instance_valid(shop) or shop.pay_with_blood:
+	if not run_ap or not sources.shops or not is_instance_valid(shop) or shop.pay_with_blood:
 		return false
 	if campaign != null and authenticated and campaign.next_location() < 0:
 		return false
@@ -547,6 +604,8 @@ func _on_node_added(node: Node) -> void:
 		return
 	if script.resource_path == OPTIONS_SCRIPT:
 		_inject_tab.call_deferred(node)
+	elif script.resource_path == MAIN_SCRIPT:
+		begin_run()
 	elif script.resource_path == REWARD_SCRIPT:
 		_track_free_reward.call_deferred(node)
 	elif node.has_method("finalize_purchase") and node.get("_rewards") != null:
@@ -642,7 +701,7 @@ func _track_free_reward(reward: Node) -> void:
 
 func free_source_enabled(reward: Node) -> bool:
 	var room := free_room(reward)
-	if room == null:
+	if room == null or not run_ap:
 		return false
 	return sources.boss_rewards if _is_boss_room(room) else sources.item_rooms
 
@@ -719,13 +778,13 @@ func _watch_level_up() -> void:
 	var current: Variant = mutations[LEVEL_CARD]
 	if current == null:
 		return
-	if level_card != null and not sources.level_ups:
+	if level_card != null and not (run_ap and sources.level_ups):
 		_restore_level_card(editor)
 	var gen := int(editor.get("_mutation_gen"))
 	if gen != level_gen:
 		level_gen = gen
 		level_card = null
-		if _level_exhausted() or not sources.level_ups:
+		if _level_exhausted() or not run_ap or not sources.level_ups:
 			return
 		level_original = current
 		level_texture = level_button.texture_normal if is_instance_valid(level_button) else null
@@ -1112,9 +1171,9 @@ func grant_text(amount: int) -> String:
 # Called automatically whenever grants arrive and every 0.5 s while some are
 # banked; grants wait in the journal until a living run exists.
 func redeem_grants(automatic := false) -> void:
-	if fatal or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
+	if fatal or not run_ap or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
 		if not automatic:
-			notify("No synchronized Research Grants available.")
+			notify("No synchronized Research Grants available for an Archipelago run.")
 		return
 	var globals := get_node_or_null("/root/G")
 	var player: Variant = globals.get("player") if globals != null else null
@@ -1180,6 +1239,15 @@ func _build_page() -> Control:
 	box.add_theme_constant_override("separation", 4)
 	page.add_child(box)
 	var widgets := {"page": page}
+	widgets.toggle = CheckButton.new()
+	widgets.toggle.text = "Enable Archipelago for new runs"
+	widgets.toggle.button_pressed = enabled
+	widgets.toggle.add_theme_font_size_override("font_size", FONT_SIZE)
+	widgets.toggle.add_theme_color_override("font_pressed_color", Color(0.4, 0.9, 1.0))
+	widgets.toggle.add_theme_color_override("font_hover_pressed_color", Color(0.4, 0.9, 1.0))
+	widgets.toggle.toggled.connect(set_enabled)
+	box.add_child(widgets.toggle)
+	widgets.run = _label(box, SMALL_FONT_SIZE)
 	widgets.status = _label(box, FONT_SIZE)
 	widgets.progress = _label(box, FONT_SIZE)
 	var fields := GridContainer.new()
@@ -1216,6 +1284,13 @@ func _build_page() -> Control:
 	widgets.revision = -1
 	pages.append(widgets)
 	return page
+
+func run_text() -> String:
+	if not _run_active():
+		return "Takes effect when a run starts; a continued run keeps the mode it started with."
+	if run_ap:
+		return "This run uses Archipelago (locked at run start). Disconnects block remote unlocks until you reconnect."
+	return "This run is vanilla (Archipelago was off when it started). Enabling applies to the next run."
 
 func _label(parent: Control, font_size: int) -> Label:
 	var label := Label.new()
@@ -1268,13 +1343,15 @@ func _refresh_pages() -> void:
 		live.append(widgets)
 		if not widgets.page.is_visible_in_tree():
 			continue
+		widgets.toggle.set_pressed_no_signal(enabled)
+		widgets.run.text = run_text()
 		widgets.status.text = status
 		if campaign != null:
 			widgets.progress.text = "Checks: %d sent, %d/%d confirmed. Next: %s." % [
 				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
 			widgets.progress.text += "\nRemote unlocks in: %s." % sources_text()
 			if campaign.bank > 0:
-				widgets.progress.text += " %d Research Grant(s) waiting for a living run." % campaign.bank
+				widgets.progress.text += " %d Research Grant(s) waiting for a living Archipelago run." % campaign.bank
 		else:
 			widgets.progress.text = "No campaign loaded yet."
 		if widgets.revision != log_revision:

@@ -69,10 +69,44 @@ func _network_and_purchase() -> void:
 	var reward: Node = shop._rewards[0]
 	var second: Node = _pedestal(room, "Item2", true)
 	var pickups: Node = _pedestal(room, "Item4", false)
+	var early_menu: Node = load("res://scn/ui/options_menu.gd").new()
+	root.add_child(early_menu)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://archipelago_shop/connection.cfg"))
 	var client := Client.new()
 	client.name = "ArchipelagoShop"
 	root.add_child(client)
 	await process_frame
+	await process_frame
+	check(early_menu.tab_buttons.size() == 3 and early_menu.tab_buttons[2].text == "Archipelago",
+			"menu created before the mod (main menu) also gets the tab")
+	early_menu.queue_free()
+	check(not client.enabled and not client.is_ap(shop), "Archipelago is off by default")
+	var main := Node.new()
+	root.add_child(main)
+	globals.main = main
+	client.begin_run()
+	check(not client.run_ap, "run started while off is vanilla")
+	client.set_enabled(true)
+	check(client.enabled and not client.run_ap and not client.is_ap(shop), "enabling mid-run keeps the run vanilla")
+	saves.is_loading_run = true
+	client.begin_run()
+	check(not client.run_ap, "continuing a vanilla run stays vanilla")
+	saves.is_loading_run = false
+	globals.rng_seed = "SEEDBBBB"
+	client.begin_run()
+	check(client.run_ap and client.is_ap(shop), "new run while on uses Archipelago")
+	client.set_enabled(false)
+	check(client.run_ap and client.is_ap(shop), "disabling mid-run keeps the Archipelago run")
+	saves.is_loading_run = true
+	client.begin_run()
+	check(client.run_ap, "continuing an Archipelago run restores its mode")
+	globals.rng_seed = "SEEDCCCC"
+	client.begin_run()
+	check(not client.run_ap, "continue with an unknown seed stays vanilla")
+	saves.is_loading_run = false
+	globals.rng_seed = "SEEDBBBB"
+	client.set_enabled(true)
+	client.begin_run()
 	check(client.is_ap(shop), "first bodypart pedestal is the AP pedestal")
 	check(not client.is_ap(second) and not client.is_ap(pickups), "exactly one AP pedestal per shop")
 	second._on_picked()

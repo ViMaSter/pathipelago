@@ -14,4 +14,6 @@ enum EditorState {
 }
 
 var player: Node
+var main: Node
+var rng_seed := "SEEDAAAA"
 var editor: Node

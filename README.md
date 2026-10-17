@@ -38,6 +38,26 @@ evolution levels (2, 6 and 10) this is the skip card. Picking it sends the next 
 fills the level's gene the way skipping does. The other cards stay vanilla, and every
 reroll or new level gets a fresh remote unlock.
 
+### Turning Archipelago on (per run)
+
+The mod is **off by default**. Turn on **Enable Archipelago for new runs** in
+Settings > Archipelago (main menu or pause menu). Then start a run.
+
+The mode is fixed when a run starts and stays fixed for that run:
+
+- A run started while the setting is off stays vanilla. It shows no remote unlocks and pays out no
+  grants, even if you turn the setting on mid-run. The setting then applies to the next run.
+- A run started while the setting is on stays an Archipelago run, even if you turn it off or
+  lose the connection. While disconnected, remote unlocks stay in place but are blocked
+  with a warning until you reconnect.
+- **Continue Run** restores the mode the run started with. The client stores it in
+  `archipelago_shop/run.cfg`, keyed by the run seed. A saved run it does not recognize continues vanilla.
+
+The game fixes every roll of a run (level layout, rewards, shop stock, drafts) from the
+run seed (`G.rng_seed`), which is set when the run starts. Remote unlocks do not change those
+rolls; they only take over one existing choice. The client connects automatically
+on launch only when the setting is on.
+
 ### Player options
 
 | YAML option | Default | Remote unlock location |
@@ -141,9 +161,9 @@ Steam updates fail the supported-build fingerprint check; do not bypass it.
 4. Start [launch-modded.command](launch-modded.command), **not Steam's normal
    Play shortcut**, which still starts the unmodded game.
 5. Open **Settings > Archipelago** (the tab after Remap, in the main or pause
-   menu). Enter `ws://host:port` (or `wss://host:port`), the exact generated slot
+   menu). Turn on **Enable Archipelago for new runs**. Enter `ws://host:port` (or `wss://host:port`), the exact generated slot
    name and optional server password. Click Connect.
-6. Start a run, earn coins and buy the blue-tooltip AP pedestal in each shop. The
+6. Start a **new** run (runs started while the setting was off stay vanilla), earn coins and buy the blue-tooltip AP pedestal in each shop. The
    tab reports checks confirmed by the server. Received grants pay out automatically.
 
 The server address and slot name are saved; the password is not. There is no
