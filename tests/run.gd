@@ -108,6 +108,49 @@ func _network_and_purchase() -> void:
 	client.set_enabled(true)
 	client.begin_run()
 	check(client.is_ap(shop), "first bodypart pedestal is the AP pedestal")
+	var start_menu: Control = load("res://scn/ui/start_menus/player_selection_menu.gd").new()
+	root.add_child(start_menu)
+	await process_frame
+	await process_frame
+	var start: Button = start_menu.get_node("ButtonSelect")
+	var start_tip: Control = start.get_node_or_null("ArchipelagoStartTooltip")
+	check(start_tip != null and start.has_meta("archipelago_start"), "start button gets the Archipelago warning")
+	start.pressed.emit()
+	check(start_menu.starts == 1, "tube selection press is not confirmed")
+	start_menu.loadout_active = true
+	start_menu.full = false
+	start.pressed.emit()
+	check(start.text == "Really Start" and start_menu.starts == 1, "vanilla organelle confirmation comes first")
+	start.pressed.emit()
+	await process_frame
+	check(start.text == "Start Archipelago" and start_menu.starts == 1 and start_tip.visible,
+			"Archipelago confirmation stacks after the vanilla one")
+	start.pressed.emit()
+	check(start_menu.starts == 2 and start_menu.clicks == 2 and start.text == "Start", "third press starts the run")
+	start_menu.full = true
+	start.pressed.emit()
+	check(start.text == "Start Archipelago" and start_menu.starts == 2, "full loadout asks only the Archipelago confirmation")
+	start.mouse_exited.emit()
+	start.pressed.emit()
+	check(start.text == "Start Archipelago" and start_menu.starts == 2, "leaving the button restarts the stack")
+	start.pressed.emit()
+	check(start_menu.starts == 3, "confirmed Archipelago start runs")
+	var hint := Client.start_hint()
+	check(hint.contains("[color=#ff9a2e]Archipelago enabled![/color]") and hint.contains("[color=#66e6ff]for other players[/color]")
+			and hint.contains("[b]still spawn but can't be redeemed[/b]") and hint.contains("[b]start a new run[/b]"),
+			"hint has orange headline, blue recipients and bold key phrases")
+	client.enabled = false
+	start_menu._start_button_hovered = true
+	await process_frame
+	check(not start_tip.visible, "Archipelago warning hidden while disabled")
+	start.pressed.emit()
+	check(start_menu.starts == 4, "disabled with full loadout starts immediately")
+	start_menu.full = false
+	start.pressed.emit()
+	start.pressed.emit()
+	check(start_menu.starts == 5, "disabled keeps the vanilla single confirmation")
+	client.enabled = true
+	start_menu.queue_free()
 	check(not client.is_ap(second) and not client.is_ap(pickups), "exactly one AP pedestal per shop")
 	second._on_picked()
 	check(second.vanilla_purchases == 1, "other pedestals stay vanilla local purchases")

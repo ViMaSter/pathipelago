@@ -11,6 +11,10 @@ const LOG_LINES := 200
 const SHOP_ROOM_SCRIPT := "res://scn/environ/rooms/special/shop.gd"
 const OPTIONS_SCRIPT := "res://scn/ui/options_menu.gd"
 const MAIN_SCRIPT := "res://scn/main.gd"
+const START_MENU_SCRIPT := "res://scn/ui/start_menus/player_selection_menu.gd"
+const START_TEXT := "Start Archipelago"
+const ORANGE := "#ff9a2e"
+const BLUE := "#66e6ff"
 const RUN_FILE := ROOT + "/run.cfg"
 # Blue "item rooms" offer 1-3 free choose-one BodypartRewards.
 const ITEM_ROOM_SCRIPT := "res://scn/environ/rooms/special/item_room.gd"
@@ -77,6 +81,7 @@ var level_card: Resource
 var level_original: Variant
 var level_texture: Texture2D
 var level_button: BaseButton
+var start_buttons: Array = []
 # A new run's player must exist this long before grants are paid to it, so
 # run setup or save restore cannot overwrite the added coins.
 var settled_player := 0
@@ -274,6 +279,7 @@ func _process(delta: float) -> void:
 	_override_tooltip()
 	_mask_rewards()
 	_watch_level_up()
+	_update_start_tip()
 	_track_player(delta)
 	refresh_time += delta
 	if refresh_time >= 0.5:
@@ -606,6 +612,8 @@ func _on_node_added(node: Node) -> void:
 		_inject_tab.call_deferred(node)
 	elif script.resource_path == MAIN_SCRIPT:
 		begin_run()
+	elif script.resource_path == START_MENU_SCRIPT:
+		_hook_start.call_deferred(node)
 	elif script.resource_path == REWARD_SCRIPT:
 		_track_free_reward.call_deferred(node)
 	elif node.has_method("finalize_purchase") and node.get("_rewards") != null:
@@ -1190,6 +1198,148 @@ func redeem_grants(automatic := false) -> void:
 	get_node("/root/RunSaveManager").save_run()
 	show_toast(grant_text(amount))
 	notify("Redeemed %d Research Grant(s). +%d coins." % [amount, amount * GRANT_COINS])
+
+# --- Start button confirmation stack ---------------------------------------
+
+static func _strong(text: String, color := "") -> String:
+	return "[b][color=%s]%s[/color][/b]" % [color, text] if color else "[b]%s[/b]" % text
+
+static func start_hint() -> String:
+	return "\n".join([
+		"[center][font_size=34]%s[/font_size][/center]" % _strong("Archipelago enabled!", ORANGE),
+		"• This run contains unlocks %s" % _strong("for other players", BLUE),
+		"• If you get %s or %s in the settings, they %s until you reconnect" % [
+			_strong("disconnected"), _strong("disable Archipelago"), _strong("still spawn but can't be redeemed")],
+		"• To only spawn advancements for you, %s in the settings then %s" % [
+			_strong("disable Archipelago"), _strong("start a new run")]])
+
+# ButtonConfirmation allows a single "Really Start" press. Its pressed wrapper is
+# replaced by a stage list (vanilla organelle warning, then the Archipelago
+# warning); the wrapper is called with confirmation off once every stage passed,
+# which runs the original start handler and click sound.
+func _hook_start(menu: Node) -> void:
+	if not is_instance_valid(menu):
+		return
+	var button := menu.get_node_or_null("%ButtonSelect") as Button
+	var vanilla_tip := menu.get_node_or_null("%StartWarningTooltip") as Control
+	if button == null or vanilla_tip == null or button.has_meta("archipelago_start") \
+			or not button.get("should_confirm") is Callable or not button.has_method("confirm"):
+		log_line("Start menu layout changed; Archipelago start warning not added.")
+		return
+	var wrappers: Array[Callable] = []
+	for connection in button.pressed.get_connections():
+		var callable: Callable = connection.callable
+		if callable.get_object() == button:
+			button.pressed.disconnect(callable)
+			wrappers.append(callable)
+	if wrappers.is_empty():
+		log_line("Start button confirmation changed; Archipelago start warning not added.")
+		return
+	var gate: Callable = button.should_confirm
+	button.should_confirm = func(): return false
+	button.set_meta("archipelago_start", {"menu": menu, "gate": gate, "wrappers": wrappers, "stage": 0})
+	button.pressed.connect(_start_pressed.bind(button))
+	button.mouse_exited.connect(_start_reset.bind(button))
+	button.focus_exited.connect(_start_reset.bind(button))
+	var tip := vanilla_tip.duplicate(0) as PanelContainer
+	for child in tip.get_children():
+		child.free()
+	tip.name = "ArchipelagoStartTooltip"
+	tip.unique_name_in_owner = false
+	tip.visible = false
+	tip.custom_minimum_size.x = 560
+	var style: Variant = vanilla_tip.get_theme_stylebox("panel")
+	if style is StyleBoxFlat:
+		style = style.duplicate()
+		style.border_color = Color(ORANGE)
+		tip.add_theme_stylebox_override("panel", style)
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 14)
+	for side in ["top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 8)
+	tip.add_child(margin)
+	var label := RichTextLabel.new()
+	label.name = "ArchipelagoStartLabel"
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("normal_font_size", 22)
+	label.add_theme_font_size_override("bold_font_size", 22)
+	var bold := FontVariation.new()
+	bold.base_font = label.get_theme_font("normal_font")
+	bold.variation_embolden = 0.9
+	label.add_theme_font_override("bold_font", bold)
+	label.text = start_hint()
+	margin.add_child(label)
+	button.add_child(tip)
+	button.get_meta("archipelago_start").tip = tip
+	start_buttons.append(button)
+	log_line("Archipelago start warning added to the Start button.")
+
+func start_stages(button: Button) -> Array:
+	var hook: Dictionary = button.get_meta("archipelago_start")
+	var stages: Array = []
+	if not hook.menu.get("loadout_active"):
+		return stages
+	if hook.gate.is_valid() and hook.gate.call():
+		stages.append("vanilla")
+	if enabled:
+		stages.append("archipelago")
+	return stages
+
+func _start_pressed(button: Button) -> void:
+	var hook: Dictionary = button.get_meta("archipelago_start")
+	var stages := start_stages(button)
+	var stage: int = hook.stage
+	if stage < stages.size():
+		hook.stage = stage + 1
+		if stages[stage] == "vanilla":
+			button.confirm()
+		else:
+			button.confirming = true
+			button.text = START_TEXT
+			var audio := get_node_or_null("/root/AudioManager")
+			if audio != null and audio.get("confirm") != null:
+				audio.confirm.play()
+		return
+	hook.stage = 0
+	if enabled and hook.menu.get("loadout_active"):
+		log_line("Start confirmed with Archipelago enabled.")
+	for wrapper in hook.wrappers:
+		if wrapper.is_valid():
+			wrapper.call()
+
+func _start_reset(button: Button) -> void:
+	if is_instance_valid(button) and button.has_meta("archipelago_start"):
+		button.get_meta("archipelago_start").stage = 0
+
+# Stacks the Archipelago warning above the vanilla one while Start is hovered,
+# focused or mid-confirmation.
+func _update_start_tip() -> void:
+	start_buttons = start_buttons.filter(func(button): return is_instance_valid(button))
+	for button in start_buttons:
+		_place_start_tip(button)
+
+func _place_start_tip(button: Button) -> void:
+	var hook: Dictionary = button.get_meta("archipelago_start")
+	var menu: Node = hook.menu
+	var tip: Control = hook.get("tip")
+	if not is_instance_valid(tip) or not is_instance_valid(menu):
+		return
+	var show: bool = enabled and menu.get("loadout_active") == true and menu.get("starting_run") != true \
+			and (menu.get("_start_button_hovered") == true or hook.stage > 0)
+	tip.visible = show
+	if not show:
+		return
+	var vanilla_tip := menu.get_node_or_null("%StartWarningTooltip") as Control
+	var bottom := -10.0
+	if vanilla_tip != null and vanilla_tip.visible:
+		bottom = vanilla_tip.position.y - 8.0
+	tip.size = tip.get_combined_minimum_size()
+	tip.position = Vector2((button.size.x - tip.size.x) / 2.0, bottom - tip.size.y)
 
 # --- Settings > Archipelago tab --------------------------------------------
 

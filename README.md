@@ -53,6 +53,14 @@ The mode is fixed when a run starts and stays fixed for that run:
 - **Continue Run** restores the mode the run started with. The client stores it in
   `archipelago_shop/run.cfg`, keyed by the run seed. A saved run it does not recognize continues vanilla.
 
+With the setting on, **Start** on the loadout screen asks for an extra confirmation. The game's
+own "You can still equip more organelles" step comes first (only if a slot is free) and
+turns Start into "Really Start". Then an orange **Archipelago enabled!** warning stacks above it
+and the button reads **Start Archipelago**. The run starts on the next press. Leaving the button
+restarts the sequence. With the setting off, Start behaves exactly as in the vanilla game.
+
+![Start Archipelago warning](docs/start-archipelago-warning.png)
+
 The game fixes every roll of a run (level layout, rewards, shop stock, drafts) from the
 run seed (`G.rng_seed`), which is set when the run starts. Remote unlocks do not change those
 rolls; they only take over one existing choice. The client connects automatically
