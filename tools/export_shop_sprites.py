@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export the sprites that shop pedestals display as shop-sprites/[ITEMNAME].png.
 
-Uses GDRE Tools to recover the installed demo's resources and textures into a
+Uses GDRE Tools to recover the installed game's resources and textures into a
 temporary directory. The output contains game assets: keep it local, never commit
 or distribute it.
 """
@@ -16,8 +16,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_GAME = Path("~/Library/Application Support/Steam/steamapps/common/"
-                    "Pathogenic Demo/Pathogenic.app")
+DEFAULT_GAME = Path.home() / "Library/Application Support/Steam/steamapps/common/Pathogenic/Pathogenic.app"
 DEFAULT_GDRE = Path("/Applications/Godot RE Tools.app/Contents/MacOS/Godot RE Tools")
 
 

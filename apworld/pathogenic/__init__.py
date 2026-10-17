@@ -65,26 +65,26 @@ class PathogenicOptions(PerGameCommonOptions):
 class PathogenicWeb(WebWorld):
     tutorials = [Tutorial(
         "Multiworld Setup Guide",
-        "Install the local Archipelago shop mod and connect Pathogenic Demo to a multiworld.",
+        "Subscribe to the Archipelago Shop Workshop mod and connect Pathogenic to a multiworld.",
         "English",
         "setup_en.md",
         "setup/en",
-        ["Local Archipelago Shop"],
+        ["ViMaSter"],
     )]
 
 
 class PathogenicItem(Item):
-    game = "Pathogenic Demo"
+    game = "Pathogenic"
 
 
 class PathogenicLocation(Location):
-    game = "Pathogenic Demo"
+    game = "Pathogenic"
 
 
 class PathogenicWorld(World):
     """Reach shops and earn money through normal play; repeat runs as necessary."""
 
-    game = "Pathogenic Demo"
+    game = "Pathogenic"
     web = PathogenicWeb()
     options_dataclass = PathogenicOptions
     options: PathogenicOptions

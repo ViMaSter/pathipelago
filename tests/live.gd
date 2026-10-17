@@ -1,6 +1,6 @@
 extends SceneTree
 
-const Client = preload("res://mods-unpacked/Local-ArchipelagoShop/client.gd")
+const Client = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/client.gd")
 
 func _init() -> void:
 	_run.call_deferred()
@@ -47,7 +47,7 @@ func _live() -> bool:
 		pair[0].slot_name = pair[1]
 		pair[0].connect_server()
 	if not await _wait_for(func(): return sender.authenticated and receiver.authenticated \
-			and sender.scouts.has(402938002) and sender.item_names.get("Pathogenic Demo", {}).has(402939001)):
+			and sender.scouts.has(402938002) and sender.item_names.get("Pathogenic", {}).has(402939001)):
 		return false
 	if sender.campaign.checks.size() != 0 or receiver.campaign.bank != 0 \
 			or int(sender.scouts[402938002].player) != receiver.slot:
@@ -58,7 +58,7 @@ func _live() -> bool:
 	for index in 2:
 		var shop_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
 		root.add_child(shop_room)
-		var shop: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
+		var shop: Node = load("res://mods-unpacked/ViMaSter-ArchipelagoShop/shop_item.gd").new()
 		shop_room.add_child(shop)
 		shop.add_to_group("shop_item")
 		var reward: Node = load("res://tests/stubs/reward.gd").new()

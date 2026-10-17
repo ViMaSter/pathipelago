@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Build reproducible archives containing only this project's original source."""
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-MOD_ID = "Local-ArchipelagoShop"
+MOD_ID = "ViMaSter-ArchipelagoShop"
+MOD_FILES = ("manifest.json", "mod_main.gd", "shop_item.gd", "client.gd", "state.gd")
+APWORLD = "pathogenic"
+APWORLD_FILES = ("__init__.py", "archipelago.json", "docs/en_Pathogenic.md", "docs/setup_en.md")
 
 
 def archive(output: Path, entries: list[tuple[Path, str]]) -> str:
@@ -23,31 +28,61 @@ def archive(output: Path, entries: list[tuple[Path, str]]) -> str:
     return hashlib.sha256(output.read_bytes()).hexdigest()
 
 
-def build() -> dict:
-    source = ROOT / "mods-unpacked" / MOD_ID
-    manifest = json.loads((source / "manifest.json").read_text())
-    if manifest["namespace"] + "-" + manifest["name"] != MOD_ID:
+def manifest(root: Path = ROOT) -> dict:
+    data = json.loads((root / "mods-unpacked" / MOD_ID / "manifest.json").read_text())
+    if data["namespace"] + "-" + data["name"] != MOD_ID:
         raise ValueError("Manifest ID does not match the archive directory")
-    mod_files = [
-        (source / name, f"mods-unpacked/{MOD_ID}/{name}")
-        for name in ("manifest.json", "mod_main.gd", "shop_item.gd", "client.gd", "state.gd")
-    ]
-    world = ROOT / "apworld" / "pathogenic_demo"
+    return data
+
+
+def check_version(tag: str, root: Path = ROOT) -> str:
+    """Fail unless a release tag (v1.2.3) matches the mod and APWorld versions."""
+    version = manifest(root)["version_number"]
+    world = json.loads((root / "apworld" / APWORLD / "archipelago.json").read_text())
+    if tag.removeprefix("v") != version or world["world_version"] != version:
+        raise ValueError(
+            f"Tag {tag} must equal manifest version_number ({version}) "
+            f"and APWorld world_version ({world['world_version']})"
+        )
+    return version
+
+
+def stage_workshop(mod_zip: Path, workshop: Path) -> None:
+    """Workshop content is exactly one mod ZIP; Mod Loader loads <item id>/*.zip."""
+    if workshop.exists():
+        shutil.rmtree(workshop)
+    workshop.mkdir(parents=True)
+    shutil.copy2(mod_zip, workshop / mod_zip.name)
+
+
+def build(root: Path = ROOT) -> dict:
+    manifest(root)
+    source = root / "mods-unpacked" / MOD_ID
+    dist = root / "dist"
+    mod_zip = dist / f"{MOD_ID}.zip"
+    world = root / "apworld" / APWORLD
     hashes = {
-        f"{MOD_ID}.zip": archive(ROOT / "dist" / f"{MOD_ID}.zip", mod_files),
-        "pathogenic_demo.apworld": archive(
-            ROOT / "dist" / "pathogenic_demo.apworld",
-            [(world / name, f"pathogenic_demo/{name}")
-             for name in ("__init__.py", "archipelago.json",
-                          "docs/en_Pathogenic Demo.md", "docs/setup_en.md")],
+        mod_zip.name: archive(
+            mod_zip, [(source / name, f"mods-unpacked/{MOD_ID}/{name}") for name in MOD_FILES]
+        ),
+        f"{APWORLD}.apworld": archive(
+            dist / f"{APWORLD}.apworld",
+            [(world / name, f"{APWORLD}/{name}") for name in APWORLD_FILES],
         ),
     }
-    (ROOT / "dist" / "SHA256SUMS").write_text(
+    stage_workshop(mod_zip, dist / "workshop")
+    (dist / "SHA256SUMS").write_text(
         "".join(f"{digest}  {name}\n" for name, digest in hashes.items())
     )
     return hashes
 
 
 if __name__ == "__main__":
-    for name, digest in build().items():
-        print(f"{name}: {digest}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check-tag", help="Only verify that a release tag matches the versions")
+    args = parser.parse_args()
+    if args.check_tag:
+        print(f"Release version: {check_version(args.check_tag)}")
+    else:
+        for name, digest in build().items():
+            print(f"{name}: {digest}")

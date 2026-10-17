@@ -2,6 +2,7 @@
 /dist/
 /local-builds/
 /launch-modded.command
+/local.env
 /players-pokemon-pathogenic/
 /local-webhost/
 /shop-sprites/

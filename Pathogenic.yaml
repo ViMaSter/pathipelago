@@ -1,7 +1,7 @@
 name: Pathogenic{number}
-game: Pathogenic Demo
-description: Persistent numbered remote unlocks across repeatable demo runs.
-Pathogenic Demo:
+game: Pathogenic
+description: Persistent numbered remote unlocks across repeatable runs.
+Pathogenic:
   progression_balancing: 50
   accessibility: full
   # Number of Remote Unlock checks across all runs (5-100).

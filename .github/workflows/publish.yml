@@ -1,0 +1,85 @@
+name: Publish
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Tag matches manifest and APWorld versions
+        run: python tools/build.py --check-tag "$GITHUB_REF_NAME"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" --generate-notes --verify-tag \
+            dist/ViMaSter-ArchipelagoShop.zip dist/pathogenic.apworld dist/SHA256SUMS
+
+  steam-workshop:
+    needs: build
+    runs-on: ubuntu-latest
+    # Protect this environment with required reviewers; it holds the Steam login.
+    environment:
+      name: steam
+      url: https://steamcommunity.com/sharedfiles/filedetails/?id=${{ vars.STEAM_WORKSHOP_ITEM_ID }}
+    steps:
+      - name: Check configuration
+        env:
+          ITEM_ID: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
+          HAS_USERNAME: ${{ secrets.STEAM_USERNAME != '' }}
+          HAS_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF != '' }}
+        run: |
+          [[ "$ITEM_ID" =~ ^[0-9]+$ ]] || { echo "::error::Set the steam environment variable STEAM_WORKSHOP_ITEM_ID (create the item once with tools/workshop_vdf.py)."; exit 1; }
+          [[ "$HAS_USERNAME" == true && "$HAS_CONFIG_VDF" == true ]] || { echo "::error::Set the steam environment secrets STEAM_USERNAME and STEAM_CONFIG_VDF."; exit 1; }
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - name: Workshop content is exactly the mod ZIP
+        run: |
+          test "$(ls -A dist/workshop)" = "ViMaSter-ArchipelagoShop.zip"
+          cmp dist/workshop/ViMaSter-ArchipelagoShop.zip dist/ViMaSter-ArchipelagoShop.zip
+
+      - name: Upload to Steam Workshop
+        # v4, pinned: v1-v3 could upload .git contents.
+        uses: m00nl1ght-dev/steam-workshop-deploy@7abf9c7628c3bc79229c9bca93f7a7296fa82428
+        with:
+          username: ${{ secrets.STEAM_USERNAME }}
+          configVdf: ${{ secrets.STEAM_CONFIG_VDF }}
+          appId: 3808690
+          publishedFileId: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
+          path: dist/workshop
+          changeNote: "${{ github.ref_name }}: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"

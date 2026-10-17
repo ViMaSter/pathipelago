@@ -21,8 +21,7 @@ REA inventory record:
 REA inspection record:
 `ev_e3b9bf6a36dc5f8fc0ed55b2aa49302916f781918d6df63af47227fe9ae46427`.
 
-The retained local REA export is
-`$SESSION_FILES/evidence.json`.
+The REA export (`evidence.json`) is retained locally, outside the repository.
 These records establish artifact inventory, not automatic authentication of every
 shop-function conclusion. Function evidence comes from the separately recovered
 local scripts identified below.
@@ -145,14 +144,13 @@ Retained final native log:
 Its successful marker does not erase the recorded headless engine/resource and
 disabled-Sentry initialization errors.
 
-The final end-to-end shell workflow completed successfully. Its transcript is
-retained locally at
-`$SESSION_FILES/final-build-install.log`.
+The final end-to-end shell workflow completed successfully. Its transcript
+(`final-build-install.log`) is retained locally, outside the repository.
 The published launcher points to the verified private build above.
 
 The genuine-server test was repeated successfully after the final installation.
-Its retained transcript is
-`$SESSION_FILES/final-live-test.log`.
+Its transcript
+(`final-live-test.log`) is retained locally, outside the repository.
 It records `LIVE_AP_CROSS_PLAYER sender=1 check=402938002 recipient=2 bank=1`,
 `LIVE_AP_RECONNECT replay_preserved=true`, and
 `GODOT_TEST_RESULT live_archipelago=true failures=0`. This used disposable
@@ -179,6 +177,30 @@ The injected Settings tab (8th tab "Archipelago") and tooltip text were also
 observed. Shop rooms cannot be added to the tree outside a run in release builds
 (`shop_item._ready` reads a null `G.level_generator`), so those probes used
 out-of-tree instances. An online paid purchase in a real run remains unverified.
+
+## Full game port (app 3808690)
+
+Investigated on October 17, 2026 against the locally installed macOS Steam
+Pathogenic (`steam_data.json` app 3808690), project `config/git_describe="v1.2.1"`,
+engine 4.7.2, Mod Loader 7.0.1. GDRE Tools privately recovered the hooked scripts
+from both PCKs; recovered files are not included here.
+
+| Official file | SHA-256 |
+| --- | --- |
+| `Contents/MacOS/Pathogenic` | `60a59e7c2f511368c66ed51bd74c0d7581a988a68399b404effb854b15fcb46f` |
+| `Contents/Resources/Pathogenic.pck` | `dda98093c77d74290a0503fc8ff9d5b8a45370ed2c290a2db75bf8ce3ae99d9d` |
+
+| Observation | Result |
+| --- | --- |
+| Demo vs. full scripts | `shop_item.gd`, `bodypart_reward.gd`, `pickup_area.gd`, `reward.gd`, `room.gd`, `item_room.gd`, `shop.gd`, `globals.gd`, `player.gd`, `options_menu.gd`, `run_save_manager.gd` and the Mod Loader core are byte-identical; `project.godot` differs only in app ID and `-dirty` |
+| Why the demo cannot load mods | `mod_loader.gd` `_init` returns unless `steam/initialization/app_id == 3808690` |
+| Workshop discovery on macOS | `get_game_install_dir` strips `Pathogenic.app/Contents/MacOS`, so Mod Loader scans `steamapps/workshop/content/3808690/<item>/*.zip` |
+| Manifest contract | Required root keys and `extra.godot.authors/compatible_mod_loader_version/compatible_game_version` present; name/namespace match `^[A-Za-z0-9_]{3,}$` |
+| Real-game headless smoke (`--mods-path` temp folder) | `ViMaSter-ArchipelagoShop.zip loaded`, `Installing script extension: res://scn/environ/pickups/shop_item.gd`, client logs `Archipelago is off`; no mod GDScript errors |
+| Distribution | Game ships `GodotWorkshopUtility.app`; Workshop tags offered by `steam_data.json`: Organelles, Mutations, GUI, Cheats, Rooms, Enemies, Challenges, Cosmetic |
+
+Not verified on the full game: an interactive run with a paid online shipment,
+and loading from an actual Workshop subscription (no item exists yet).
 
 ## Requested references
 

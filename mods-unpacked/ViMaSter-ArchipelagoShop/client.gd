@@ -1,6 +1,6 @@
 extends Node
 
-const GAME := "Pathogenic Demo"
+const GAME := "Pathogenic"
 const FIRST_LOCATION := 402938001
 const GRANT_ITEM := 402939001
 const GRANT_COINS := 15
@@ -33,7 +33,7 @@ const MUTATION_PLACEHOLDER := "res://gfx/player/mutations/mutation_placeholder.p
 # on evolution levels.
 const LEVEL_CARD := 3
 const REMOTE_ICON_SCALE := Vector2(3.0, 3.0)
-const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
+const State = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/state.gd")
 
 var socket := WebSocketPeer.new()
 var authenticated := false
@@ -424,7 +424,7 @@ func _connected(message: Dictionary) -> void:
 			or not data is Dictionary or not State.integer(data.get("shop_checks")) \
 			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2] or int(data.shop_checks) < 1 \
 			or int(data.shop_checks) > 100 or parse_sources(data) == null:
-		_fail("Incompatible slot data. Generate with the bundled Pathogenic Demo APWorld.")
+		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
 		socket.close()
 		return
 	team = int(message.team)

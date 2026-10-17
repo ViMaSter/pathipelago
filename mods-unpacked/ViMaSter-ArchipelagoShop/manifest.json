@@ -1,0 +1,16 @@
+{
+  "name": "ArchipelagoShop",
+  "namespace": "ViMaSter",
+  "version_number": "0.1.0",
+  "description": "Archipelago multiworld client: Remote Unlocks in shops, item rooms, boss rewards and level-ups send checks to other players.",
+  "website_url": "https://github.com/ViMaSter/pathipelago",
+  "dependencies": [],
+  "extra": {
+    "godot": {
+      "authors": ["ViMaSter"],
+      "tags": ["Rooms", "GUI"],
+      "compatible_mod_loader_version": ["7.0.1"],
+      "compatible_game_version": ["1.2.1"]
+    }
+  }
+}

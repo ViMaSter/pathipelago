@@ -1,6 +1,6 @@
 extends Node
 
-const BASE := "res://mods-unpacked/Local-ArchipelagoShop/"
+const BASE := "res://mods-unpacked/ViMaSter-ArchipelagoShop/"
 
 func _init() -> void:
 	ModLoaderMod.install_script_extension(BASE + "shop_item.gd")

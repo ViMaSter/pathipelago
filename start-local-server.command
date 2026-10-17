@@ -2,7 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-SESSION_FILES="$SESSION_FILES"
+if [[ -f "$ROOT/local.env" ]]; then
+    # shellcheck source=/dev/null
+    source "$ROOT/local.env"
+fi
+SESSION_FILES="${SESSION_FILES:?Set SESSION_FILES in $ROOT/local.env to the prepared Archipelago runtime folder}"
 PYTHON="$SESSION_FILES/ap311/bin/python"
 RUNTIME="$SESSION_FILES/ap-runtime"
 CAMPAIGN="${1:-$ROOT/dist/multiworld/AP_69318679617106091104.zip}"

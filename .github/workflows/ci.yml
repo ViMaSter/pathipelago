@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  # Must match the engine the shipped game was exported with (Pathogenic v1.2.1: 4.7.2).
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          archive="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${archive}"
+          echo "${GODOT_SHA512}  $RUNNER_TEMP/$archive" | sha512sum --check
+          unzip -q "$RUNNER_TEMP/$archive" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Compile APWorld
+        run: python -m py_compile apworld/pathogenic/__init__.py
+
+      - name: Test
+        run: python tools/test.py --godot "$GODOT"
+
+      - name: Build
+        run: python tools/build.py
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: |
+            dist/ViMaSter-ArchipelagoShop.zip
+            dist/pathogenic.apworld
+            dist/SHA256SUMS
+            dist/workshop/
+          if-no-files-found: error

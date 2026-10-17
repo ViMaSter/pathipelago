@@ -1,4 +1,4 @@
-# Pathogenic Demo
+# Pathogenic
 
 ## What does randomization do to this game?
 
@@ -19,7 +19,7 @@ add remote unlocks, and turning it off or disconnecting does not remove them.
 "Research Grant", which is redeemed automatically for 15 coins in the current
 (or next) Archipelago run.
 
-## What does another world's item look like in Pathogenic Demo?
+## What does another world's item look like in Pathogenic?
 
 Hovering the Archipelago pedestal replaces the upgrade description with the
 scouted item, the recipient player, and the recipient's game.

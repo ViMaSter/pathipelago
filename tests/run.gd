@@ -1,7 +1,7 @@
 extends SceneTree
 
-const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
-const Client = preload("res://mods-unpacked/Local-ArchipelagoShop/client.gd")
+const State = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/state.gd")
+const Client = preload("res://mods-unpacked/ViMaSter-ArchipelagoShop/client.gd")
 var failures := 0
 var assertions := 0
 
@@ -166,7 +166,7 @@ func _network_and_purchase() -> void:
 	choose._rewards[0].choose_one = true
 	var fallback: Node = _pedestal(challenge_room, "Item2", true)
 	check(not client.is_ap(choose) and client.is_ap(fallback), "choose-one pedestal skipped for designation")
-	var orphan: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
+	var orphan: Node = load("res://mods-unpacked/ViMaSter-ArchipelagoShop/shop_item.gd").new()
 	root.add_child(orphan)
 	check(not client.is_ap(orphan), "pedestals outside shop rooms stay vanilla")
 	var log_text := FileAccess.get_file_as_string("user://archipelago_shop/client.log")
@@ -205,12 +205,12 @@ func _network_and_purchase() -> void:
 	_send(peer, [{"cmd": "RoomInfo", "seed_name": "fixture-campaign"}])
 	var messages := await _collect(peer, 15)
 	var connect_message := _find(messages, "Connect")
-	check(connect_message.get("game") == "Pathogenic Demo", "real AP handshake game")
+	check(connect_message.get("game") == "Pathogenic", "real AP handshake game")
 	check(connect_message.get("items_handling") == 7, "request local, remote, starting items")
 	_send(peer, [{
 		"cmd": "Connected", "team": 0, "slot": 1,
 		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
-		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic Demo"}, "2": {"name": "Friend", "game": "Example"}},
+		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic"}, "2": {"name": "Friend", "game": "Example"}},
 		"missing_locations": range(402938001, 402938006),
 		"checked_locations": [], "slot_data": {"schema": 1, "shop_checks": 5}
 	}, {
@@ -435,7 +435,7 @@ func _network_and_purchase() -> void:
 	tcp.stop()
 
 func _pedestal(room: Node, pedestal_name: String, with_reward: bool) -> Node:
-	var pedestal: Node = load("res://mods-unpacked/Local-ArchipelagoShop/shop_item.gd").new()
+	var pedestal: Node = load("res://mods-unpacked/ViMaSter-ArchipelagoShop/shop_item.gd").new()
 	pedestal.name = pedestal_name
 	room.add_child(pedestal)
 	pedestal.add_to_group("shop_item")

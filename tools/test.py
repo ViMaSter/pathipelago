@@ -6,15 +6,25 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def godot_data_root() -> Path:
+    """Godot resolves custom user directories relative to the OS data directory."""
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support"
+    if sys.platform == "win32":
+        return Path(os.environ["APPDATA"])
+    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
+
+
 def engine_tests(godot: str, live_server: str | None = None) -> None:
-    # Godot resolves custom user directories relative to the OS data directory.
-    data_root = Path.home() / "Library/Application Support"
+    data_root = godot_data_root()
+    data_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="pathogenic-ap-test-") as temporary, \
             tempfile.TemporaryDirectory(prefix="pathogenic-ap-test-", dir=data_root) as user:
         project = Path(temporary)
