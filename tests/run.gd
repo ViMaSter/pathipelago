@@ -556,6 +556,11 @@ func _deathlink(client: Node, peer: WebSocketPeer, globals: Node, player: Node) 
 	paused = false
 	client.authenticated = true
 	check(client.pending_death.is_empty() and not player.dead, "connection loss invalidates deferred death")
+	for loose in [{"time": "9.5", "source": "Daniel", "cause": null},
+			{"time": 9.6, "source": "Daniel"}, {"time": 9.7, "cause": ""}]:
+		client._handle({"cmd": "Bounced", "tags": ["DeathLink"], "data": loose})
+		check(not client.pending_death.is_empty(), "other games' DeathLink payload variants are accepted")
+		client.pending_death = {}
 	player.dead = true
 	root.get_node("SignalBus").emit_signal("player_died")
 	root.get_node("SignalBus").emit_signal("player_died")

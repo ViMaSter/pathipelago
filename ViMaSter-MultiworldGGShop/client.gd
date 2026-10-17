@@ -559,17 +559,29 @@ func _receive_death(message: Dictionary) -> void:
 	if not tags is Array or not "DeathLink" in tags:
 		return
 	var data: Variant = message.get("data")
-	if not data is Dictionary or not data.get("source") is String \
-			or str(data.source).is_empty() or not (data.get("time") is int or data.get("time") is float) \
-			or not is_finite(float(data.time)) or float(data.time) <= 0.0 \
-			or (data.has("cause") and not data.cause is String):
-		log_line("Ignored malformed DeathLink event.")
+	if not data is Dictionary:
+		log_line("Ignored malformed DeathLink event: %s" % JSON.stringify(message))
 		return
-	if data.source == slot_name or not _remember_death(data.source, float(data.time)):
+	# Other games' clients vary: cause may be null/absent, time may be a string.
+	var source: String = str(data.source) if data.get("source") is String else ""
+	var raw_time: Variant = data.get("time")
+	var timestamp := 0.0
+	if raw_time is int or raw_time is float:
+		timestamp = float(raw_time)
+	elif raw_time is String and str(raw_time).is_valid_float():
+		timestamp = str(raw_time).to_float()
+	if not is_finite(timestamp) or timestamp <= 0.0:
+		log_line("Ignored malformed DeathLink event: %s" % JSON.stringify(data))
 		return
+	if not source.is_empty() and source == slot_name:
+		return
+	if not _remember_death(source, timestamp):
+		return
+	if source.is_empty():
+		source = "another player"
 	var player := _deathlink_player()
 	if player == null or player.get("dead") == true:
-		log_line("Ignored DeathLink from %s: no living MultiworldGG run." % data.source)
+		log_line("Ignored DeathLink from %s: no living MultiworldGG run." % source)
 		return
 	if not pending_death.is_empty():
 		return
@@ -577,9 +589,11 @@ func _receive_death(message: Dictionary) -> void:
 		"generation": run_generation, "player": player.get_instance_id(),
 		"main": get_node("/root/G").main.get_instance_id(),
 	}
-	var cause: String = data.get("cause", "%s died." % data.source)
-	notify("DeathLink from %s: %s" % [data.source, cause])
-	show_toast("DeathLink from %s" % data.source)
+	var raw_cause: Variant = data.get("cause")
+	var cause: String = str(raw_cause) if raw_cause is String and not str(raw_cause).is_empty() \
+			else "%s died." % source
+	notify("DeathLink from %s: %s" % [source, cause])
+	show_toast("DeathLink from %s" % source)
 
 func _apply_pending_death() -> void:
 	if pending_death.is_empty():

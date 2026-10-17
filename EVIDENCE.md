@@ -223,8 +223,9 @@ included in this project.
 | Layer | Observed result | Limitation |
 | --- | --- | --- |
 | Python tooling | 25 tests pass, including reproducible builds using the tracked top-level mod source | No gameplay |
-| Isolated Godot fixtures | 159 assertions pass; incoming damage bypasses defenses, pause/editor closing defers damage, obsolete pending deaths are discarded, local deaths send once, received deaths do not echo, damage failures are explicit | Original API doubles, not native scenes |
+| Isolated Godot fixtures | 162 assertions pass; other games' payload variants (null/absent `cause`, numeric-string `time`, absent `source`) are accepted; incoming damage bypasses defenses, pause/editor closing defers damage, obsolete pending deaths are discarded, local deaths send once, received deaths do not echo, damage failures are explicit | Original API doubles, not native scenes |
 | MultiworldGG 0.7.273 generation | Default-on and explicit on/off DeathLink settings reach exact slot data; source selection and 10,000-check boundary remain valid | Generated logic, not game execution |
+| Real Dark Souls III client | Captured live DS3 bounce `{"time": 1792269493.0, "cause": null, "source": "Daniel"}`; the first build rejected it as malformed, which the tolerant parser fixes | In-game lethal damage from a DS3 death awaits one confirmation |
 | Real MultiworldGG server | Three slots: two enabled and one disabled; local death sends a tagged event, the other enabled client takes lethal damage once, the disabled slot receives no DeathLink bounce, and reconnect restores subscription. Shipment delivery, grant replay protection, and persisted goal/checks still pass | Clients share one doubled game; test selects whose run/death it represents |
 
 The live tests use an isolated runtime copy, generated seed, loopback-only server,
