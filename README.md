@@ -31,6 +31,12 @@ remote unlock, and the other choices stay vanilla. The money drop and devil tele
 not affected. The heart boss drops only money and the brain boss drops nothing, so
 neither has a remote unlock.
 
+**Level-up drafts** ("Select a mutation") replace their last card with a remote unlock
+(the empty helix card with the Enhancer icon). Its tooltip reads "Remote Unlock n/N". On
+evolution levels (2, 6 and 10) this is the skip card. Picking it sends the next check and
+fills the level's gene the way skipping does. The other cards stay vanilla, and every
+reroll or new level gets a fresh remote unlock.
+
 - A persistent campaign spans multiple demo runs: default 20 purchases, configurable
   from 5 to 100 in the YAML.
 - The AP pedestal offers the **next** unpurchased shipment. Rerolling does not add checks.

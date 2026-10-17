@@ -21,6 +21,11 @@ const PAGE_MAX_HEIGHT := 640.0
 const BUTTON_COLOR := Color(0.12, 0.42, 0.68)
 # Enhancer's icon; every AP pedestal shows it instead of the rolled upgrade.
 const REMOTE_ICON := "res://gfx/player/bodyparts/internal/upgrade.png"
+const MUTATION_SKIP := "res://scn/player/evolutions/skip_evolution.tres"
+const MUTATION_PLACEHOLDER := "res://gfx/player/mutations/mutation_placeholder.png"
+# The level-up draft's last card (MutationT): a plain mutation, or the skip card
+# on evolution levels.
+const LEVEL_CARD := 3
 const REMOTE_ICON_SCALE := Vector2(3.0, 3.0)
 const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
 
@@ -54,6 +59,12 @@ var toast_time := 0.0
 var ap_rewards: Array = []
 var free_rewards: Array = []
 var remote_icon: Texture2D
+var remote_card: Texture2D
+var level_gen := -1
+var level_card: Resource
+var level_original: Variant
+var level_texture: Texture2D
+var level_button: BaseButton
 # A new run's player must exist this long before grants are paid to it, so
 # run setup or save restore cannot overwrite the added coins.
 var settled_player := 0
@@ -202,6 +213,7 @@ func _process(delta: float) -> void:
 			toast.visible = false
 	_override_tooltip()
 	_mask_rewards()
+	_watch_level_up()
 	_track_player(delta)
 	refresh_time += delta
 	if refresh_time >= 0.5:
@@ -633,6 +645,157 @@ func _free_pick(reward: Node) -> void:
 	show_toast("sent " + offer_text(location))
 	notify("Sent %s: %s. Waiting for server confirmation." % [location_name(location), offer_text(location)])
 
+# --- Level-up mutation draft -----------------------------------------------------
+
+func _editor() -> Node:
+	var globals := get_node_or_null("/root/G")
+	var editor: Variant = globals.get("editor") if globals != null else null
+	return editor if is_instance_valid(editor) else null
+
+func _enum_value(enum_name: String, key: String) -> int:
+	var globals := get_node_or_null("/root/G")
+	var script: Script = globals.get_script() if globals != null else null
+	var values: Variant = script.get_script_constant_map().get(enum_name) if script != null else null
+	return int(values[key]) if values is Dictionary and values.has(key) else -1
+
+func _level_exhausted() -> bool:
+	return campaign != null and authenticated and campaign.next_location() < 0
+
+# Each new draft (level-up or reroll bumps editor._mutation_gen) swaps its last
+# card for a remote unlock once the game has finished streaming the cards in.
+func _watch_level_up() -> void:
+	var editor := _editor()
+	if editor == null:
+		return
+	_hook_level_button(editor)
+	var container := editor.get_node_or_null("MutationContainer") as CanvasItem
+	var mutations: Variant = editor.get("mutations")
+	if container == null or not container.visible or not mutations is Array or mutations.size() <= LEVEL_CARD:
+		return
+	var current: Variant = mutations[LEVEL_CARD]
+	if current == null:
+		return
+	var gen := int(editor.get("_mutation_gen"))
+	if gen != level_gen:
+		level_gen = gen
+		level_card = null
+		if _level_exhausted():
+			return
+		level_original = current
+		level_texture = level_button.texture_normal if is_instance_valid(level_button) else null
+		level_card = (load(MUTATION_SKIP) as Resource).duplicate() if ResourceLoader.exists(MUTATION_SKIP) else Resource.new()
+		mutations[LEVEL_CARD] = level_card
+		log_line("AP card for level-up draft %d (replaces %s)." % [gen, _resource_label(current)])
+	if level_card == null or mutations[LEVEL_CARD] != level_card:
+		return
+	if is_instance_valid(level_button):
+		var texture := _remote_card_texture()
+		if texture != null and level_button.texture_normal != texture:
+			level_button.texture_normal = texture
+	var tooltip := editor.get_node_or_null("%MutationTooltip") as Control
+	if tooltip != null and tooltip.visible:
+		var item: Variant = tooltip.get("item")
+		if (item is Object and item == level_card) or (item is Dictionary and item.get("archipelago", false)):
+			_style_tooltip(tooltip)
+
+static func _resource_label(resource: Variant) -> String:
+	if resource is Resource:
+		var ui_name: Variant = resource.get("ui_name")
+		if ui_name is String and not ui_name.is_empty():
+			return ui_name
+		return resource.resource_name if resource.resource_path.is_empty() else resource.resource_path.get_file()
+	return str(resource)
+
+func _hook_level_button(editor: Node) -> void:
+	var buttons: Variant = editor.get("mutation_buttons")
+	if not buttons is Array or buttons.size() <= LEVEL_CARD or not buttons[LEVEL_CARD] is BaseButton:
+		return
+	var button: BaseButton = buttons[LEVEL_CARD]
+	if button == level_button and button.has_meta("archipelago_level"):
+		return
+	for connection in button.pressed.get_connections():
+		var callable: Callable = connection.callable
+		if callable.get_object() == editor and callable.get_method() == &"_on_mutation_pressed":
+			button.pressed.disconnect(callable)
+	button.pressed.connect(_level_pick.bind(editor))
+	button.set_meta("archipelago_level", true)
+	level_button = button
+	level_gen = -1
+	level_card = null
+
+func _level_pick(editor: Node) -> void:
+	if not is_instance_valid(editor):
+		return
+	var mutations: Array = editor.mutations
+	if level_card == null or mutations.size() <= LEVEL_CARD or mutations[LEVEL_CARD] != level_card:
+		editor._on_mutation_pressed(LEVEL_CARD)
+		return
+	if int(editor.state) != _enum_value("EditorState", "ACTIVE"):
+		return
+	if _level_exhausted():
+		log_line("Level-up pick -> vanilla card (all AP checks sent)")
+		_restore_level_card(editor)
+		editor._on_mutation_pressed(LEVEL_CARD)
+		return
+	var location := _claim_location()
+	if location < 0:
+		return
+	if not campaign.purchase(location):
+		_fail(campaign.error)
+		return
+	log_line("Level-up pick -> ARCHIPELAGO")
+	if int(editor.pending_mutation_index) >= 0:
+		editor._revert_pending_selection()
+	# Commit through the vanilla skip path so the level still consumes its gene.
+	mutations[LEVEL_CARD] = load(MUTATION_SKIP) if ResourceLoader.exists(MUTATION_SKIP) else level_original
+	level_card = null
+	editor.pending_mutation_index = LEVEL_CARD
+	await editor._on_confirm_pressed()
+	get_node("/root/RunSaveManager").save_run()
+	_send_checks()
+	show_toast("sent " + offer_text(location))
+	notify("Sent %s: %s. Waiting for server confirmation." % [location_name(location), offer_text(location)])
+
+func _restore_level_card(editor: Node) -> void:
+	if level_card != null and editor.mutations.size() > LEVEL_CARD and editor.mutations[LEVEL_CARD] == level_card:
+		editor.mutations[LEVEL_CARD] = level_original
+		if is_instance_valid(level_button) and level_texture != null:
+			level_button.texture_normal = level_texture
+	level_card = null
+
+# The draft's empty "?" card with the Enhancer icon painted over the glyph.
+func _remote_card_texture() -> Texture2D:
+	if remote_card != null:
+		return remote_card
+	if remote_icon == null and ResourceLoader.exists(REMOTE_ICON):
+		remote_icon = load(REMOTE_ICON) as Texture2D
+	if not ResourceLoader.exists(MUTATION_PLACEHOLDER) or remote_icon == null:
+		remote_card = remote_icon
+		return remote_card
+	var frame: Image = (load(MUTATION_PLACEHOLDER) as Texture2D).get_image()
+	var icon: Image = remote_icon.get_image()
+	if frame == null or icon == null:
+		remote_card = remote_icon
+		return remote_card
+	frame = frame.duplicate()
+	icon = icon.duplicate()
+	for image in [frame, icon]:
+		if image.is_compressed():
+			image.decompress()
+		image.convert(Image.FORMAT_RGBA8)
+	var center := Vector2i(frame.get_width() / 2, frame.get_height() / 2)
+	var radius := int(frame.get_width() * 0.33)
+	var fill := frame.get_pixel(center.x - radius + 4, center.y)
+	for y in range(center.y - radius, center.y + radius + 1):
+		for x in range(center.x - radius, center.x + radius + 1):
+			if Vector2(x - center.x, y - center.y).length() <= radius:
+				frame.set_pixel(x, y, fill)
+	var side := int(radius * 1.8)
+	icon.resize(side, side, Image.INTERPOLATE_BILINEAR)
+	frame.blend_rect(icon, Rect2i(Vector2i.ZERO, icon.get_size()), center - icon.get_size() / 2)
+	remote_card = ImageTexture.create_from_image(frame)
+	return remote_card
+
 func _error_sound() -> void:
 	var audio := get_node_or_null("/root/AudioManager")
 	if audio != null and audio.get("ui_error") != null:
@@ -774,11 +937,16 @@ func _override_tooltip() -> void:
 			return
 	elif not is_free_ap(_reward_ancestor(anchor)):
 		return
+	if _style_tooltip(tooltip):
+		ui.set("_last_tooltip_item", tooltip.item)
+
+# Returns true when the tooltip item had to be replaced.
+func _style_tooltip(tooltip: Control) -> bool:
 	var card := tooltip_card()
 	var current: Variant = tooltip.item
-	if typeof(current) != TYPE_DICTIONARY or current != card:
+	var replaced: bool = typeof(current) != TYPE_DICTIONARY or current != card
+	if replaced:
 		tooltip.item = card
-		ui.set("_last_tooltip_item", card)
 	var name_label := tooltip.get_node_or_null("%Name")
 	if name_label != null and name_label.text != card.name:
 		name_label.text = card.name
@@ -788,6 +956,7 @@ func _override_tooltip() -> void:
 		var panel := tooltip.get_node_or_null("%TypePanel")
 		if panel != null:
 			panel.self_modulate = Color(0.1, 0.35, 0.55, 1.0)
+	return replaced
 
 func _refresh_offers() -> void:
 	var masked: Array = []

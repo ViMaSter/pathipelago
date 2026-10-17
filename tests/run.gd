@@ -144,7 +144,8 @@ func _network_and_purchase() -> void:
 		"cmd": "LocationInfo", "locations": [
 			{"location": 402938001, "item": 9001, "player": 2, "flags": 1},
 			{"location": 402938002, "item": 9001, "player": 2, "flags": 1},
-			{"location": 402938003, "item": 9001, "player": 2, "flags": 1}
+			{"location": 402938003, "item": 9001, "player": 2, "flags": 1},
+			{"location": 402938004, "item": 9001, "player": 2, "flags": 1}
 		]
 	}, {"cmd": "ReceivedItems", "index": 0, "items": []}])
 	messages = await _collect(peer, 15)
@@ -269,6 +270,37 @@ func _network_and_purchase() -> void:
 	messages = await _collect(peer, 10)
 	sent = _find(messages, "LocationChecks").get("locations", [])
 	check(402938003 in sent.map(func(l): return int(l)), "boss check sent to the server")
+	var editor: Control = load("res://tests/stubs/editor.gd").new()
+	root.get_node("G").editor = editor
+	root.add_child(editor)
+	editor.draft(["A", "C", "G", "T"])
+	var vanilla_last: Resource = editor.mutations[3]
+	await process_frame
+	await process_frame
+	var level_button: TextureButton = editor.mutation_buttons[3]
+	check(editor.mutations[3] != vanilla_last and editor.mutations[3] == client.level_card
+			and level_button.texture_normal == client._remote_card_texture(), "level-up draft's last card becomes a remote unlock")
+	check(editor.mutations.slice(0, 3).map(func(m): return m.resource_name) == ["A", "C", "G"], "other level-up cards stay vanilla")
+	var level_tooltip: Control = editor.get_node("%MutationTooltip")
+	level_tooltip.visible = true
+	level_tooltip.item = editor.mutations[3]
+	await process_frame
+	check(level_tooltip.item is Dictionary and level_tooltip.item.name == "Remote Unlock 4/5", "level-up remote unlock tooltip")
+	editor.mutation_buttons[0].pressed.emit()
+	check(editor.vanilla_presses == [0] and editor.committed.is_empty(), "other level-up cards still use the game's handler")
+	level_button.pressed.emit()
+	await process_frame
+	await process_frame
+	check(editor.vanilla_presses == [0] and editor.committed.size() == 1 and editor.committed[0] != client.level_card
+			and client.campaign.checks.size() == 4, "level-up remote unlock commits the skip gene and sends the next check")
+	messages = await _collect(peer, 10)
+	sent = _find(messages, "LocationChecks").get("locations", [])
+	check(402938004 in sent.map(func(l): return int(l)), "level-up check sent to the server")
+	editor.draft(["A2", "C2", "G2", "T2"])
+	await process_frame
+	check(editor.mutations[3] == client.level_card and editor.mutations[3].resource_name != "T2", "reroll/next level gets a fresh remote unlock")
+	editor.mutations[3] = null
+	editor.queue_free()
 	var grants := [{"item": 402939001, "location": 100, "player": 2, "flags": 0}]
 	client.player_seen = player.get_instance_id()
 	client.settled_player = 0
