@@ -9,11 +9,12 @@ See [EVIDENCE.md](EVIDENCE.md) for the shop investigation and verification bound
 Every shop room (normal and heart shop) gets **exactly one designated Archipelago
 pedestal**, chosen deterministically (first ordinary bodypart offer by node name,
 else the first non-blood pedestal). It keeps the upgrade sprite and the normal coin
-price. Its tooltip is replaced by a blue **ARCHIPELAGO / Remote unlock** card that
-names the scouted item, recipient player and game, for example
-`Shop Shipment 003: Poke Ball for PkmnPlayer (Pokemon Red and Blue)`. This is
-possible because Archipelago fixes each location's item at generation time and the
-client scouts it (`LocationScouts`). Buying it pays coins, grants **nothing locally**,
+price. Its floating name becomes **Remote Unlock 3/20** (next shipment of the
+campaign), and its tooltip becomes a blue **ARCHIPELAGO** card titled the same way
+whose text is only the scouted item, recipient player and game, for example
+`"Poke Ball" for PkmnPlayer (Pokemon Red and Blue)` with the three names in blue.
+This is possible because Archipelago fixes each location's item at generation time
+and the client scouts it (`LocationScouts`). Buying it pays coins, grants **nothing locally**,
 and sends the location check. Archipelago then delivers the item to its owner.
 
 - A persistent campaign spans multiple demo runs: default 20 purchases, configurable
@@ -292,6 +293,24 @@ Keep both files and the Pathogenic journal to resume. Stop with `/exit` in the
 server console or Ctrl+C. Restarting the launcher resumes this seed, not a new
 one. For a fresh seed, repeat generation step 3, then supply its exact ZIP path
 as the launcher's first argument. Old campaign saves are kept separately.
+
+## Shop sprites
+
+The pedestal shows a bodypart's `icon_texture` (internal organelles are drawn over
+their `background_texture` pattern inside a sphere). Mutations with a nonzero
+`reward_drop_rate` can also appear and use their `texture`. In the game PCK these
+live under `res://gfx/player/bodyparts/` (external), `.../bodyparts/internal/`
+(organelles), `.../internal/patterns/` (backgrounds) and `res://gfx/player/mutations/`,
+named by the `.tres` resources in `res://scn/player/bodyparts/` and
+`res://scn/player/mutations/all/` (`ui_name` keys resolved via
+`res://translations/translations.csv`). To export them as `[ITEMNAME].png`:
+
+```bash
+python3 tools/export_shop_sprites.py
+```
+
+This writes `shop-sprites/` (gitignored; game assets, do not distribute) with
+`backgrounds/[ITEMNAME].png` and `index.csv` mapping each file to its resource.
 
 ## Saves, removal and limits
 

@@ -4,6 +4,7 @@
 /launch-modded.command
 /players-pokemon-pathogenic/
 /local-webhost/
+/shop-sprites/
 
 # Python and Godot caches
 __pycache__/

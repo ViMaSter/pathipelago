@@ -11,6 +11,11 @@ const LOG_LINES := 200
 const SHOP_ROOM_SCRIPT := "res://scn/environ/rooms/special/shop.gd"
 const OPTIONS_SCRIPT := "res://scn/ui/options_menu.gd"
 const TAB_TITLE := "Archipelago"
+const FONT_SIZE := 18
+const SMALL_FONT_SIZE := 12
+const PAGE_MIN_HEIGHT := 300.0
+const PAGE_MAX_HEIGHT := 640.0
+const BUTTON_COLOR := Color(0.12, 0.42, 0.68)
 const State = preload("res://mods-unpacked/Local-ArchipelagoShop/state.gd")
 
 var socket := WebSocketPeer.new()
@@ -576,23 +581,30 @@ func offer_text(location: int) -> String:
 func _offer_text(location: int) -> String:
 	return offer_text(location)
 
-func tooltip_card() -> Dictionary:
-	var body := ""
+func tooltip_title() -> String:
+	if campaign == null or count <= 0:
+		return "Remote Unlock"
+	return "Remote Unlock %d/%d" % [mini(campaign.next_location() - FIRST_LOCATION + 1, count), count]
+
+static func _bb(text: String) -> String:
+	return "[color=#66e6ff]%s[/color]" % text.replace("[", "[lb]")
+
+func tooltip_body() -> String:
 	if fatal or not authenticated or campaign == null:
-		body = "Remote unlock for the Archipelago multiworld. This pedestal never gives you a local upgrade.\n\n[color=orange]Not connected: open Settings > Archipelago.[/color]"
-	else:
-		var location: int = campaign.next_location()
-		var item: Dictionary = scouts.get(location, {})
-		body = "Buying this sends [b]%s[/b] (%d of %d) to the multiworld instead of giving you this upgrade.\n\n" % [
-			location_name(location), location - FIRST_LOCATION + 1, count]
-		if item.is_empty():
-			body += "Unlocks an external item for another player."
-		else:
-			body += "Unlocks [color=#66e6ff][b]%s[/b][/color]" % offer_text(location)
-			if int(item.get("flags", 0)) & 1:
-				body += " [color=gold](progression)[/color]"
-			body += "."
-	return {"name": "Remote unlock", "hint": body, "archipelago": true}
+		return "[color=orange]Not connected: open Settings > Archipelago.[/color]"
+	var location: int = campaign.next_location()
+	if not scouts.has(location):
+		return "An external unlock for another multiworld player."
+	var item: Dictionary = scouts[location]
+	var player := int(item.player)
+	var body := "\"%s\" for %s" % [_bb(_item_name(int(item.item), player)), _bb(str(players.get(player, "Player %d" % player)))]
+	var game: String = slot_games.get(player, "")
+	if not game.is_empty():
+		body += " (%s)" % _bb(game)
+	return body
+
+func tooltip_card() -> Dictionary:
+	return {"name": tooltip_title(), "hint": tooltip_body(), "archipelago": true}
 
 func _shop_wrapper(node: Node) -> Node:
 	while node != null:
@@ -620,6 +632,9 @@ func _override_tooltip() -> void:
 	if typeof(current) != TYPE_DICTIONARY or current != card:
 		tooltip.item = card
 		ui.set("_last_tooltip_item", card)
+	var name_label := tooltip.get_node_or_null("%Name")
+	if name_label != null and name_label.text != card.name:
+		name_label.text = card.name
 	var type_label := tooltip.get_node_or_null("%Type")
 	if type_label != null and type_label.text != "ARCHIPELAGO":
 		type_label.text = "ARCHIPELAGO"
@@ -635,7 +650,9 @@ func _refresh_offers() -> void:
 		if shop.paid or not is_ap(shop):
 			if label != null:
 				label.queue_free()
+				_rename_rewards(shop, "")
 			continue
+		_rename_rewards(shop, tooltip_title())
 		if label == null:
 			label = Label.new()
 			label.name = "ArchipelagoOffer"
@@ -648,6 +665,22 @@ func _refresh_offers() -> void:
 			label.add_theme_constant_override("outline_size", 6)
 			shop.add_child(label)
 		label.text = "ARCHIPELAGO" if authenticated else "ARCHIPELAGO (offline)"
+
+# Replaces the floating bodypart name under the AP pedestal; "" restores it.
+func _rename_rewards(shop: Node, title: String) -> void:
+	for reward in shop.get("_rewards"):
+		if not is_instance_valid(reward):
+			continue
+		var name_label := reward.get_node_or_null("%Label") as Label
+		if name_label == null:
+			continue
+		if title.is_empty():
+			if name_label.has_meta("archipelago_original"):
+				name_label.text = name_label.get_meta("archipelago_original")
+				name_label.remove_meta("archipelago_original")
+		elif name_label.text != title:
+			name_label.set_meta("archipelago_original", name_label.text)
+			name_label.text = title
 
 func redeem_grants() -> void:
 	if fatal or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
@@ -695,62 +728,106 @@ func _inject_tab(menu: Node) -> void:
 	var page := _build_page()
 	page.visible = false
 	content.add_child(page)
+	var height := 0.0
+	for sibling in content.get_children():
+		if sibling != page and sibling is Control:
+			height = maxf(height, sibling.get_combined_minimum_size().y)
+	page.custom_minimum_size.y = clampf(height, PAGE_MIN_HEIGHT, PAGE_MAX_HEIGHT)
 	_refresh_pages()
 
 func _build_page() -> Control:
-	var page := VBoxContainer.new()
+	# A scroll page capped to the height of the vanilla tabs keeps the tab row on screen.
+	var page := ScrollContainer.new()
 	page.name = "button_archipelago"
-	page.add_theme_constant_override("separation", 8)
+	page.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.custom_minimum_size = Vector2(0, PAGE_MIN_HEIGHT)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 4)
+	page.add_child(box)
 	var widgets := {"page": page}
-	widgets.status = _label(page)
-	widgets.progress = _label(page)
-	widgets.server = _line(page, server, "Server URL: ws://host:port or wss://host:port")
-	widgets.slot = _line(page, slot_name, "Slot name from the seed (not the server alias)")
-	widgets.password = _line(page, password, "Server password (not saved)")
+	widgets.status = _label(box, FONT_SIZE)
+	widgets.progress = _label(box, FONT_SIZE)
+	var fields := GridContainer.new()
+	fields.columns = 2
+	fields.add_theme_constant_override("h_separation", 8)
+	fields.add_theme_constant_override("v_separation", 4)
+	box.add_child(fields)
+	widgets.server = _line(fields, "Server", server, "ws://host:port or wss://host:port")
+	widgets.slot = _line(fields, "Slot", slot_name, "Slot name from the seed")
+	widgets.password = _line(fields, "Password", password, "Optional, not saved")
 	widgets.password.secret = true
 	var row := HBoxContainer.new()
-	page.add_child(row)
-	var connect_button := Button.new()
-	connect_button.text = "Connect / reconnect"
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var connect_button := _button(row, "Connect")
 	connect_button.pressed.connect(func():
-		server = widgets.server.text
-		slot_name = widgets.slot.text
+		server = widgets.server.text.strip_edges()
+		slot_name = widgets.slot.text.strip_edges()
 		password = widgets.password.text
 		connect_server())
-	row.add_child(connect_button)
-	widgets.grants = Button.new()
+	widgets.grants = _button(row, "Redeem grants")
 	widgets.grants.pressed.connect(redeem_grants)
-	row.add_child(widgets.grants)
-	var folder := Button.new()
-	folder.text = "Open log folder"
-	folder.pressed.connect(func(): OS.shell_open(ProjectSettings.globalize_path("user://logs")))
-	row.add_child(folder)
-	var paths := _label(page)
+	_button(row, "Open log folder").pressed.connect(func():
+		OS.shell_open(ProjectSettings.globalize_path(ROOT)))
+	var paths := _label(box, SMALL_FONT_SIZE)
+	paths.modulate = Color(1, 1, 1, 0.7)
 	paths.text = "Client log: %s\nGame log: %s" % [
 		ProjectSettings.globalize_path(LOG_FILE), ProjectSettings.globalize_path("user://logs/godot.log")]
 	widgets.log = RichTextLabel.new()
-	widgets.log.custom_minimum_size = Vector2(0, 260)
+	widgets.log.custom_minimum_size = Vector2(0, 120)
 	widgets.log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	widgets.log.scroll_following = true
 	widgets.log.selection_enabled = true
-	widgets.log.add_theme_font_size_override("normal_font_size", 14)
-	page.add_child(widgets.log)
+	widgets.log.add_theme_font_size_override("normal_font_size", SMALL_FONT_SIZE)
+	box.add_child(widgets.log)
 	widgets.revision = -1
 	pages.append(widgets)
 	return page
 
-func _label(parent: Control) -> Label:
+func _label(parent: Control, font_size: int) -> Label:
 	var label := Label.new()
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
 	parent.add_child(label)
 	return label
 
-func _line(parent: Control, text: String, hint: String) -> LineEdit:
+func _line(grid: Control, caption: String, text: String, hint: String) -> LineEdit:
+	var label := Label.new()
+	label.text = caption
+	label.add_theme_font_size_override("font_size", FONT_SIZE)
+	grid.add_child(label)
 	var field := LineEdit.new()
 	field.text = text
 	field.placeholder_text = hint
-	parent.add_child(field)
+	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	field.add_theme_font_size_override("font_size", FONT_SIZE)
+	grid.add_child(field)
 	return field
+
+func _button_style(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
+	return style
+
+func _button(parent: Control, text: String) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.add_theme_font_size_override("font_size", FONT_SIZE)
+	button.add_theme_stylebox_override("normal", _button_style(BUTTON_COLOR))
+	button.add_theme_stylebox_override("hover", _button_style(BUTTON_COLOR.lightened(0.25)))
+	button.add_theme_stylebox_override("pressed", _button_style(BUTTON_COLOR.darkened(0.3)))
+	button.add_theme_stylebox_override("focus", _button_style(BUTTON_COLOR.lightened(0.25)))
+	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	parent.add_child(button)
+	return button
 
 func _refresh_pages() -> void:
 	var live: Array = []
@@ -762,9 +839,9 @@ func _refresh_pages() -> void:
 			continue
 		widgets.status.text = status
 		if campaign != null:
-			widgets.progress.text = "Shop checks: %d sent, %d/%d confirmed by the server. Slot %s on %s." % [
-				campaign.checks.size(), campaign.confirmed.size(), count, slot_name, server]
-			widgets.grants.text = "Redeem %d Research Grants (+%d coins)" % [campaign.bank, campaign.bank * GRANT_COINS]
+			widgets.progress.text = "Checks: %d sent, %d/%d confirmed. Next: %s." % [
+				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
+			widgets.grants.text = "Redeem %d grants (+%d coins)" % [campaign.bank, campaign.bank * GRANT_COINS]
 		else:
 			widgets.progress.text = "No campaign loaded yet."
 			widgets.grants.text = "Redeem Research Grants"

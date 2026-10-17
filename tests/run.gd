@@ -103,6 +103,8 @@ func _network_and_purchase() -> void:
 	check(menu.tab_content.get_child_count() == 3, "settings page injected")
 	menu.tab_buttons[2].pressed.emit()
 	check(menu.current_tab == 2 and menu.tab_content.get_child(2).visible, "settings tab selectable")
+	var page: Control = menu.tab_content.get_child(2)
+	check(page is ScrollContainer and page.custom_minimum_size.y <= client.PAGE_MAX_HEIGHT, "settings page height capped")
 	var tcp := TCPServer.new()
 	check(tcp.listen(0, "127.0.0.1") == OK, "listen local websocket fixture")
 	client.server = "ws://127.0.0.1:%d" % tcp.get_local_port()
@@ -149,9 +151,17 @@ func _network_and_purchase() -> void:
 	check(not _find(messages, "LocationScouts").is_empty(), "scout finite location pool")
 	check(client.offer_text(402938001) == "Remote Sword for Remote Friend (Example)", "show item, recipient and game")
 	var card: Dictionary = client.tooltip_card()
-	check(card.get("name") == "Remote unlock" and str(card.get("hint")).contains("Shop Shipment 001") \
-			and str(card.get("hint")).contains("Remote Sword for Remote Friend (Example)") \
-			and str(card.get("hint")).contains("progression"), "tooltip card replaces upgrade text")
+	check(card.get("name") == "Remote Unlock 1/5", "tooltip title shows shipment progress")
+	check(card.get("hint") == "\"[color=#66e6ff]Remote Sword[/color]\" for [color=#66e6ff]Remote Friend[/color] ([color=#66e6ff]Example[/color])",
+			"tooltip highlights only item, player and game")
+	var name_label := Label.new()
+	name_label.name = "Label"
+	reward.add_child(name_label)
+	name_label.owner = reward
+	name_label.unique_name_in_owner = true
+	name_label.text = "Recuperative Mitochondrion"
+	client._refresh_offers()
+	check(name_label.text == "Remote Unlock 1/5", "floating pedestal name replaced")
 	player.money = 2
 	shop._on_picked()
 	check(client.campaign.checks.is_empty() and player.money == 2, "insufficient funds unchanged")
