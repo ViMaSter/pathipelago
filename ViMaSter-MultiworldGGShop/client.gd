@@ -66,6 +66,7 @@ var run_multiworld := false
 var run_seed := ""
 var run_id := ""
 var required_victories := 0
+var goal_sent := false
 var death_link := false
 var run_generation := 0
 var pending_death: Dictionary = {}
@@ -565,6 +566,7 @@ func sources_text() -> String:
 
 func _connected(message: Dictionary) -> void:
 	_reset_deathlink()
+	goal_sent = false
 	var data: Variant = message.get("slot_data")
 	var schema_value: Variant = data.get("schema") if data is Dictionary else null
 	var count_value: Variant = data.get("checks") if schema_value == 4 \
@@ -856,8 +858,8 @@ func _accept_checks(list: Variant) -> void:
 	_reconcile_unlocks()
 
 func _send_goal() -> void:
-	if not fatal and authenticated and campaign != null and campaign.goal_reached(required_victories):
-		_send({"cmd": "StatusUpdate", "status": 30})
+	if not fatal and authenticated and not goal_sent and campaign != null and campaign.goal_reached(required_victories):
+		goal_sent = _send({"cmd": "StatusUpdate", "status": 30})
 
 func _received(message: Dictionary) -> void:
 	if not authenticated:

@@ -95,6 +95,7 @@ func live() -> bool:
 	if not await wait_for(func(): return "\n".join(client.log_lines).contains("completed their goal")):
 		push_error("TEST FAILED: real server did not announce the victory-gated goal")
 		return false
+	client._accept_checks(client.campaign.confirmed.duplicate())
 	if client.campaign.victories.size() != 1 or client.goal_updates != 1:
 		push_error("TEST FAILED: live victory callback counted or sent twice")
 		return false

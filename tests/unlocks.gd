@@ -329,6 +329,15 @@ func _victories(client: Node, globals: Node) -> void:
 	client._accept_checks([])
 	check(client.sent.any(func(message): return message.get("cmd") == "StatusUpdate" and message.get("status") == 30),
 		"reconnection sends goal once both requirements are satisfied")
+	client._accept_checks([State.FIRST_LOCATION])
+	client._accept_checks([])
+	client._send_goal()
+	check(client.sent.filter(func(message): return message.get("cmd") == "StatusUpdate").size() == 1,
+		"post-goal check replay and release updates cannot send completion twice")
+	client.goal_sent = false
+	client._accept_checks([])
+	check(client.sent.filter(func(message): return message.get("cmd") == "StatusUpdate").size() == 2,
+		"new connection can report its already completed goal")
 	main.free()
 	player.free()
 	globals.main = null

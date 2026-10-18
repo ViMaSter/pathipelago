@@ -54,6 +54,10 @@ jobs:
       name: steam
       url: https://steamcommunity.com/sharedfiles/filedetails/?id=${{ vars.STEAM_WORKSHOP_ITEM_ID }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Check configuration
         env:
           ITEM_ID: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
@@ -74,12 +78,26 @@ jobs:
           cmp dist/workshop/ViMaSter-MultiworldGGShop.zip dist/ViMaSter-MultiworldGGShop.zip
 
       - name: Upload to Steam Workshop
-        # v4, pinned: v1-v3 could upload .git contents.
-        uses: m00nl1ght-dev/steam-workshop-deploy@7abf9c7628c3bc79229c9bca93f7a7296fa82428
-        with:
-          username: ${{ secrets.STEAM_USERNAME }}
-          configVdf: ${{ secrets.STEAM_CONFIG_VDF }}
-          appId: 3808690
-          publishedFileId: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
-          path: dist/workshop
-          changeNote: "${{ github.ref_name }}: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+        env:
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+          STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+          ITEM_ID: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y lib32gcc-s1
+          steam_dir="$RUNNER_TEMP/steamcmd"
+          mkdir -p "$steam_dir/config"
+          trap 'rm -f "$steam_dir/config/config.vdf"' EXIT
+          curl -fsSLo "$RUNNER_TEMP/steamcmd.tar.gz" \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
+          tar -xzf "$RUNNER_TEMP/steamcmd.tar.gz" -C "$steam_dir"
+          umask 077
+          printf '%s' "$STEAM_CONFIG_VDF" > "$steam_dir/config/config.vdf"
+          python3 tools/workshop_vdf.py --item-id "$ITEM_ID" --visibility private \
+            --note "$GITHUB_REF_NAME: https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" \
+            > "$RUNNER_TEMP/workshop.vdf"
+          "$steam_dir/steamcmd.sh" +login "$STEAM_USERNAME" \
+            +workshop_build_item "$RUNNER_TEMP/workshop.vdf" +quit \
+            2>&1 | tee "$RUNNER_TEMP/workshop-upload.log"
+          grep -F "Success. Published Item $ITEM_ID" "$RUNNER_TEMP/workshop-upload.log"

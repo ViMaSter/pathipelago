@@ -133,3 +133,9 @@ resumes in that same run. Deaths outside a living MultiworldGG run are ignored,
 and deaths are not replayed after reconnecting. Vanilla runs are unaffected.
 Set `death_link: false` before generating to disable it. Older seeds without
 this option keep DeathLink off; regenerate with the updated APWorld to enable it.
+
+## Publishing
+
+Version tags (`vX.Y.Z`) run CI, create a GitHub release, and update the existing
+Steam Workshop item after approval in the `steam` environment. The upload explicitly
+sets Workshop visibility to **private** and contains only the built mod ZIP.
