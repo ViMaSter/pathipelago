@@ -53,8 +53,10 @@ filler shipment checks. Their corresponding `*_amount` settings (1-10000)
 control how much Coins, DNA, or Plasmid Fragments each item awards. The generator
 creates one shipment per enabled unlock, plus exactly the configured filler
 checks. Natural-earn locations do not consume randomized pool slots. The goal
-counts only randomized shipments. With every category and filler count disabled,
-there are no shipments and the goal is immediately complete.
+counts randomized shipments plus `required_victories` MultiworldGG-run wins (0-50, default 0).
+With every category and filler count disabled, there are no shipments and the goal is immediately complete
+only when `required_victories` is 0. Victories persist across runs and reconnects; continuing a won run
+does not count it again. Vanilla and daily runs do not count. Optional natural-earn locations remain optional.
 
 Currency rewards wait in the journal until a living MultiworldGG run is ready;
 Coins and DNA are added to that run, while Plasmid Fragments use the campaign's

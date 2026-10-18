@@ -58,6 +58,34 @@ func _run() -> void:
 	corrupted.store_string("{broken")
 	corrupted.close()
 	check(not wrong.open("user://broken.json", "seed", 5), "corrupt journal fails closed")
+	var wins := State.new()
+	check(wins.open("user://victories.json", "wins", 1), "create victory journal")
+	check(not wins.goal_reached(0), "zero required wins still needs confirmed shipments")
+	check(wins.purchase(State.FIRST_LOCATION) and not wins.goal_reached(0), "local checks cannot complete goal")
+	check(wins.accept_checks([State.FIRST_LOCATION]) and wins.goal_reached(0), "zero wins preserves original goal")
+	check(not wins.goal_reached(1), "confirmed shipments wait for required victory")
+	check(not wins.record_victory(""), "empty victory identity rejected")
+	for i in 50:
+		check(wins.record_victory("run-%d" % i), "persist victory")
+	check(wins.goal_reached(50), "maximum victory threshold reached")
+	check(wins.record_victory("run-0") and wins.victories.size() == 50, "duplicate win is idempotent")
+	var loaded_wins := State.new()
+	check(loaded_wins.open("user://victories.json", "wins", 1) and loaded_wins.goal_reached(50),
+		"victories survive journal reload")
+	loaded_wins.path = "user://missing-directory/victories.json"
+	check(not loaded_wins.record_victory("not-saved") and loaded_wins.victories.size() == 50,
+		"failed victory save rolls back")
+	check(restored.victories.is_empty(), "legacy journals default to zero victories")
+	var malformed := FileAccess.open("user://victories.json", FileAccess.READ)
+	var data: Dictionary = JSON.parse_string(malformed.get_as_text())
+	malformed.close()
+	for value in [1, ["same", "same"], [""], [5]]:
+		data["victories"] = value
+		var broken := FileAccess.open("user://invalid-victories.json", FileAccess.WRITE)
+		broken.store_string(JSON.stringify(data))
+		broken.close()
+		check(not State.new().open("user://invalid-victories.json", "wins", 1),
+			"malformed victory history rejected")
 	await _network_and_purchase()
 	print("GODOT_TEST_RESULT assertions=%d failures=%d" % [assertions, failures])
 	quit(1 if failures else 0)

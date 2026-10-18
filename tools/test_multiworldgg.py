@@ -97,6 +97,7 @@ def main(runtime: Path, godot: str) -> None:
                 expected = {"schema": 4, "catalog_schema": 1, "unlock_ids": [],
                             "checks": 1, "coin_amount": 15, "dna_amount": 1,
                             "plasmid_fragment_amount": 1, "death_link": True,
+                            "required_victories": 0,
                             "sources": {source: source == selected for source in source_names}}
                 if world.fill_slot_data() != expected or len(multiworld.get_locations(1)) != 1:
                     raise AssertionError(f"Incorrect single-source slot data: {selected}")
@@ -104,6 +105,11 @@ def main(runtime: Path, godot: str) -> None:
                 multiworld = generate(1, {"death_link": enabled})
                 if multiworld.worlds[1].fill_slot_data()["death_link"] is not enabled:
                     raise AssertionError(f"Incorrect DeathLink slot data: {enabled}")
+            for victories in (0, 1, 50):
+                multiworld = generate(1, {"required_victories": victories})
+                data = multiworld.worlds[1].fill_slot_data()
+                if data["required_victories"] != victories or data["checks"] != 1:
+                    raise AssertionError(f"Incorrect victory goal slot data: {victories}")
             multiworld = generate(0, {})
             if multiworld.get_locations(1) or multiworld.worlds[1].fill_slot_data()["checks"] != 0:
                 raise AssertionError("Zero-check boundary was not generated")
@@ -139,7 +145,7 @@ def main(runtime: Path, godot: str) -> None:
             ids = multiworld.worlds[1].fill_slot_data()["unlock_ids"]
             delivery_item = next(name for name, code in world_type.item_name_to_id.items()
                                  if code == 402960000 + ids[0])
-            multiworld = generate(10, {"remote_characters": True}, three_players=True)
+            multiworld = generate(10, {"remote_characters": True, "required_victories": 1}, three_players=True)
             live_test(runtime, godot, output / f"AP_{multiworld.seed_name}.zip", directory, unlocks=True)
             print("MULTIWORLDGG_TEST generation_boundaries=true sources=true death_link=true live=true", flush=True)
     finally:
@@ -203,6 +209,8 @@ def live_test(runtime: Path, godot: str, archive: Path, directory: Path, unlocks
             if unlocks and not any(402970000 <= location < 402980000
                                    for location in saved["location_checks"].get((0, 2), set())):
                 raise AssertionError("Server did not persist the optional natural unlock")
+            if unlocks and saved["client_game_state"].get((0, 2)) != 30:
+                raise AssertionError("Server did not persist the victory-gated goal")
             print(f"MULTIWORLDGG_TEST unlocks={unlocks} server_checks_persisted=true", flush=True)
         finally:
             if server.poll() is None:

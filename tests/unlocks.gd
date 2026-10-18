@@ -161,7 +161,7 @@ func _run() -> void:
 	plasmid_manager.apply_saved([{"name": str(plasmid.name), "state": {"test": 1}}])
 	check(plasmid_manager.applied.size() == 1, "Continue preserves state for server-owned Plasmids")
 	plasmid_manager.free()
-	var client := Client.new()
+	var client := ProtocolClient.new()
 	client.name = "MultiworldGGShop"
 	root.add_child(client)
 	client.set_process(false)
@@ -207,6 +207,7 @@ func _run() -> void:
 	check(not Unlocks.received(gate_id), "a cached confirmation absent from the current server cannot confer ownership")
 	client._accept_checks([Unlocks.LOCATION_BASE + gate_id])
 	check(Unlocks.received(gate_id), "server acknowledgment applies native unlock entitlement")
+	_victories(client, global)
 	client.authenticated = false
 	client._select_profile()
 	check(Isolation.identity == "seedA/0/1", "disconnect retains campaign instead of normal profile")
@@ -231,6 +232,30 @@ func _run() -> void:
 			and empty_client.sent.any(func(message): return message.get("cmd") == "StatusUpdate" and message.get("status") == 30),
 		"zero-shipment slot has no pending rewards and reports its completed goal")
 	empty_client.free()
+	var fixture := {
+		"team": 0, "slot": 1, "players": [], "missing_locations": [], "checked_locations": [],
+		"slot_data": {"schema": 3, "catalog_schema": 1, "unlock_ids": [], "extra_checks": 0,
+			"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true},
+			"death_link": false, "required_victories": 50},
+	}
+	var gated_client := ProtocolClient.new()
+	root.add_child(gated_client)
+	gated_client.set_process(false)
+	gated_client.seed_name = "victory-gated-empty-slot"
+	gated_client._connected(fixture)
+	check(not gated_client.fatal and gated_client.required_victories == 50
+			and not gated_client.sent.any(func(message): return message.get("cmd") == "StatusUpdate"),
+		"zero shipments with positive required victories waits for wins")
+	gated_client.free()
+	for value in [-1, 51, 1.5, "1", null, true]:
+		var invalid_client := ProtocolClient.new()
+		root.add_child(invalid_client)
+		invalid_client.set_process(false)
+		fixture.slot_data.required_victories = value
+		invalid_client._connected(fixture)
+		check(invalid_client.fatal and not invalid_client.authenticated,
+			"malformed required victories rejected")
+		invalid_client.free()
 	var collision := "blocked-seed"
 	var index := 16 + collision.sha256_text().left(14).hex_to_int()
 	var directory := "user://profile_%d" % index
@@ -247,3 +272,65 @@ func _run() -> void:
 	plasmid_hooks.free()
 	print("GODOT_UNLOCK_TEST_RESULT assertions=%d failures=%d" % [assertions, failures])
 	quit(1 if failures else 0)
+
+func _victories(client: Node, globals: Node) -> void:
+	client.campaign = State.new()
+	check(client.campaign.open("user://client-victories.json", "seedA/0/1", 1), "victory client fixture")
+	client.count = 1
+	client.required_victories = 2
+	client.sent.clear()
+	client._accept_checks([State.FIRST_LOCATION])
+	check(not client.sent.any(func(message): return message.get("cmd") == "StatusUpdate"),
+		"all confirmed shipments do not bypass victory requirement")
+	var main := Node.new()
+	var player: Node = load("res://tests/stubs/player.gd").new()
+	root.add_child(main)
+	root.add_child(player)
+	globals.main = main
+	globals.player = player
+	var saves: Node = root.get_node("RunSaveManager")
+	var hook: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/run_save_manager.gd").new()
+	root.add_child(hook)
+	saves.is_loading_run = false
+	client.begin_run()
+	var first_run: String = client.run_id
+	hook.record_run(false)
+	check(client.campaign.victories.is_empty(), "native death does not count as victory")
+	client.run_multiworld = false
+	hook.record_run(true)
+	check(client.campaign.victories.is_empty(), "vanilla victory does not count")
+	client.run_multiworld = true
+	globals.daily_run = 1
+	hook.record_run(true)
+	check(client.campaign.victories.is_empty(), "daily victory does not count")
+	globals.daily_run = 0
+	hook.record_run(true)
+	hook.record_run(true)
+	check(client.campaign.victories.size() == 1 and hook.recorded_runs.size() == 5,
+		"native bookkeeping preserved and repeat callbacks count once")
+	saves.is_loading_run = true
+	client.begin_run()
+	hook.record_run(true)
+	check(client.run_id == first_run and client.campaign.victories.size() == 1,
+		"continued winning run cannot count twice")
+	saves.is_loading_run = false
+	client.begin_run()
+	check(client.run_id != first_run, "new runs with the same seed have distinct identities")
+	client.authenticated = false
+	hook.record_run(true)
+	check(client.campaign.goal_reached(2)
+			and not client.sent.any(func(message): return message.get("cmd") == "StatusUpdate"),
+		"offline victory persists without sending goal while disconnected")
+	var loaded := State.new()
+	check(loaded.open("user://client-victories.json", "seedA/0/1", 1) and loaded.victories.size() == 2,
+		"offline victories survive reload")
+	client.campaign = loaded
+	client.authenticated = true
+	client._accept_checks([])
+	check(client.sent.any(func(message): return message.get("cmd") == "StatusUpdate" and message.get("status") == 30),
+		"reconnection sends goal once both requirements are satisfied")
+	main.free()
+	player.free()
+	globals.main = null
+	globals.player = null
+	hook.free()

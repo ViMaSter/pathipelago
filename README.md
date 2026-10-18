@@ -61,9 +61,15 @@ Pathogenic:
   remote_loadouts: true
   remote_organelles: true
   remote_environment: true
+
+  required_victories: 0        # wins needed in addition to sending every randomized shipment (0-50)
 ```
 
 Keep at least one source enabled.
+
+The goal is to send every randomized shipment and win `required_victories` MultiworldGG runs (default 0).
+Victories persist across runs and reconnects; continuing or replaying a victory callback does not count it twice.
+Vanilla and daily runs do not count.
 
 ## Permanent unlocks and natural acquisition
 
@@ -78,7 +84,7 @@ enabled unlock (309 with every category enabled) plus the configured currency ch
 Each filler item awards its configured Coins, DNA, or Plasmid Fragments amount.
 Disable categories before generation to keep their ordinary in-campaign acquisition
 behavior. With all remote categories disabled and all currency checks set to zero,
-there are no shipments and the goal is immediately complete.
+there are no shipments and the goal is immediately complete if `required_victories` is 0.
 
 Each selected unlock also has an optional **Earn ...** location with a fixed
 matching self-reward. Either satisfy the original requirement in your campaign

@@ -100,7 +100,7 @@ def load_world(archive=None):
 WORLD = load_world()
 
 
-def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=()):
+def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=(), required_victories=0):
     world = WORLD.PathogenicWorld()
     world.player = 1
     world.player_name = "Test Player"
@@ -118,6 +118,7 @@ def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=
         "dna_amount": 1,
         "plasmid_fragment_checks": plasmid_fragment_checks,
         "plasmid_fragment_amount": 1,
+        "required_victories": required_victories,
     }.items()})
     world.options = SimpleNamespace(**values)
     return world
@@ -315,6 +316,15 @@ aggregation = 2
 
 
 class APWorldTests(unittest.TestCase):
+    def test_required_victories_bounds_and_slot_data(self):
+        self.assertEqual((WORLD.RequiredVictories.range_start, WORLD.RequiredVictories.range_end), (0, 50))
+        self.assertEqual(WORLD.RequiredVictories.default, 0)
+        for victories in (0, 1, 50):
+            world = make_world(required_victories=victories)
+            world.generate_early()
+            self.assertEqual(world.fill_slot_data()["required_victories"], victories)
+            self.assertEqual(world.shipment_count(), len(ENTRIES))
+
     def test_currency_option_bounds(self):
         for checks, amount in (
                 (WORLD.CoinChecks, WORLD.CoinAmount),
@@ -404,7 +414,7 @@ class APWorldTests(unittest.TestCase):
         slot = world.fill_slot_data()
         self.assertEqual(set(slot), {
             "schema", "catalog_schema", "unlock_ids", "checks", "coin_amount",
-            "dna_amount", "plasmid_fragment_amount", "sources", "death_link"})
+            "dna_amount", "plasmid_fragment_amount", "sources", "death_link", "required_victories"})
         self.assertEqual((slot["schema"], slot["catalog_schema"], slot["checks"]),
                          (4, 1, 100))
         self.assertEqual(slot["unlock_ids"], [

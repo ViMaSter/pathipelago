@@ -16,6 +16,7 @@ var received: Array = []
 var unlock_ids: Array = []
 var earned: Array = []
 var confirmed_unlocks: Array = []
+var victories: Array = []
 var bank := 0
 var dna_bank := 0
 var plasmid_fragment_bank := 0
@@ -74,6 +75,17 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 		if not location in earned:
 			error = "Confirmed natural unlock missing from journal."
 			return false
+	var saved_victories: Variant = data.get("victories", [])
+	if not saved_victories is Array:
+		error = "Invalid victory history in campaign journal."
+		return false
+	var seen_victories := {}
+	for run_id in saved_victories:
+		if not run_id is String or run_id.is_empty() or seen_victories.has(run_id):
+			error = "Invalid victory history in campaign journal."
+			return false
+		seen_victories[run_id] = true
+	victories = saved_victories.duplicate()
 	bank = int(data.bank)
 	dna_bank = int(dna_bank_value)
 	plasmid_fragment_bank = int(plasmid_fragment_bank_value)
@@ -121,6 +133,21 @@ func next_location() -> int:
 		if not FIRST_LOCATION + i in checks:
 			return FIRST_LOCATION + i
 	return -1
+
+func record_victory(run_id: String) -> bool:
+	if run_id.is_empty():
+		error = "Cannot record a victory without a run identity."
+		return false
+	if run_id in victories:
+		return true
+	victories.append(run_id)
+	if not _save():
+		victories.pop_back()
+		return false
+	return true
+
+func goal_reached(required_victories: int) -> bool:
+	return confirmed.size() == count and victories.size() >= required_victories
 
 func purchase(location: int) -> bool:
 	if location != next_location() or location < 0:
@@ -219,7 +246,7 @@ func _save() -> bool:
 		"schema": 1, "identity": identity, "count": count, "checks": checks,
 		"confirmed": confirmed, "received": received, "bank": bank,
 		"dna_bank": dna_bank, "plasmid_fragment_bank": plasmid_fragment_bank,
-		"earned": earned, "confirmed_unlocks": confirmed_unlocks
+		"earned": earned, "confirmed_unlocks": confirmed_unlocks, "victories": victories
 	}))
 	file.flush()
 	var err := file.get_error()

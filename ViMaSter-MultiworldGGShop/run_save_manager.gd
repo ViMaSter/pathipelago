@@ -16,3 +16,10 @@ func load_run() -> Dictionary:
 		Isolation.report("Connect and synchronize the campaign before continuing its run.")
 		return {}
 	return super()
+
+func record_run(won: bool) -> void:
+	super(won)
+	if won:
+		var client := get_node_or_null("/root/MultiworldGGShop")
+		if client != null:
+			client.record_victory()

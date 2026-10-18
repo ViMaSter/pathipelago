@@ -166,6 +166,15 @@ class PathogenicDeathLink(DeathLink):
     default = 1
 
 
+class RequiredVictories(Range):
+    """Multiworld-run victories required in addition to sending every randomized shipment."""
+
+    display_name = "Required Victories"
+    range_start = 0
+    range_end = 50
+    default = 0
+
+
 # Unlocks are useful, not progression; native feats are optional, never logic gates.
 class HiddenProgressionBalancing(ProgressionBalancing):
     visibility = Visibility.none
@@ -195,6 +204,7 @@ class PathogenicOptions(PerGameCommonOptions):
     remote_organelles: RemoteOrganelles
     remote_environment: RemoteEnvironment
     death_link: PathogenicDeathLink
+    required_victories: RequiredVictories
 
 
 class PathogenicWeb(WebWorld):
@@ -308,4 +318,5 @@ class PathogenicWorld(World):
             "plasmid_fragment_amount": self.options.plasmid_fragment_amount.value,
             "sources": self.unlock_sources(),
             "death_link": bool(self.options.death_link.value),
+            "required_victories": self.options.required_victories.value,
         }

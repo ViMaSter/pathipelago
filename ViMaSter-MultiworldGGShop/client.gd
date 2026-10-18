@@ -64,6 +64,8 @@ var sources := {"shops": true, "item_rooms": true, "boss_rewards": true, "level_
 var enabled := false
 var run_multiworld := false
 var run_seed := ""
+var run_id := ""
+var required_victories := 0
 var death_link := false
 var run_generation := 0
 var pending_death: Dictionary = {}
@@ -230,19 +232,39 @@ func begin_run() -> void:
 	var continuing: bool = saves != null and saves.get("is_loading_run") == true
 	var config := ConfigFile.new()
 	if continuing:
-		run_multiworld = config.load(_run_file()) == OK and str(config.get_value("run", "seed", "")) == run_seed \
+		var loaded := config.load(_run_file()) == OK
+		run_multiworld = loaded and str(config.get_value("run", "seed", "")) == run_seed \
 				and config.get_value("run", "multiworldgg", false) == true
+		run_id = str(config.get_value("run", "id", run_seed)) if run_multiworld else ""
 	else:
 		run_multiworld = enabled
+		run_id = Crypto.new().generate_random_bytes(16).hex_encode()
 		config.set_value("run", "seed", run_seed)
 		config.set_value("run", "multiworldgg", run_multiworld)
+		config.set_value("run", "id", run_id)
 		var err := config.save(_run_file())
 		if err != OK:
-			log_line("Cannot save run mode: " + error_string(err))
+			_fail("Cannot save run mode and identity: " + error_string(err))
+			return
 	remote_rewards.clear()
 	free_rewards.clear()
 	notify("%s run %s: %s." % ["Continued" if continuing else "New", run_seed,
 		"MultiworldGG remote unlocks active" if run_multiworld else "vanilla (MultiworldGG off for this run)"])
+
+func record_victory() -> void:
+	var globals := get_node_or_null("/root/G")
+	if fatal or not run_multiworld or not _run_active() or campaign == null \
+			or not Isolation.active or Isolation.identity != campaign_identity \
+			or globals == null or int(globals.get("daily_run")) != 0 \
+			or not is_instance_valid(globals.get("player")):
+		return
+	if run_id in campaign.victories:
+		return
+	if not campaign.record_victory(run_id):
+		_fail(campaign.error)
+		return
+	notify("Victory %d/%d recorded." % [campaign.victories.size(), required_victories])
+	_send_goal()
 
 func _open_log() -> void:
 	if FileAccess.file_exists(LOG_FILE) and FileAccess.open(LOG_FILE, FileAccess.READ).get_length() > LOG_LIMIT:
@@ -547,6 +569,7 @@ func _connected(message: Dictionary) -> void:
 	var schema_value: Variant = data.get("schema") if data is Dictionary else null
 	var count_value: Variant = data.get("checks") if schema_value == 4 \
 			else data.get("extra_checks") if data is Dictionary else null
+	var victories_value: Variant = data.get("required_victories", 0) if data is Dictionary else null
 	var valid_amounts := true
 	if schema_value == 4:
 		for key in ["coin_amount", "dna_amount", "plasmid_fragment_amount"]:
@@ -556,6 +579,7 @@ func _connected(message: Dictionary) -> void:
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(count_value) \
 			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4] or not valid_amounts \
+			or not State.integer(victories_value) or int(victories_value) < 0 or int(victories_value) > 50 \
 			or int(count_value) < 0 or int(count_value) > MAX_CHECKS or parse_sources(data) == null \
 			or parse_death_link(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
@@ -564,6 +588,7 @@ func _connected(message: Dictionary) -> void:
 	team = int(message.team)
 	slot = int(message.slot)
 	slot_schema = int(schema_value)
+	required_victories = int(victories_value)
 	coin_amount = GRANT_COINS
 	dna_amount = 0
 	plasmid_fragment_amount = 0
@@ -827,9 +852,12 @@ func _accept_checks(list: Variant) -> void:
 		if Unlocks.selected.has(int(location) - Unlocks.LOCATION_BASE) \
 				and not int(location) in server_unlock_checks:
 			server_unlock_checks.append(int(location))
-	if campaign.confirmed.size() == count:
-		_send({"cmd": "StatusUpdate", "status": 30})
+	_send_goal()
 	_reconcile_unlocks()
+
+func _send_goal() -> void:
+	if not fatal and authenticated and campaign != null and campaign.goal_reached(required_victories):
+		_send({"cmd": "StatusUpdate", "status": 30})
 
 func _received(message: Dictionary) -> void:
 	if not authenticated:
@@ -1938,6 +1966,7 @@ func _refresh_pages() -> void:
 		if campaign != null:
 			widgets.progress.text = "Checks: %d sent, %d/%d confirmed. Next: %s." % [
 				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
+			widgets.progress.text += "\nVictories: %d/%d." % [campaign.victories.size(), required_victories]
 			widgets.progress.text += "\nRemote unlocks in: %s." % sources_text()
 			if campaign.bank > 0 or campaign.dna_bank > 0 or campaign.plasmid_fragment_bank > 0:
 				widgets.progress.text += " Waiting for a living MultiworldGG run: %s." % currency_summary(
