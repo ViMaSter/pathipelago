@@ -47,7 +47,7 @@ def main(runtime: Path, godot: str) -> None:
         if hasattr(worlds, "ensure_worlds_loaded"):
             worlds.ensure_worlds_loaded()
         world_type = AutoWorldRegister.world_types["Pathogenic"]
-        if world_type.item_name_to_id.get("Research Grant") != 402939001 \
+        if world_type.item_name_to_id.get("Coins") != 402939001 \
                 or len(world_type.item_name_to_id) < 300:
             raise AssertionError("Pathogenic item catalogue is missing")
         print(f"MULTIWORLDGG_TEST release={Utils.__version__}", flush=True)
@@ -61,13 +61,13 @@ def main(runtime: Path, godot: str) -> None:
             category_options = ["remote_characters", "remote_plasmids", "remote_loadouts",
                                 "remote_organelles", "remote_environment"]
 
-            delivery_item = "Research Grant"
+            delivery_item = "Coins"
 
             def generate(count: int, flags: dict, three_players: bool = False, catalogue: bool = False):
                 for path in players.glob("*.yaml"):
                     path.unlink()
                 for player in range(1, 4 if three_players else 2):
-                    options = {"extra_checks": count,
+                    options = {"coin_checks": count,
                                **{key: catalogue for key in category_options}, **flags}
                     if three_players and player == 3:
                         options["death_link"] = False
@@ -94,8 +94,9 @@ def main(runtime: Path, godot: str) -> None:
                 flags = {option: source == selected for source, option in source_names.items()}
                 multiworld = generate(1, flags)
                 world = multiworld.worlds[1]
-                expected = {"schema": 3, "catalog_schema": 1, "unlock_ids": [],
-                            "extra_checks": 1, "death_link": True,
+                expected = {"schema": 4, "catalog_schema": 1, "unlock_ids": [],
+                            "checks": 1, "coin_amount": 15, "dna_amount": 1,
+                            "plasmid_fragment_amount": 1, "death_link": True,
                             "sources": {source: source == selected for source in source_names}}
                 if world.fill_slot_data() != expected or len(multiworld.get_locations(1)) != 1:
                     raise AssertionError(f"Incorrect single-source slot data: {selected}")
@@ -104,7 +105,7 @@ def main(runtime: Path, godot: str) -> None:
                 if multiworld.worlds[1].fill_slot_data()["death_link"] is not enabled:
                     raise AssertionError(f"Incorrect DeathLink slot data: {enabled}")
             multiworld = generate(0, {})
-            if multiworld.get_locations(1) or multiworld.worlds[1].fill_slot_data()["extra_checks"] != 0:
+            if multiworld.get_locations(1) or multiworld.worlds[1].fill_slot_data()["checks"] != 0:
                 raise AssertionError("Zero-check boundary was not generated")
             multiworld = generate(10000, {})
             if len(multiworld.get_locations(1)) != 10000:
@@ -119,7 +120,7 @@ def main(runtime: Path, godot: str) -> None:
             multiworld = generate(0, {}, catalogue=True)
             data = multiworld.worlds[1].fill_slot_data()
             unlock_ids = data["unlock_ids"]
-            if len(unlock_ids) < 300 or data["extra_checks"] != len(unlock_ids) \
+            if len(unlock_ids) < 300 or data["checks"] != len(unlock_ids) \
                     or len(multiworld.get_locations(1)) != 2 * len(unlock_ids):
                 raise AssertionError("Default catalogue did not expand shipments and natural locations")
             for identifier in unlock_ids:

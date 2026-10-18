@@ -2,9 +2,12 @@ extends Node
 
 const GAME := "Pathogenic"
 const FIRST_LOCATION := 402938001
-const GRANT_ITEM := 402939001
-# Must match the APWorld's location table (ShopChecks.range_end).
-const MAX_CHECKS := 10000
+const COINS_ITEM := 402939001
+const DNA_ITEM := 402939002
+const PLASMID_FRAGMENTS_ITEM := 402939003
+const GRANT_ITEM := COINS_ITEM
+# Must match the APWorld's full table: 309 unlocks and 10,000 checks per currency.
+const MAX_CHECKS := 30309
 # Godot's 64 KiB default closes the socket (1009) on large data packages such as Stardew's.
 const INBOUND_BUFFER := 16 * 1024 * 1024
 const GRANT_COINS := 15
@@ -82,6 +85,9 @@ var item_stream_ready := false
 var synchronized := false
 var sync_key := ""
 var slot_schema := 2
+var coin_amount := GRANT_COINS
+var dna_amount := 0
+var plasmid_fragment_amount := 0
 var campaign_identity := ""
 var _connected_server := ""
 var _connected_slot := ""
@@ -387,8 +393,9 @@ func _process(delta: float) -> void:
 		refresh_time = 0.0
 		_refresh_offers()
 		_mask_rewards()
-		if campaign != null and campaign.bank > 0:
-			redeem_grants(true)
+		if campaign != null and (campaign.bank > 0 or campaign.dna_bank > 0 \
+				or campaign.plasmid_fragment_bank > 0):
+			redeem_rewards(true)
 		_refresh_pages()
 		_select_profile()
 		_scan_natural_unlocks()
@@ -537,19 +544,35 @@ func sources_text() -> String:
 func _connected(message: Dictionary) -> void:
 	_reset_deathlink()
 	var data: Variant = message.get("slot_data")
+	var schema_value: Variant = data.get("schema") if data is Dictionary else null
+	var count_value: Variant = data.get("checks") if schema_value == 4 \
+			else data.get("extra_checks") if data is Dictionary else null
+	var valid_amounts := true
+	if schema_value == 4:
+		for key in ["coin_amount", "dna_amount", "plasmid_fragment_amount"]:
+			var amount: Variant = data.get(key)
+			if not State.integer(amount) or int(amount) < 1 or int(amount) > 10000:
+				valid_amounts = false
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
-			or not data is Dictionary or not State.integer(data.get("extra_checks")) \
-			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2, 3] or int(data.extra_checks) < 0 \
-			or int(data.extra_checks) > MAX_CHECKS or parse_sources(data) == null \
+			or not data is Dictionary or not State.integer(count_value) \
+			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4] or not valid_amounts \
+			or int(count_value) < 0 or int(count_value) > MAX_CHECKS or parse_sources(data) == null \
 			or parse_death_link(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
 		socket.close()
 		return
 	team = int(message.team)
 	slot = int(message.slot)
-	slot_schema = int(data.schema)
+	slot_schema = int(schema_value)
+	coin_amount = GRANT_COINS
+	dna_amount = 0
+	plasmid_fragment_amount = 0
+	if slot_schema >= 4:
+		coin_amount = int(data.coin_amount)
+		dna_amount = int(data.dna_amount)
+		plasmid_fragment_amount = int(data.plasmid_fragment_amount)
 	var ids: Array = []
-	if slot_schema == 3:
+	if slot_schema >= 3:
 		if data.get("catalog_schema") != 1 or not data.get("unlock_ids") is Array:
 			_fail("Missing or incompatible server unlock catalogue.")
 			return
@@ -559,7 +582,7 @@ func _connected(message: Dictionary) -> void:
 			return
 	else:
 		Unlocks.reset()
-	count = int(data.extra_checks)
+	count = int(count_value)
 	sources = parse_sources(data)
 	if _save_config() != OK:
 		log_line("Could not remember this slot's remote unlock sources.")
@@ -835,13 +858,17 @@ func _received(message: Dictionary) -> void:
 				return
 		else:
 			item_stream.append(item)
-	var before: int = campaign.bank
+	var before := [campaign.bank, campaign.dna_bank, campaign.plasmid_fragment_bank]
 	if not campaign.accept_items(item_stream):
 		_fail(campaign.error)
 		return
-	if campaign.bank > before:
-		log_line("Received %d Research Grant(s)." % (campaign.bank - before))
-		redeem_grants(true)
+	var added_coins: int = campaign.bank - before[0]
+	var added_dna: int = campaign.dna_bank - before[1]
+	var added_fragments: int = campaign.plasmid_fragment_bank - before[2]
+	if added_coins > 0 or added_dna > 0 or added_fragments > 0:
+		log_line("Received currency items: Coins %d, DNA %d, Plasmid Fragments %d." % [
+			added_coins, added_dna, added_fragments])
+		redeem_rewards(true)
 	_reconcile_unlocks()
 
 func _send_checks() -> void:
@@ -849,7 +876,7 @@ func _send_checks() -> void:
 		_send({"cmd": "LocationChecks", "locations": campaign.checks + campaign.earned})
 
 func earn_unlock(id: int) -> void:
-	if not campaign_ready() or slot_schema != 3 or not Unlocks.selected.has(id):
+	if not campaign_ready() or slot_schema < 3 or not Unlocks.selected.has(id):
 		return
 	var globals := get_node_or_null("/root/G")
 	if globals == null or int(globals.get("daily_run")) != 0:
@@ -864,7 +891,7 @@ func earn_unlock(id: int) -> void:
 	_send_checks()
 
 func _reconcile_unlocks() -> void:
-	if slot_schema != 3 or not synchronized or campaign == null:
+	if slot_schema < 3 or not synchronized or campaign == null:
 		return
 	if Unlocks.reconcile(item_stream.map(func(item): return int(item.item)), server_unlock_checks):
 		log_line("Server owns %d/%d campaign unlocks." % [Unlocks.owned.size(), Unlocks.selected.size()])
@@ -888,7 +915,7 @@ func _refresh_unlock_menus(node: Node) -> void:
 		_refresh_unlock_menus(child)
 
 func _scan_natural_unlocks() -> void:
-	if not campaign_ready() or slot_schema != 3:
+	if not campaign_ready() or slot_schema < 3:
 		return
 	var globals := get_node_or_null("/root/G")
 	if globals == null or int(globals.get("daily_run")) != 0:
@@ -1552,31 +1579,56 @@ func _track_player(delta: float) -> void:
 		if player_age >= 2.0:
 			settled_player = player_seen
 
-func grant_text(amount: int) -> String:
-	return "received %d Research Grant%s: +%d coins" % [amount, "" if amount == 1 else "s", amount * GRANT_COINS]
+func currency_summary(coins: int, dna: int, fragments: int) -> String:
+	var parts: Array[String] = []
+	if coins > 0:
+		parts.append("%d coin%s" % [coins, "" if coins == 1 else "s"])
+	if dna > 0:
+		parts.append("%d DNA" % dna)
+	if fragments > 0:
+		parts.append("%d Plasmid Fragment%s" % [fragments, "" if fragments == 1 else "s"])
+	return ", ".join(parts)
 
-# Called automatically whenever grants arrive and every 0.5 s while some are
-# banked; grants wait in the journal until a living run exists.
-func redeem_grants(automatic := false) -> void:
-	if fatal or not run_multiworld or not authenticated or not item_stream_ready or campaign == null or campaign.bank == 0:
+# Rewards wait in the journal until a living run exists, so run setup cannot overwrite them.
+func redeem_rewards(automatic := false) -> void:
+	if fatal or not run_multiworld or not authenticated or not item_stream_ready or campaign == null \
+			or (campaign.bank == 0 and campaign.dna_bank == 0 and campaign.plasmid_fragment_bank == 0):
 		if not automatic:
-			notify("No synchronized Research Grants available for a MultiworldGG run.")
+			notify("No synchronized currency items available for a MultiworldGG run.")
 		return
 	var globals := get_node_or_null("/root/G")
 	var player: Variant = globals.get("player") if globals != null else null
 	if not is_instance_valid(player) or player.dead or not player.is_inside_tree() \
 			or (automatic and player.get_instance_id() != settled_player):
 		if not automatic:
-			notify("Start a living run before redeeming grants.")
+			notify("Start a living MultiworldGG run before redeeming currency items.")
 		return
-	var amount: int = campaign.bank
+	var coins: int = campaign.bank * coin_amount
+	var dna: int = campaign.dna_bank * dna_amount
+	var fragments: int = campaign.plasmid_fragment_bank * plasmid_fragment_amount
+	var plasmids: Node = get_node_or_null("/root/PlasmidManager")
+	if coins > 0 and not player.has_method("add_money"):
+		_fail("The active player does not support the verified money reward API.")
+		return
+	if dna > 0 and not player.has_method("add_dna"):
+		_fail("The active player does not support the verified DNA reward API.")
+		return
+	if fragments > 0 and (plasmids == null or not plasmids.has_method("add_plasmid_fragments")):
+		_fail("The active PlasmidManager does not support the verified fragment reward API.")
+		return
 	if not campaign.redeem():
 		_fail(campaign.error)
 		return
-	player.money += amount * GRANT_COINS
+	if coins > 0:
+		player.add_money(coins)
+	if dna > 0:
+		player.add_dna(dna)
+	if fragments > 0:
+		plasmids.add_plasmid_fragments(fragments)
 	get_node("/root/RunSaveManager").save_run()
-	show_toast(grant_text(amount))
-	notify("Redeemed %d Research Grant(s). +%d coins." % [amount, amount * GRANT_COINS])
+	var summary := currency_summary(coins, dna, fragments)
+	show_toast("Received " + summary)
+	notify("Redeemed MultiworldGG rewards: " + summary + ".")
 
 # --- Start button confirmation stack ---------------------------------------
 
@@ -1887,8 +1939,10 @@ func _refresh_pages() -> void:
 			widgets.progress.text = "Checks: %d sent, %d/%d confirmed. Next: %s." % [
 				campaign.checks.size(), campaign.confirmed.size(), count, tooltip_title()]
 			widgets.progress.text += "\nRemote unlocks in: %s." % sources_text()
-			if campaign.bank > 0:
-				widgets.progress.text += " %d Research Grant(s) waiting for a living MultiworldGG run." % campaign.bank
+			if campaign.bank > 0 or campaign.dna_bank > 0 or campaign.plasmid_fragment_bank > 0:
+				widgets.progress.text += " Waiting for a living MultiworldGG run: %s." % currency_summary(
+					campaign.bank * coin_amount, campaign.dna_bank * dna_amount,
+					campaign.plasmid_fragment_bank * plasmid_fragment_amount)
 		else:
 			widgets.progress.text = "No campaign loaded yet."
 		if widgets.revision != log_revision:

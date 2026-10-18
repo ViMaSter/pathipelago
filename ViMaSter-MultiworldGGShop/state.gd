@@ -1,7 +1,10 @@
 extends RefCounted
 
 const FIRST_LOCATION := 402938001
-const GRANT_ITEM := 402939001
+const COINS_ITEM := 402939001
+const DNA_ITEM := 402939002
+const PLASMID_FRAGMENTS_ITEM := 402939003
+const GRANT_ITEM := COINS_ITEM
 const UNLOCK_ITEM_BASE := 402960000
 const UNLOCK_LOCATION_BASE := 402970000
 var path := ""
@@ -14,6 +17,8 @@ var unlock_ids: Array = []
 var earned: Array = []
 var confirmed_unlocks: Array = []
 var bank := 0
+var dna_bank := 0
+var plasmid_fragment_bank := 0
 var error := ""
 
 static func integer(value: Variant) -> bool:
@@ -32,10 +37,14 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 		error = "Cannot read campaign journal; it has not been reset."
 		return false
 	var data: Variant = parser.data
+	var dna_bank_value: Variant = data.get("dna_bank", 0) if data is Dictionary else null
+	var plasmid_fragment_bank_value: Variant = data.get("plasmid_fragment_bank", 0) if data is Dictionary else null
 	if not data is Dictionary or data.get("schema") != 1 or data.get("identity") != identity \
 			or data.get("count") != count or not _locations(data.get("checks")) \
 			or not _locations(data.get("confirmed")) or not data.get("received") is Array \
-			or not integer(data.get("bank")) or int(data.bank) < 0:
+			or not integer(data.get("bank")) or int(data.bank) < 0 \
+			or not integer(dna_bank_value) or int(dna_bank_value) < 0 \
+			or not integer(plasmid_fragment_bank_value) or int(plasmid_fragment_bank_value) < 0:
 		error = "Invalid or incompatible campaign journal; it has not been reset."
 		return false
 	for id in data.confirmed:
@@ -46,9 +55,12 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 		if not _valid_item(item):
 			error = "Unknown item in campaign journal."
 			return false
-	var grants: int = data.received.filter(func(item): return int(item) == GRANT_ITEM).size()
-	if int(data.bank) > grants:
-		error = "Invalid grant balance in campaign journal."
+	var coin_items: int = data.received.filter(func(item): return int(item) == COINS_ITEM).size()
+	var dna_items: int = data.received.filter(func(item): return int(item) == DNA_ITEM).size()
+	var fragment_items: int = data.received.filter(func(item): return int(item) == PLASMID_FRAGMENTS_ITEM).size()
+	if int(data.bank) > coin_items or int(dna_bank_value) > dna_items \
+			or int(plasmid_fragment_bank_value) > fragment_items:
+		error = "Invalid currency balance in campaign journal."
 		return false
 	checks = data.checks.map(func(value: Variant) -> int: return int(value))
 	confirmed = data.confirmed.map(func(value: Variant) -> int: return int(value))
@@ -63,10 +75,13 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 			error = "Confirmed natural unlock missing from journal."
 			return false
 	bank = int(data.bank)
+	dna_bank = int(dna_bank_value)
+	plasmid_fragment_bank = int(plasmid_fragment_bank_value)
 	return true
 
 func _valid_item(item: Variant) -> bool:
-	return integer(item) and (int(item) == GRANT_ITEM or int(item) - UNLOCK_ITEM_BASE in unlock_ids)
+	return integer(item) and (int(item) in [COINS_ITEM, DNA_ITEM, PLASMID_FRAGMENTS_ITEM]
+			or int(item) - UNLOCK_ITEM_BASE in unlock_ids)
 
 func _unlock_locations(locations: Variant) -> bool:
 	if not locations is Array:
@@ -164,23 +179,33 @@ func accept_items(items: Array) -> bool:
 	var added := items.size() - received.size()
 	if added == 0:
 		return true
-	var previous_bank := bank
+	var previous_banks := [bank, dna_bank, plasmid_fragment_bank]
 	for i in range(received.size(), items.size()):
 		var id := int(items[i].item)
 		received.append(id)
-		if id == GRANT_ITEM:
+		if id == COINS_ITEM:
 			bank += 1
+		elif id == DNA_ITEM:
+			dna_bank += 1
+		elif id == PLASMID_FRAGMENTS_ITEM:
+			plasmid_fragment_bank += 1
 	if not _save():
 		received.resize(received.size() - added)
-		bank = previous_bank
+		bank = previous_banks[0]
+		dna_bank = previous_banks[1]
+		plasmid_fragment_bank = previous_banks[2]
 		return false
 	return true
 
 func redeem() -> bool:
-	var previous := bank
+	var previous_banks := [bank, dna_bank, plasmid_fragment_bank]
 	bank = 0
+	dna_bank = 0
+	plasmid_fragment_bank = 0
 	if not _save():
-		bank = previous
+		bank = previous_banks[0]
+		dna_bank = previous_banks[1]
+		plasmid_fragment_bank = previous_banks[2]
 		return false
 	return true
 
@@ -193,6 +218,7 @@ func _save() -> bool:
 	file.store_string(JSON.stringify({
 		"schema": 1, "identity": identity, "count": count, "checks": checks,
 		"confirmed": confirmed, "received": received, "bank": bank,
+		"dna_bank": dna_bank, "plasmid_fragment_bank": plasmid_fragment_bank,
 		"earned": earned, "confirmed_unlocks": confirmed_unlocks
 	}))
 	file.flush()

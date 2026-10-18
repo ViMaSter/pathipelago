@@ -5,6 +5,11 @@ const Client = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/client.gd"
 var failures := 0
 var assertions := 0
 
+class PlasmidManagerStub extends Node:
+	var plasmid_fragments := 0
+	func add_plasmid_fragments(amount: int) -> void:
+		plasmid_fragments += amount
+
 func _init() -> void:
 	_run.call_deferred()
 
@@ -33,12 +38,17 @@ func _run() -> void:
 	var before := restored.checks.duplicate()
 	check(not restored.accept_checks([402938005, "bad"]), "reject mixed malformed acknowledgements")
 	check(restored.checks == before, "malformed acknowledgement is atomic")
-	var items := [{"item": 402939001}, {"item": 402939001}]
-	check(restored.accept_items(items), "receive grants")
-	check(restored.bank == 2, "two grants banked")
-	check(restored.accept_items(items) and restored.bank == 2, "item replay idempotent")
-	check(restored.redeem() and restored.bank == 0, "redeem bank")
-	check(restored.accept_items(items) and restored.bank == 0, "redeemed items not replayed")
+	var items := [{"item": State.COINS_ITEM}, {"item": State.COINS_ITEM},
+		{"item": State.DNA_ITEM}, {"item": State.PLASMID_FRAGMENTS_ITEM}]
+	check(restored.accept_items(items), "receive currency items")
+	check(restored.bank == 2 and restored.dna_bank == 1 and restored.plasmid_fragment_bank == 1,
+			"all currency items banked")
+	check(restored.accept_items(items) and restored.bank == 2 and restored.dna_bank == 1
+			and restored.plasmid_fragment_bank == 1, "item replay idempotent")
+	check(restored.redeem() and restored.bank == 0 and restored.dna_bank == 0
+			and restored.plasmid_fragment_bank == 0, "redeem currency banks")
+	check(restored.accept_items(items) and restored.bank == 0 and restored.dna_bank == 0
+			and restored.plasmid_fragment_bank == 0, "redeemed items not replayed")
 	check(not restored.accept_items([]), "reject truncated history")
 	var wrong := State.new()
 	check(not wrong.open(path, "different-seed", 5), "reject mismatched campaign")
@@ -65,6 +75,9 @@ func _network_and_purchase() -> void:
 	var saves: Node = load("res://tests/stubs/run_save.gd").new()
 	saves.name = "RunSaveManager"
 	root.add_child(saves)
+	var plasmids := PlasmidManagerStub.new()
+	plasmids.name = "PlasmidManager"
+	root.add_child(plasmids)
 	var room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
 	room.name = "ShopRoom"
 	root.add_child(room)
@@ -220,7 +233,11 @@ func _network_and_purchase() -> void:
 		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
 		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic"}, "2": {"name": "Friend", "game": "Example"}},
 		"missing_locations": range(402938001, 402938006),
-		"checked_locations": [], "slot_data": {"schema": 1, "extra_checks": 5, "death_link": true}
+		"checked_locations": [], "slot_data": {
+			"schema": 4, "catalog_schema": 1, "unlock_ids": [], "checks": 5,
+			"coin_amount": 15, "dna_amount": 3, "plasmid_fragment_amount": 2,
+			"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true},
+			"death_link": true}
 	}, {
 		"cmd": "DataPackage",
 		"data": {"games": {"Example": {"item_name_to_id": {"Remote Sword": 9001}},
@@ -430,21 +447,32 @@ func _network_and_purchase() -> void:
 	gated_shop_room.queue_free()
 	editor.mutations[3] = null
 	editor.queue_free()
-	var grants := [{"item": 402939001, "location": 100, "player": 2, "flags": 0}]
+	var currency_items := [
+		{"item": State.COINS_ITEM, "location": 100, "player": 2, "flags": 0},
+		{"item": State.DNA_ITEM, "location": 101, "player": 2, "flags": 0},
+		{"item": State.PLASMID_FRAGMENTS_ITEM, "location": 102, "player": 2, "flags": 0},
+	]
 	client.player_seen = player.get_instance_id()
 	client.settled_player = 0
 	client.player_age = 0.0
-	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
+	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": currency_items}])
 	await _collect(peer, 10)
-	check(player.money == 40 and client.campaign.bank == 1, "grant waits until the run's player has settled")
+	check(player.money == 40 and client.campaign.bank == 1 and client.campaign.dna_bank == 1
+			and client.campaign.plasmid_fragment_bank == 1,
+			"currency rewards wait until the run's player has settled")
 	client.player_age = 1.99
 	await create_timer(0.7).timeout
-	check(player.money == 55 and client.campaign.bank == 0, "grant auto-redeems 15 coins without a button")
-	check(client.toast.visible and client.toast.text == "MultiworldGG: received 1 Research Grant: +15 coins",
-			"auto-redeemed grant shown in the blue toast")
-	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": grants}])
+	check(player.money == 55 and player.dna == 3 and plasmids.plasmid_fragments == 2
+			and client.campaign.bank == 0 and client.campaign.dna_bank == 0
+			and client.campaign.plasmid_fragment_bank == 0,
+			"currency items auto-redeem configured amounts through game APIs")
+	check(client.toast.visible and client.toast.text.contains("15 coins")
+			and client.toast.text.contains("3 DNA") and client.toast.text.contains("2 Plasmid Fragments"),
+			"redeemed currencies shown in the blue toast")
+	_send(peer, [{"cmd": "ReceivedItems", "index": 0, "items": currency_items}])
 	await _collect(peer, 10)
-	check(client.campaign.bank == 0, "network replay does not duplicate grant")
+	check(player.money == 55 and player.dna == 3 and plasmids.plasmid_fragments == 2,
+			"network replay does not duplicate currency rewards")
 	_send(peer, [{"cmd": "RoomUpdate", "checked_locations": range(402938001, 402938006)}])
 	messages = await _collect(peer, 10)
 	check(_find(messages, "StatusUpdate").get("status") == 30, "goal only after every server-confirmed check")

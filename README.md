@@ -3,7 +3,8 @@
 [Subscribe on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3821496115)
 
 Send items to other players through shops, item rooms, boss rewards, and level-ups.
-Received Research Grants give 15 coins. Progress carries over between runs.
+Coins, DNA, and Plasmid Fragments can fill additional checks, with amounts set in the YAML.
+Currency rewards wait for a living campaign run and progress carries over between runs.
 Version 0.2 also receives permanent character, Plasmid, starting-loadout,
 organelle-drop, and environment unlocks in a separate server-bound campaign.
 
@@ -36,9 +37,17 @@ Requires Python 3.13.5+ below 3.14, or 3.12.7+ below 3.13.
 name: Pathogenic{number}
 game: Pathogenic
 Pathogenic:
+  progression_balancing: 50  # ignored: every location is always reachable
+  accessibility: full        # ignored: native feats are optional, never logic gates
+  
   death_link: true            # share deaths with other DeathLink games (default true)
 
-  extra_checks: 20             # minimum randomized shipments; 0-10000
+  coin_checks: 20               # additional filler checks for Coins (0-10000)
+  coin_amount: 15               # coins per Coins item (1-10000)
+  dna_checks: 0                  # additional filler checks for DNA (0-10000)
+  dna_amount: 1                  # DNA per DNA item (1-10000)
+  plasmid_fragment_checks: 0     # additional filler checks for Plasmid Fragments (0-10000)
+  plasmid_fragment_amount: 1     # fragments per item (1-10000)
   
   # where you can unlock things
   shop_unlocks: false         # coin shops
@@ -64,12 +73,12 @@ gates, and 6 environment features. Repeated Plasmid effects on different maps
 are separate items. A starting-loadout unlock is distinct from that organelle's
 random-drop gate.
 
-All five remote categories default on. The generator increases the randomized
-shipment count to at least the number of enabled unlocks (309 with every category
-enabled). Unused shipment slots contain Research Grants. Disable categories
-before generation to keep their ordinary in-campaign acquisition behavior.
-Setting `extra_checks: 0` adds no minimum beyond the enabled unlocks; with all
-remote categories disabled, it produces no shipments and an immediately complete goal.
+All five remote categories default on. The generator creates one shipment for each
+enabled unlock (309 with every category enabled) plus the configured currency checks.
+Each filler item awards its configured Coins, DNA, or Plasmid Fragments amount.
+Disable categories before generation to keep their ordinary in-campaign acquisition
+behavior. With all remote categories disabled and all currency checks set to zero,
+there are no shipments and the goal is immediately complete.
 
 Each selected unlock also has an optional **Earn ...** location with a fixed
 matching self-reward. Either satisfy the original requirement in your campaign
@@ -84,7 +93,8 @@ points or require buying a native cap increase. Buying an unowned node normally
 remains a natural acquisition route.
 
 Regenerate with the bundled APWorld to obtain the new item pool. Older schema
-1/2 seeds remain grant-only; upgrading does not add items to an existing seed.
+1/2/3 seeds remain compatible: their Research Grant item (ID 402939001) still
+awards 15 coins. Upgrading does not add items to an existing seed.
 
 ## Save isolation
 

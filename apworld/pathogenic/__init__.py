@@ -37,18 +37,70 @@ NATURAL_LOCATION_IDS = {
     natural_location_name(entry): NATURAL_LOCATION_BASE + entry["id"]
     for entry in CATALOG_ENTRIES
 }
+COINS = "Coins"
+DNA = "DNA"
+PLASMID_FRAGMENTS = "Plasmid Fragments"
+FILLER_ITEM_IDS = {
+    COINS: 402939001,
+    DNA: 402939002,
+    PLASMID_FRAGMENTS: 402939003,
+}
+MAX_FILLER_CHECKS = 10_000
+MAX_SHIPMENTS = len(CATALOG_ENTRIES) + len(FILLER_ITEM_IDS) * MAX_FILLER_CHECKS
 
 
-class ShopChecks(Range):
-    """Minimum randomized shipments across runs; raised to fit enabled unlocks.
-    Rerolls add no checks. Optional natural earn checks are additional.
-    """
+class CoinChecks(Range):
+    """Additional randomized shipment checks filled with Coins."""
 
-    display_name = "Shop Shipments"
+    display_name = "Coin Checks"
     range_start = 0
-    # MultiworldGG needs a fixed location table; this is its size, not a gameplay limit.
-    range_end = 10000
-    default = 20
+    range_end = MAX_FILLER_CHECKS
+    default = 0
+
+
+class CoinAmount(Range):
+    """Coins awarded by each Coins item."""
+
+    display_name = "Coin Amount"
+    range_start = 1
+    range_end = 10_000
+    default = 15
+
+
+class DNAChecks(Range):
+    """Additional randomized shipment checks filled with DNA."""
+
+    display_name = "DNA Checks"
+    range_start = 0
+    range_end = MAX_FILLER_CHECKS
+    default = 0
+
+
+class DNAAmount(Range):
+    """DNA awarded by each DNA item."""
+
+    display_name = "DNA Amount"
+    range_start = 1
+    range_end = 10_000
+    default = 1
+
+
+class PlasmidFragmentChecks(Range):
+    """Additional randomized shipment checks filled with Plasmid Fragments."""
+
+    display_name = "Plasmid Fragment Checks"
+    range_start = 0
+    range_end = MAX_FILLER_CHECKS
+    default = 0
+
+
+class PlasmidFragmentAmount(Range):
+    """Plasmid Fragments awarded by each Plasmid Fragments item."""
+
+    display_name = "Plasmid Fragment Amount"
+    range_start = 1
+    range_end = 10_000
+    default = 1
 
 
 class ShopUnlocks(DefaultOnToggle):
@@ -127,7 +179,12 @@ class HiddenAccessibility(Accessibility):
 class PathogenicOptions(PerGameCommonOptions):
     progression_balancing: HiddenProgressionBalancing
     accessibility: HiddenAccessibility
-    extra_checks: ShopChecks
+    coin_checks: CoinChecks
+    coin_amount: CoinAmount
+    dna_checks: DNAChecks
+    dna_amount: DNAAmount
+    plasmid_fragment_checks: PlasmidFragmentChecks
+    plasmid_fragment_amount: PlasmidFragmentAmount
     shop_unlocks: ShopUnlocks
     item_room_unlocks: ItemRoomUnlocks
     boss_reward_unlocks: BossRewardUnlocks
@@ -168,10 +225,10 @@ class PathogenicWorld(World):
     options: PathogenicOptions
     required_client_version = (0, 6, 0)
     topology_present = False
-    item_name_to_id = {"Research Grant": 402939001, **UNLOCK_ITEM_IDS}
+    item_name_to_id = {**FILLER_ITEM_IDS, **UNLOCK_ITEM_IDS}
     location_name_to_id = {
         f"Shop Shipment {index:03d}": 402938000 + index
-        for index in range(1, ShopChecks.range_end + 1)
+        for index in range(1, MAX_SHIPMENTS + 1)
     }
     location_name_to_id.update(NATURAL_LOCATION_IDS)
 
@@ -181,7 +238,8 @@ class PathogenicWorld(World):
                      if getattr(self.options, CATEGORY_OPTIONS[entry["kind"]]).value)
 
     def shipment_count(self) -> int:
-        return max(self.options.extra_checks.value, len(self.enabled_unlocks()))
+        return len(self.enabled_unlocks()) + self.options.coin_checks.value \
+            + self.options.dna_checks.value + self.options.plasmid_fragment_checks.value
 
     def unlock_sources(self) -> dict:
         return {
@@ -223,26 +281,31 @@ class PathogenicWorld(World):
     def create_items(self) -> None:
         entries = self.enabled_unlocks()
         self.multiworld.itempool.extend(self.create_item(entry["name"]) for entry in entries)
-        self.multiworld.itempool.extend(
-            self.create_item("Research Grant")
-            for _ in range(self.shipment_count() - len(entries))
-        )
+        for name, count in (
+            (COINS, self.options.coin_checks.value),
+            (DNA, self.options.dna_checks.value),
+            (PLASMID_FRAGMENTS, self.options.plasmid_fragment_checks.value),
+        ):
+            self.multiworld.itempool.extend(self.create_item(name) for _ in range(count))
 
     def create_item(self, name: str) -> PathogenicItem:
         return PathogenicItem(
-            name, ItemClassification.filler if name == "Research Grant"
+            name, ItemClassification.filler if name in FILLER_ITEM_IDS
             else ItemClassification.useful, self.item_name_to_id[name], self.player
         )
 
     def get_filler_item_name(self) -> str:
-        return "Research Grant"
+        return COINS
 
     def fill_slot_data(self) -> dict:
         return {
-            "schema": 3,
+            "schema": 4,
             "catalog_schema": CATALOG_SCHEMA,
             "unlock_ids": [entry["id"] for entry in self.enabled_unlocks()],
-            "extra_checks": self.shipment_count(),
+            "checks": self.shipment_count(),
+            "coin_amount": self.options.coin_amount.value,
+            "dna_amount": self.options.dna_amount.value,
+            "plasmid_fragment_amount": self.options.plasmid_fragment_amount.value,
             "sources": self.unlock_sources(),
             "death_link": bool(self.options.death_link.value),
         }

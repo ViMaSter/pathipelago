@@ -100,7 +100,7 @@ def load_world(archive=None):
 WORLD = load_world()
 
 
-def make_world(checks=20, disabled=()):
+def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=()):
     world = WORLD.PathogenicWorld()
     world.player = 1
     world.player_name = "Test Player"
@@ -111,7 +111,14 @@ def make_world(checks=20, disabled=()):
     values.update({name: SimpleNamespace(value=True) for name in
                    ("shop_unlocks", "item_room_unlocks", "boss_reward_unlocks",
                     "level_up_unlocks", "death_link")})
-    values["extra_checks"] = SimpleNamespace(value=checks)
+    values.update({name: SimpleNamespace(value=value) for name, value in {
+        "coin_checks": coin_checks,
+        "coin_amount": 15,
+        "dna_checks": dna_checks,
+        "dna_amount": 1,
+        "plasmid_fragment_checks": plasmid_fragment_checks,
+        "plasmid_fragment_amount": 1,
+    }.items()})
     world.options = SimpleNamespace(**values)
     return world
 
@@ -308,27 +315,35 @@ aggregation = 2
 
 
 class APWorldTests(unittest.TestCase):
-    def test_shipment_option_bounds(self):
-        self.assertEqual((WORLD.ShopChecks.range_start, WORLD.ShopChecks.range_end), (0, 10000))
-        self.assertEqual(WORLD.ShopChecks.default, 20)
+    def test_currency_option_bounds(self):
+        for checks, amount in (
+                (WORLD.CoinChecks, WORLD.CoinAmount),
+                (WORLD.DNAChecks, WORLD.DNAAmount),
+                (WORLD.PlasmidFragmentChecks, WORLD.PlasmidFragmentAmount)):
+            self.assertEqual((checks.range_start, checks.range_end), (0, 10000))
+            self.assertEqual((amount.range_start, amount.range_end), (1, 10000))
+        self.assertEqual(WORLD.CoinChecks.default, 0)
+        self.assertEqual(WORLD.CoinAmount.default, 15)
+        self.assertEqual(WORLD.DNAAmount.default, 1)
+        self.assertEqual(WORLD.PlasmidFragmentAmount.default, 1)
 
-    def test_zero_minimum_still_fits_enabled_unlocks(self):
-        world = make_world(checks=0)
+    def test_zero_filler_checks_still_fits_enabled_unlocks(self):
+        world = make_world()
         world.generate_early()
         world.create_regions()
         world.create_items()
         self.assertEqual(world.shipment_count(), len(ENTRIES))
         self.assertEqual(len(world.multiworld.itempool), len(ENTRIES))
-        self.assertEqual(world.fill_slot_data()["extra_checks"], len(ENTRIES))
+        self.assertEqual(world.fill_slot_data()["checks"], len(ENTRIES))
 
     def test_zero_shipments_without_remote_categories(self):
-        world = make_world(checks=0, disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
+        world = make_world(disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
         world.generate_early()
         world.create_regions()
         world.create_items()
         self.assertEqual(world.multiworld.itempool, [])
         self.assertEqual(world.multiworld.regions[1].locations, [])
-        self.assertEqual(world.fill_slot_data()["extra_checks"], 0)
+        self.assertEqual(world.fill_slot_data()["checks"], 0)
         self.assertTrue(world.multiworld.completion_condition[1](None))
 
     def test_packaged_world_imports_catalog_from_zip(self):
@@ -365,20 +380,20 @@ class APWorldTests(unittest.TestCase):
             self.assertEqual(location.item.classification, "useful")
 
     def test_all_categories_off_preserves_filler_campaign(self):
-        world = make_world(disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
+        world = make_world(coin_checks=20, disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
         world.create_regions()
         world.create_items()
         self.assertEqual(len(world.multiworld.regions[1].locations), 20)
         self.assertEqual(len(world.multiworld.itempool), 20)
-        self.assertTrue(all(item.name == "Research Grant" and item.classification == "filler"
+        self.assertTrue(all(item.name == WORLD.COINS and item.classification == "filler"
                             for item in world.multiworld.itempool))
         self.assertEqual(world.fill_slot_data()["unlock_ids"], [])
-        self.assertEqual(world.fill_slot_data()["schema"], 3)
+        self.assertEqual(world.fill_slot_data()["schema"], 4)
 
     def test_subset_and_filler_remainder(self):
         disabled = tuple(option for kind, option in WORLD.CATEGORY_OPTIONS.items()
                          if kind != "character")
-        world = make_world(checks=100, disabled=disabled)
+        world = make_world(coin_checks=95, disabled=disabled)
         world.create_regions()
         world.create_items()
         self.assertEqual(world.shipment_count(), 100)
@@ -388,11 +403,31 @@ class APWorldTests(unittest.TestCase):
         self.assertEqual(len(world.multiworld.regions[1].locations), 105)
         slot = world.fill_slot_data()
         self.assertEqual(set(slot), {
-            "schema", "catalog_schema", "unlock_ids", "extra_checks", "sources", "death_link"})
-        self.assertEqual((slot["schema"], slot["catalog_schema"], slot["extra_checks"]),
-                         (3, 1, 100))
+            "schema", "catalog_schema", "unlock_ids", "checks", "coin_amount",
+            "dna_amount", "plasmid_fragment_amount", "sources", "death_link"})
+        self.assertEqual((slot["schema"], slot["catalog_schema"], slot["checks"]),
+                         (4, 1, 100))
         self.assertEqual(slot["unlock_ids"], [
             entry["id"] for entry in ENTRIES if entry["kind"] == "character"])
+
+    def test_mixed_currency_check_counts_and_amounts(self):
+        world = make_world(coin_checks=2, dna_checks=3, plasmid_fragment_checks=4)
+        world.options.dna_amount.value = 250
+        world.options.plasmid_fragment_amount.value = 6
+        world.create_items()
+        self.assertEqual(world.shipment_count(), len(ENTRIES) + 9)
+        fillers = [item for item in world.multiworld.itempool if item.classification == "filler"]
+        self.assertEqual(Counter(item.name for item in fillers), {
+            WORLD.COINS: 2, WORLD.DNA: 3, WORLD.PLASMID_FRAGMENTS: 4})
+        slot = world.fill_slot_data()
+        self.assertEqual((slot["coin_amount"], slot["dna_amount"],
+                          slot["plasmid_fragment_amount"]), (15, 250, 6))
+
+    def test_maximum_currency_checks_fit_fixed_location_table(self):
+        world = make_world(coin_checks=10000, dna_checks=10000, plasmid_fragment_checks=10000)
+        self.assertEqual(world.shipment_count(), WORLD.MAX_SHIPMENTS)
+        self.assertLessEqual(world.shipment_count(), len(WORLD.PathogenicWorld.location_name_to_id))
+        self.assertEqual(WORLD.MAX_SHIPMENTS, 30309)
 
     def test_goal_uses_shipments_not_native_feats(self):
         world = make_world()
@@ -406,10 +441,12 @@ class APWorldTests(unittest.TestCase):
 
     def test_disabled_categories_keep_static_name_maps(self):
         world = make_world(disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
-        self.assertEqual(len(world.item_name_to_id), len(ENTRIES) + 1)
+        self.assertEqual(len(world.item_name_to_id), len(ENTRIES) + 3)
         self.assertEqual(len(world.location_name_to_id),
-                         WORLD.ShopChecks.range_end + len(ENTRIES))
-        self.assertEqual(world.item_name_to_id["Research Grant"], 402939001)
+                         WORLD.MAX_SHIPMENTS + len(ENTRIES))
+        self.assertEqual(world.item_name_to_id[WORLD.COINS], 402939001)
+        self.assertEqual(world.item_name_to_id[WORLD.DNA], 402939002)
+        self.assertEqual(world.item_name_to_id[WORLD.PLASMID_FRAGMENTS], 402939003)
         self.assertEqual(world.location_name_to_id["Shop Shipment 001"], 402938001)
         for entry in ENTRIES:
             self.assertEqual(world.item_name_to_id[entry["name"]], 402960000 + entry["id"])

@@ -48,14 +48,18 @@ appears once in the randomized shipment pool and has an additional optional
 never required by generation logic or the goal. Unlock items are useful, not
 progression.
 
-`extra_checks` accepts 0-10000 and is the minimum randomized shipment count, raised to the number of
-enabled unlocks when necessary (309 with every category enabled). Remaining
-randomized slots contain "Research Grant", redeemed automatically for 15 coins
-in the current or next MultiworldGG run. Natural-earn locations do not consume
-randomized pool slots. The goal counts only randomized shipments. With every
-category disabled, the campaign retains its Research Grant-only pool.
-Setting it to zero with every remote category disabled produces no shipments;
-the shipment goal is immediately complete.
+`coin_checks`, `dna_checks`, and `plasmid_fragment_checks` each add 0-10000
+filler shipment checks. Their corresponding `*_amount` settings (1-10000)
+control how much Coins, DNA, or Plasmid Fragments each item awards. The generator
+creates one shipment per enabled unlock, plus exactly the configured filler
+checks. Natural-earn locations do not consume randomized pool slots. The goal
+counts only randomized shipments. With every category and filler count disabled,
+there are no shipments and the goal is immediately complete.
+
+Currency rewards wait in the journal until a living MultiworldGG run is ready;
+Coins and DNA are added to that run, while Plasmid Fragments use the campaign's
+isolated progression profile. Older schema 1/2/3 seeds remain compatible:
+Research Grant item ID 402939001 still awards 15 coins.
 
 ## What does another world's item look like in Pathogenic?
 

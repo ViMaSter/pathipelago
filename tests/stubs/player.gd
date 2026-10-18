@@ -1,6 +1,7 @@
 extends Node
 
 var money := 50
+var dna := 0
 var dead := false
 var hp := 6
 var armor := 0
@@ -10,6 +11,12 @@ var damage_blocked := false
 var center_body := Node2D.new()
 var damage_calls: Array = []
 var refuse_damage := false
+
+func add_money(amount: int) -> void:
+	money += amount
+
+func add_dna(amount: int) -> void:
+	dna += amount
 
 func _init() -> void:
 	add_child(center_body)

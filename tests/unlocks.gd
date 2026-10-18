@@ -90,10 +90,17 @@ func _run() -> void:
 	var state := State.new()
 	check(state.open("user://unlocks-journal.json", "seedA/0/1", 3,
 			ids.map(func(id): return float(id))), "create mixed-item journal with JSON numeric IDs")
-	check(state.accept_items([{"item": State.GRANT_ITEM}, {"item": Unlocks.ITEM_BASE + gate_id}]), "accept grants and unlocks")
-	check(state.bank == 1, "only grants create coin balance")
-	check(state.accept_items([{"item": State.GRANT_ITEM}, {"item": Unlocks.ITEM_BASE + gate_id}]) and state.bank == 1,
-		"unlock replay neither duplicates coins nor grants")
+	check(state.accept_items([
+		{"item": State.GRANT_ITEM}, {"item": State.DNA_ITEM},
+		{"item": State.PLASMID_FRAGMENTS_ITEM}, {"item": Unlocks.ITEM_BASE + gate_id}]),
+		"accept currency items and unlocks")
+	check(state.bank == 1 and state.dna_bank == 1 and state.plasmid_fragment_bank == 1,
+		"currency items create separate balances")
+	check(state.accept_items([
+		{"item": State.GRANT_ITEM}, {"item": State.DNA_ITEM},
+		{"item": State.PLASMID_FRAGMENTS_ITEM}, {"item": Unlocks.ITEM_BASE + gate_id}])
+			and state.bank == 1 and state.dna_bank == 1 and state.plasmid_fragment_bank == 1,
+		"unlock replay neither duplicates currency balances nor grants")
 	check(not state.accept_items([{"item": State.GRANT_ITEM}, {"item": 999}]), "reject unknown server unlock")
 	check(state.earn(node_id) and state.earn(node_id) and state.earned.size() == 1, "natural earn queued exactly once")
 	check(state.accept_checks([Unlocks.LOCATION_BASE + node_id]), "accept natural self-reward confirmation")

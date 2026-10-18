@@ -24,10 +24,12 @@ https://multiworld.gg/uploads and create a room.
 
 Custom-world lobbies can collect files, but require downloading the package for
 local generation. Browser-only generation is not supported for Pathogenic.
-The five `remote_*` category toggles default to true. `extra_checks` sets a minimum;
-the generated shipment count grows to fit the selected unlock items. Optional
-natural-earn self-rewards are additional locations, not randomized shipment slots
-or goal requirements. Disable all five categories for the old filler-only setup.
+The five `remote_*` category toggles default to true. Each enabled unlock gets a
+shipment, then `coin_checks`, `dna_checks`, and `plasmid_fragment_checks` add that
+many Coins, DNA, and Plasmid Fragments filler items (0-10000 each). Set the
+corresponding `*_amount` to configure each reward (1-10000). Optional natural-earn
+self-rewards are additional locations, not randomized shipment slots or goal
+requirements. Disable all five categories to create a currency-only seed.
 The room's generic tracker is supported; there is no dedicated Pathogenic tracker,
 in-game text client, or admin interface. Use https://chat.multiworld.gg
 for text commands. macOS support for other games depends on their own clients and
@@ -124,8 +126,10 @@ their distinct node keys. All 14 gated organelles are present in the shipped
 `all_bodyparts.tres` resource group's pool; the private-data test checks this.
 
 AP item IDs are `402960000 + id`; optional natural-location IDs are
-`402970000 + id`, named `Earn <item name>`. Research Grant (`402939001`) and
-existing shipment IDs (`402938000 + shipment index`) do not change.
+`402970000 + id`, named `Earn <item name>`. Currency item IDs are Coins
+(`402939001`), DNA (`402939002`), and Plasmid Fragments (`402939003`);
+existing shipment IDs (`402938000 + shipment index`) do not change. The old
+Research Grant name at ID `402939001` remains accepted by existing seeds.
 The module exports `CATALOG_SCHEMA`, `CATALOG_ENTRIES`, `CATALOG_BY_ID`,
 `CATALOG_BY_KEY`, `UNLOCK_ITEM_BASE`, `NATURAL_LOCATION_BASE`, `UNLOCK_ITEM_IDS`,
 `NATURAL_LOCATION_IDS`, and `natural_location_name(entry)`.
@@ -134,10 +138,13 @@ Slot data is exactly:
 
 ```json
 {
-  "schema": 3,
+  "schema": 4,
   "catalog_schema": 1,
   "unlock_ids": [0, 1],
-  "extra_checks": 20,
+  "checks": 2,
+  "coin_amount": 15,
+  "dna_amount": 1,
+  "plasmid_fragment_amount": 1,
   "sources": {
     "shops": true,
     "item_rooms": true,
@@ -149,6 +156,8 @@ Slot data is exactly:
 ```
 
 The example selects two catalogue IDs. Actual `unlock_ids` enumerate every
-enabled entry in stable ID order; `extra_checks` is the effective randomized count,
-not the configured minimum. Static item/location name maps contain the entire
-catalogue regardless of enabled categories.
+enabled entry in stable ID order; `checks` is the total randomized shipment count,
+including enabled unlocks and all configured currency checks. Static item/location
+name maps contain the entire catalogue regardless of enabled categories. Schema
+1/2/3 slot data remains supported; `extra_checks` is read as the older total check
+count, and legacy Research Grant items still award 15 Coins.
