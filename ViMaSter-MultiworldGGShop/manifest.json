@@ -1,7 +1,7 @@
 {
   "name": "MultiworldGGShop",
   "namespace": "ViMaSter",
-  "version_number": "0.2.2",
+  "version_number": "0.2.3",
   "description": "MultiworldGG remote progression unlocks, natural acquisition, and server-isolated campaign saves.",
   "website_url": "https://github.com/ViMaSter/pathipelago",
   "dependencies": [],

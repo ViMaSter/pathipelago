@@ -101,4 +101,5 @@ jobs:
           "$steam_dir/steamcmd.sh" +login "$STEAM_USERNAME" \
             +workshop_build_item "$RUNNER_TEMP/workshop.vdf" +quit \
             2>&1 | tee "$RUNNER_TEMP/workshop-upload.log"
-          grep -F "Success. Published Item $ITEM_ID" "$RUNNER_TEMP/workshop-upload.log"
+          grep -E "Committing update.*Success[.]|Success[.] Published Item $ITEM_ID" \
+            "$RUNNER_TEMP/workshop-upload.log"
