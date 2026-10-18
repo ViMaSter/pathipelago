@@ -370,7 +370,7 @@ class APWorldTests(unittest.TestCase):
             self.assertEqual(world.NATURAL_LOCATION_IDS, WORLD.NATURAL_LOCATION_IDS)
             with zipfile.ZipFile(archive) as package:
                 manifest = json.loads(package.read("pathogenic/archipelago.json"))
-            self.assertEqual(manifest["world_version"], "0.2.1")
+            self.assertEqual(manifest["world_version"], "0.2.2")
 
     def test_default_pool_and_optional_natural_self_rewards(self):
         world = make_world()
