@@ -48,12 +48,14 @@ appears once in the randomized shipment pool and has an additional optional
 never required by generation logic or the goal. Unlock items are useful, not
 progression.
 
-`shop_checks` is the minimum randomized shipment count, raised to the number of
+`extra_checks` accepts 0-10000 and is the minimum randomized shipment count, raised to the number of
 enabled unlocks when necessary (309 with every category enabled). Remaining
 randomized slots contain "Research Grant", redeemed automatically for 15 coins
 in the current or next MultiworldGG run. Natural-earn locations do not consume
 randomized pool slots. The goal counts only randomized shipments. With every
 category disabled, the campaign retains its Research Grant-only pool.
+Setting it to zero with every remote category disabled produces no shipments;
+the shipment goal is immediately complete.
 
 ## What does another world's item look like in Pathogenic?
 

@@ -6,10 +6,10 @@ Pathogenic:
   death_link: true
   progression_balancing: 50  # ignored: every location is always reachable
   accessibility: full        # ignored: native feats are optional, never logic gates
-  # Minimum randomized shipments across runs (1-10000, default 20).
+  # Minimum randomized shipments across runs (0-10000, default 20).
   # Raised to fit enabled unlock items: all categories currently need 309 shipments.
   # Optional natural-earn locations are additional, fixed same-player self-rewards.
-  shop_checks: 20
+  extra_checks: 20
   # Additive unlocks: normal acquisition remains available. All default to true.
   remote_characters: true
   remote_plasmids: true

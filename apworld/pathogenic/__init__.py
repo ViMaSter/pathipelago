@@ -45,7 +45,7 @@ class ShopChecks(Range):
     """
 
     display_name = "Shop Shipments"
-    range_start = 1
+    range_start = 0
     # MultiworldGG needs a fixed location table; this is its size, not a gameplay limit.
     range_end = 10000
     default = 20
@@ -127,7 +127,7 @@ class HiddenAccessibility(Accessibility):
 class PathogenicOptions(PerGameCommonOptions):
     progression_balancing: HiddenProgressionBalancing
     accessibility: HiddenAccessibility
-    shop_checks: ShopChecks
+    extra_checks: ShopChecks
     shop_unlocks: ShopUnlocks
     item_room_unlocks: ItemRoomUnlocks
     boss_reward_unlocks: BossRewardUnlocks
@@ -181,7 +181,7 @@ class PathogenicWorld(World):
                      if getattr(self.options, CATEGORY_OPTIONS[entry["kind"]]).value)
 
     def shipment_count(self) -> int:
-        return max(self.options.shop_checks.value, len(self.enabled_unlocks()))
+        return max(self.options.extra_checks.value, len(self.enabled_unlocks()))
 
     def unlock_sources(self) -> dict:
         return {
@@ -242,7 +242,7 @@ class PathogenicWorld(World):
             "schema": 3,
             "catalog_schema": CATALOG_SCHEMA,
             "unlock_ids": [entry["id"] for entry in self.enabled_unlocks()],
-            "shop_checks": self.shipment_count(),
+            "extra_checks": self.shipment_count(),
             "sources": self.unlock_sources(),
             "death_link": bool(self.options.death_link.value),
         }

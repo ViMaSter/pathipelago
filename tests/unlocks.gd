@@ -8,6 +8,12 @@ const Condition = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/unlock_
 var failures := 0
 var assertions := 0
 
+class ProtocolClient extends Client:
+	var sent: Array = []
+	func _send(message: Dictionary) -> bool:
+		sent.append(message)
+		return true
+
 class Chain extends RefCounted:
 	var reference_object: Object
 	var original: Callable
@@ -202,6 +208,22 @@ func _run() -> void:
 	check(not Isolation.active and Isolation.PM.active == 1, "explicit disable restores normal profile")
 	check(FileAccess.get_file_as_string("user://profile_1/save.json") == original, "normal save still byte-identical after round trip")
 	check(hooks.is_unlocked(Chain.new(condition, "is_unlocked")) == condition.natural, "vanilla condition semantics restored")
+	var empty_client := ProtocolClient.new()
+	root.add_child(empty_client)
+	empty_client.set_process(false)
+	empty_client.seed_name = "zero-check-campaign"
+	empty_client._connected({
+		"team": 0, "slot": 1, "players": [], "missing_locations": [], "checked_locations": [],
+		"slot_data": {"schema": 3, "catalog_schema": 1, "unlock_ids": [], "extra_checks": 0,
+			"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true},
+			"death_link": false},
+	})
+	check(not empty_client.fatal and empty_client.authenticated and empty_client.count == 0,
+		"client accepts a zero-shipment slot")
+	check(empty_client.campaign.next_location() == -1
+			and empty_client.sent.any(func(message): return message.get("cmd") == "StatusUpdate" and message.get("status") == 30),
+		"zero-shipment slot has no pending rewards and reports its completed goal")
+	empty_client.free()
 	var collision := "blocked-seed"
 	var index := 16 + collision.sha256_text().left(14).hex_to_int()
 	var directory := "user://profile_%d" % index

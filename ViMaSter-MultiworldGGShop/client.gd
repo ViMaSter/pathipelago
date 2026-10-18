@@ -538,9 +538,9 @@ func _connected(message: Dictionary) -> void:
 	_reset_deathlink()
 	var data: Variant = message.get("slot_data")
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
-			or not data is Dictionary or not State.integer(data.get("shop_checks")) \
-			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2, 3] or int(data.shop_checks) < 1 \
-			or int(data.shop_checks) > MAX_CHECKS or parse_sources(data) == null \
+			or not data is Dictionary or not State.integer(data.get("extra_checks")) \
+			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2, 3] or int(data.extra_checks) < 0 \
+			or int(data.extra_checks) > MAX_CHECKS or parse_sources(data) == null \
 			or parse_death_link(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
 		socket.close()
@@ -559,7 +559,7 @@ func _connected(message: Dictionary) -> void:
 			return
 	else:
 		Unlocks.reset()
-	count = int(data.shop_checks)
+	count = int(data.extra_checks)
 	sources = parse_sources(data)
 	if _save_config() != OK:
 		log_line("Could not remember this slot's remote unlock sources.")

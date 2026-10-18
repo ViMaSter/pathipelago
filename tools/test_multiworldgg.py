@@ -67,7 +67,7 @@ def main(runtime: Path, godot: str) -> None:
                 for path in players.glob("*.yaml"):
                     path.unlink()
                 for player in range(1, 4 if three_players else 2):
-                    options = {"shop_checks": count,
+                    options = {"extra_checks": count,
                                **{key: catalogue for key in category_options}, **flags}
                     if three_players and player == 3:
                         options["death_link"] = False
@@ -95,7 +95,7 @@ def main(runtime: Path, godot: str) -> None:
                 multiworld = generate(1, flags)
                 world = multiworld.worlds[1]
                 expected = {"schema": 3, "catalog_schema": 1, "unlock_ids": [],
-                            "shop_checks": 1, "death_link": True,
+                            "extra_checks": 1, "death_link": True,
                             "sources": {source: source == selected for source in source_names}}
                 if world.fill_slot_data() != expected or len(multiworld.get_locations(1)) != 1:
                     raise AssertionError(f"Incorrect single-source slot data: {selected}")
@@ -103,6 +103,9 @@ def main(runtime: Path, godot: str) -> None:
                 multiworld = generate(1, {"death_link": enabled})
                 if multiworld.worlds[1].fill_slot_data()["death_link"] is not enabled:
                     raise AssertionError(f"Incorrect DeathLink slot data: {enabled}")
+            multiworld = generate(0, {})
+            if multiworld.get_locations(1) or multiworld.worlds[1].fill_slot_data()["extra_checks"] != 0:
+                raise AssertionError("Zero-check boundary was not generated")
             multiworld = generate(10000, {})
             if len(multiworld.get_locations(1)) != 10000:
                 raise AssertionError("10,000-check boundary was not generated")
@@ -113,10 +116,10 @@ def main(runtime: Path, godot: str) -> None:
                     raise
             else:
                 raise AssertionError("All-disabled sources were accepted")
-            multiworld = generate(1, {}, catalogue=True)
+            multiworld = generate(0, {}, catalogue=True)
             data = multiworld.worlds[1].fill_slot_data()
             unlock_ids = data["unlock_ids"]
-            if len(unlock_ids) < 300 or data["shop_checks"] != len(unlock_ids) \
+            if len(unlock_ids) < 300 or data["extra_checks"] != len(unlock_ids) \
                     or len(multiworld.get_locations(1)) != 2 * len(unlock_ids):
                 raise AssertionError("Default catalogue did not expand shipments and natural locations")
             for identifier in unlock_ids:

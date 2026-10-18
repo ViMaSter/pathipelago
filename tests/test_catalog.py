@@ -111,7 +111,7 @@ def make_world(checks=20, disabled=()):
     values.update({name: SimpleNamespace(value=True) for name in
                    ("shop_unlocks", "item_room_unlocks", "boss_reward_unlocks",
                     "level_up_unlocks", "death_link")})
-    values["shop_checks"] = SimpleNamespace(value=checks)
+    values["extra_checks"] = SimpleNamespace(value=checks)
     world.options = SimpleNamespace(**values)
     return world
 
@@ -308,6 +308,29 @@ aggregation = 2
 
 
 class APWorldTests(unittest.TestCase):
+    def test_shipment_option_bounds(self):
+        self.assertEqual((WORLD.ShopChecks.range_start, WORLD.ShopChecks.range_end), (0, 10000))
+        self.assertEqual(WORLD.ShopChecks.default, 20)
+
+    def test_zero_minimum_still_fits_enabled_unlocks(self):
+        world = make_world(checks=0)
+        world.generate_early()
+        world.create_regions()
+        world.create_items()
+        self.assertEqual(world.shipment_count(), len(ENTRIES))
+        self.assertEqual(len(world.multiworld.itempool), len(ENTRIES))
+        self.assertEqual(world.fill_slot_data()["extra_checks"], len(ENTRIES))
+
+    def test_zero_shipments_without_remote_categories(self):
+        world = make_world(checks=0, disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
+        world.generate_early()
+        world.create_regions()
+        world.create_items()
+        self.assertEqual(world.multiworld.itempool, [])
+        self.assertEqual(world.multiworld.regions[1].locations, [])
+        self.assertEqual(world.fill_slot_data()["extra_checks"], 0)
+        self.assertTrue(world.multiworld.completion_condition[1](None))
+
     def test_packaged_world_imports_catalog_from_zip(self):
         with fixture_root() as root:
             archive = root / "pathogenic.apworld"
@@ -365,8 +388,8 @@ class APWorldTests(unittest.TestCase):
         self.assertEqual(len(world.multiworld.regions[1].locations), 105)
         slot = world.fill_slot_data()
         self.assertEqual(set(slot), {
-            "schema", "catalog_schema", "unlock_ids", "shop_checks", "sources", "death_link"})
-        self.assertEqual((slot["schema"], slot["catalog_schema"], slot["shop_checks"]),
+            "schema", "catalog_schema", "unlock_ids", "extra_checks", "sources", "death_link"})
+        self.assertEqual((slot["schema"], slot["catalog_schema"], slot["extra_checks"]),
                          (3, 1, 100))
         self.assertEqual(slot["unlock_ids"], [
             entry["id"] for entry in ENTRIES if entry["kind"] == "character"])

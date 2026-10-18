@@ -36,12 +36,17 @@ Requires Python 3.13.5+ below 3.14, or 3.12.7+ below 3.13.
 name: Pathogenic{number}
 game: Pathogenic
 Pathogenic:
-  shop_checks: 20             # minimum randomized shipments; 1-10000
+  death_link: true            # share deaths with other DeathLink games (default true)
+
+  extra_checks: 20             # minimum randomized shipments; 0-10000
+  
+  # where you can unlock things
   shop_unlocks: false         # coin shops
   item_room_unlocks: true     # blue item rooms
   boss_reward_unlocks: false  # boss rewards
   level_up_unlocks: false     # level-up drafts
-  death_link: true            # share deaths with other DeathLink games (default true)
+
+  # things other people can unlock
   remote_characters: true
   remote_plasmids: true
   remote_loadouts: true
@@ -63,6 +68,8 @@ All five remote categories default on. The generator increases the randomized
 shipment count to at least the number of enabled unlocks (309 with every category
 enabled). Unused shipment slots contain Research Grants. Disable categories
 before generation to keep their ordinary in-campaign acquisition behavior.
+Setting `extra_checks: 0` adds no minimum beyond the enabled unlocks; with all
+remote categories disabled, it produces no shipments and an immediately complete goal.
 
 Each selected unlock also has an optional **Earn ...** location with a fixed
 matching self-reward. Either satisfy the original requirement in your campaign

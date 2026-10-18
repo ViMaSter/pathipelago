@@ -220,7 +220,7 @@ func _network_and_purchase() -> void:
 		"players": [{"team": 0, "slot": 2, "alias": "Remote Friend"}],
 		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic"}, "2": {"name": "Friend", "game": "Example"}},
 		"missing_locations": range(402938001, 402938006),
-		"checked_locations": [], "slot_data": {"schema": 1, "shop_checks": 5, "death_link": true}
+		"checked_locations": [], "slot_data": {"schema": 1, "extra_checks": 5, "death_link": true}
 	}, {
 		"cmd": "DataPackage",
 		"data": {"games": {"Example": {"item_name_to_id": {"Remote Sword": 9001}},

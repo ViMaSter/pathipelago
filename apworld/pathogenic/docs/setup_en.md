@@ -24,7 +24,7 @@ https://multiworld.gg/uploads and create a room.
 
 Custom-world lobbies can collect files, but require downloading the package for
 local generation. Browser-only generation is not supported for Pathogenic.
-The five `remote_*` category toggles default to true. `shop_checks` sets a minimum;
+The five `remote_*` category toggles default to true. `extra_checks` sets a minimum;
 the generated shipment count grows to fit the selected unlock items. Optional
 natural-earn self-rewards are additional locations, not randomized shipment slots
 or goal requirements. Disable all five categories for the old filler-only setup.
@@ -137,7 +137,7 @@ Slot data is exactly:
   "schema": 3,
   "catalog_schema": 1,
   "unlock_ids": [0, 1],
-  "shop_checks": 20,
+  "extra_checks": 20,
   "sources": {
     "shops": true,
     "item_rooms": true,
@@ -149,6 +149,6 @@ Slot data is exactly:
 ```
 
 The example selects two catalogue IDs. Actual `unlock_ids` enumerate every
-enabled entry in stable ID order; `shop_checks` is the effective randomized count,
+enabled entry in stable ID order; `extra_checks` is the effective randomized count,
 not the configured minimum. Static item/location name maps contain the entire
 catalogue regardless of enabled categories.
