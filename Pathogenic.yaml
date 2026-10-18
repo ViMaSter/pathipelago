@@ -5,9 +5,17 @@ Pathogenic:
   # Share deaths in both directions. Paused/editor runs die when gameplay resumes.
   death_link: true
   progression_balancing: 50  # ignored: every location is always reachable
-  accessibility: full        # ignored: the world has only filler items
-  # Total Remote Unlock checks across all runs (1-10000, default 20).
+  accessibility: full        # ignored: native feats are optional, never logic gates
+  # Minimum randomized shipments across runs (1-10000, default 20).
+  # Raised to fit enabled unlock items: all categories currently need 309 shipments.
+  # Optional natural-earn locations are additional, fixed same-player self-rewards.
   shop_checks: 20
+  # Additive unlocks: normal acquisition remains available. All default to true.
+  remote_characters: true
+  remote_plasmids: true
+  remote_loadouts: true
+  remote_organelles: true
+  remote_environment: true
   # Where Remote Unlocks appear (default: all true). At least one must be true;
   # a disabled source stays completely vanilla.
   shop_unlocks: false        # one coin pedestal in every shop

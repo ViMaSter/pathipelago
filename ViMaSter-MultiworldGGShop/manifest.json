@@ -1,8 +1,8 @@
 {
   "name": "MultiworldGGShop",
   "namespace": "ViMaSter",
-  "version_number": "0.1.0",
-  "description": "MultiworldGG multiworld client: Remote Unlocks in shops, item rooms, boss rewards and level-ups send checks to other players.",
+  "version_number": "0.2.0",
+  "description": "MultiworldGG remote progression unlocks, natural acquisition, and server-isolated campaign saves.",
   "website_url": "https://github.com/ViMaSter/pathipelago",
   "dependencies": [],
   "extra": {

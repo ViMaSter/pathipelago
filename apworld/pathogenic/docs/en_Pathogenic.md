@@ -29,8 +29,31 @@ keep DeathLink off and must be regenerated to enable it.
 
 ## What items can appear in other players' worlds?
 
-"Research Grant", which is redeemed automatically for 15 coins in the current
-(or next) MultiworldGG run.
+Character, plasmid, starting-loadout, organelle and environmental unlocks are
+included by default. They are **additive**: receiving one grants it remotely,
+but its normal acquisition remains available. A starting-loadout option and its
+organelle's random-drop unlock are separate items with separate native gates.
+Repeated same-named plasmid effects are distinct character-specific map nodes;
+starting plasmids are excluded.
+
+The v1.2.1 catalogue contains 309 entries: 5 characters, 216 plasmids, 68 loadout
+options, 14 organelles and 6 environmental features. Plasmids are connected nodes
+in the seven active maps. Two unreferenced standalone character-unlock scenes
+are excluded because they cannot be naturally acquired through those maps.
+
+Use `remote_characters`, `remote_plasmids`, `remote_loadouts`, `remote_organelles`
+and `remote_environment` to disable individual categories. Every selected unlock
+appears once in the randomized shipment pool and has an additional optional
+`Earn ...` location containing a fixed copy for the same player. Native feats are
+never required by generation logic or the goal. Unlock items are useful, not
+progression.
+
+`shop_checks` is the minimum randomized shipment count, raised to the number of
+enabled unlocks when necessary (309 with every category enabled). Remaining
+randomized slots contain "Research Grant", redeemed automatically for 15 coins
+in the current or next MultiworldGG run. Natural-earn locations do not consume
+randomized pool slots. The goal counts only randomized shipments. With every
+category disabled, the campaign retains its Research Grant-only pool.
 
 ## What does another world's item look like in Pathogenic?
 

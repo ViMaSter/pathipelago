@@ -24,6 +24,10 @@ https://multiworld.gg/uploads and create a room.
 
 Custom-world lobbies can collect files, but require downloading the package for
 local generation. Browser-only generation is not supported for Pathogenic.
+The five `remote_*` category toggles default to true. `shop_checks` sets a minimum;
+the generated shipment count grows to fit the selected unlock items. Optional
+natural-earn self-rewards are additional locations, not randomized shipment slots
+or goal requirements. Disable all five categories for the old filler-only setup.
 The room's generic tracker is supported; there is no dedicated Pathogenic tracker,
 in-game text client, or admin interface. Use https://chat.multiworld.gg
 for text commands. macOS support for other games depends on their own clients and
@@ -53,3 +57,98 @@ supported connection policy.
 The renamed mod does not migrate or delete older Archipelago settings/saves.
 Remove any old local `ViMaSter-ArchipelagoShop` mod copy before installing
 `ViMaSter-MultiworldGGShop`, so both do not load together.
+
+## Catalogue maintenance (developers)
+
+`catalog.json` contains factual metadata only; recovered game assets and scripts
+must not be distributed. Regenerate from an explicitly supplied private v1.2.1
+resource tree:
+
+```sh
+python3 tools/extract_unlock_catalog.py --recovered /absolute/private/resource-root
+python3 tools/extract_unlock_catalog.py --recovered /absolute/private/resource-root --check
+python3 -m unittest discover -s tests -p test_catalog.py
+```
+
+The root must contain `translations/translations.csv` and the recovered `scn`
+resource hierarchy. No game scripts are executed. Existing output is the ID
+ledger: keys retain their IDs, new keys append, and vanished keys or unresolved
+references/translations fail instead of silently disappearing. Keep the committed
+catalogue when regenerating. Optional `--output` selects a different ledger/output.
+The audited unused standalone plasmids `plasmid:global:strafer` and
+`plasmid:global:worm` are explicitly retired; IDs 309 and 310 remain reserved and
+are never reused. All other disappeared keys still fail closed.
+Set `PATHOGENIC_RECOVERED` to the private root to include full regeneration in
+the unit tests; otherwise only that private-data test is skipped.
+
+The exact catalogue envelope is `{"schema": 1, "entries": [...]}`. Every entry
+has integer `id`, stable `key`, `kind`, unique AP item `name`, and integer
+`parasite` (`-1` means global). Native gated entries additionally expose canonical
+Godot `condition` identity (`res://...tres::SubResourceID`), `resource`, `stat`,
+numeric `threshold`, `comparison` (`>=`, `<=`, `truthy`), `global`, and
+`requires_full_game`. Loadout entries also identify their `bodypart`.
+Plasmids expose nonempty `map`, `node`, `scene`, `section`, and `save_key`.
+All 216 shipped entries use `section: "plasmids<parasite>"` and `save_key`
+equal to `node`; their required string field `condition` is `""` (no native
+gate). Catalogue IDs are nonnegative integers: ID 0 is valid and must not be
+rejected or renumbered. Starting nodes and
+unreferenced standalone scenes are omitted. Extraction verifies connectivity
+from each map's starting node; this is static acquisition-path evidence, not
+an observed in-game purchase. Environment entries also expose their internal
+`environment` name.
+
+**Target identity is not gate identity.** Exactly one native condition is shared:
+`res://scn/metaprogression/loadouts/loadout_collector.tres::Resource_kwm52`
+belongs to both ID 35 (Chromatophore Gland) and ID 38 (Chromatophore Lens).
+These are intentionally separate AP targets. Remote grants must be keyed by
+catalogue ID/resource, not solely by `condition`; overriding that shared
+UnlockCondition alone grants both targets. Natural condition satisfaction
+correctly earns both. Never rewrite the factual condition path to invent
+independent native resources.
+
+Representative runtime identities (all paths below are literal catalogue values):
+
+```json
+{"id":0,"kind":"character","parasite":5,"resource":"res://scn/metaprogression/unlocks/parasite_unlocks/parasite_unlocks.tres::Resource_parasite_amoeba","condition":"res://scn/metaprogression/unlocks/parasite_unlocks/parasite_unlocks.tres::Resource_unlock_amoeba"}
+{"id":5,"kind":"environment","parasite":-1,"resource":"res://scn/metaprogression/unlocks/environmental_unlocks/antibiotics_unlock.tres","condition":"res://scn/metaprogression/unlocks/environmental_unlocks/antibiotics_unlock.tres::Resource_antibiotics_uc","environment":"antibiotics"}
+{"id":11,"kind":"loadout","parasite":5,"resource":"res://scn/metaprogression/loadouts/loadout_amoeba.tres::Resource_34poi","condition":"res://scn/metaprogression/loadouts/loadout_amoeba.tres::Resource_remq2","bodypart":"res://scn/player/bodyparts/internal/backstab.tres"}
+{"id":79,"kind":"organelle","parasite":-1,"resource":"res://scn/player/bodyparts/external/electric_harpoon.tres","condition":"res://scn/player/bodyparts/external/electric_harpoon.tres::Resource_7fst3"}
+{"id":92,"kind":"plasmid","parasite":0,"map":"res://scn/metaprogression/plasmids/plasmid_map.tscn","node":"AttackSpeedPlasmid","scene":"res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn","section":"plasmids0","save_key":"AttackSpeedPlasmid"}
+```
+
+These are field projections, not complete entries. `key` is `kind:resource` for
+native-gated entries and `plasmid:<parasite>:<node>` for plasmids. The scene name
+`starting_mutation_plasmid.tscn` does not mean the excluded `StartingPlasmid`;
+ID 92 is an ordinary purchasable map node. Repeated effects are retained under
+their distinct node keys. All 14 gated organelles are present in the shipped
+`all_bodyparts.tres` resource group's pool; the private-data test checks this.
+
+AP item IDs are `402960000 + id`; optional natural-location IDs are
+`402970000 + id`, named `Earn <item name>`. Research Grant (`402939001`) and
+existing shipment IDs (`402938000 + shipment index`) do not change.
+The module exports `CATALOG_SCHEMA`, `CATALOG_ENTRIES`, `CATALOG_BY_ID`,
+`CATALOG_BY_KEY`, `UNLOCK_ITEM_BASE`, `NATURAL_LOCATION_BASE`, `UNLOCK_ITEM_IDS`,
+`NATURAL_LOCATION_IDS`, and `natural_location_name(entry)`.
+
+Slot data is exactly:
+
+```json
+{
+  "schema": 3,
+  "catalog_schema": 1,
+  "unlock_ids": [0, 1],
+  "shop_checks": 20,
+  "sources": {
+    "shops": true,
+    "item_rooms": true,
+    "boss_rewards": true,
+    "level_ups": true
+  },
+  "death_link": true
+}
+```
+
+The example selects two catalogue IDs. Actual `unlock_ids` enumerate every
+enabled entry in stable ID order; `shop_checks` is the effective randomized count,
+not the configured minimum. Static item/location name maps contain the entire
+catalogue regardless of enabled categories.

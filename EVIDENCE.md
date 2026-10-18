@@ -236,6 +236,53 @@ assertions completed successfully.
 An interactive death/animation/save transition in the full game remains
 unverified; API-double and live-protocol tests do not establish that result.
 
+## v0.2 server-bound progression
+
+The full installed Steam game (app 3808690), Pathogenic v1.2.1, was separately
+inventoried as REA evidence
+`ev_83bacbc28842b1f0ae332c8f764d1a09fcb0046dc6789c33fb3ae5e3a831eacc`.
+Its PCK SHA-256 is
+`dda98093c77d74290a0503fc8ff9d5b8a45370ed2c290a2db75bf8ce3ae99d9d`;
+the executable SHA-256 is
+`60a59e7c2f511368c66ed51bd74c0d7581a988a68399b404effb854b15fcb46f`.
+
+The catalogue contains factual gate/node metadata, not shipped game source or
+assets. It separates characters, individual character-map Plasmids, starting
+loadouts, organelle-drop gates, and environment features. Unreferenced standalone
+Plasmid scenes and starting nodes are excluded. IDs remain stable by resource
+identity; removed IDs remain reserved. The 25-reroll Sequence Scrambler loadout
+gate is distinct from its 100-pedestal drop gate. Bacterium's 20-minute Lung
+condition gates the Ballistic Flagellum starting loadout.
+
+Named native classes require Mod Loader script hooks, not script takeover:
+takeover of `class_name` resources caused actual native compilation failures.
+The implementation uses the loader's generated, version-stamped hook pack and
+requires its normal first-install restart. Anonymous singleton/UI scripts use
+extensions. The two Collector loadouts sharing one condition are checked by
+their distinct option identities, so receiving one does not unlock its sibling.
+
+An ordered protocol `Sync` followed by `Get`/`Retrieved` establishes the end of
+the received-item history even for an empty inventory. Persisted local journals
+cannot confer selected entitlements before that authoritative synchronization.
+Native-stat evaluation bypasses only the remote gate hook; remote receipt never
+writes achievement statistics. Natural checks and randomized shipments are
+journaled independently.
+
+Executed verification for this implementation:
+
+| Layer | Observed result | Limitation |
+| --- | --- | --- |
+| Catalogue/tooling | 46 Python tests pass, one private-extraction test skipped in the final public suite; packaged ZIP-import regression, stable IDs, category/pool tests, reproducible archives; private extraction comparison separately passed | Factual catalogue tied to the installed game version |
+| Godot fixtures | 213 assertions pass (162 existing + 51 unlock/isolation); native attempts, server acknowledgments, mixed grant/unlock replay, start/continue guards, empty inventories, and vanilla restoration | Minimal original API doubles |
+| Real AP 0.6.7 generator/server | Default category expansion, fixed optional self-rewards, source/death-link options, 10,000 shipments, cross-player character receipt, natural check confirmation, reconnect, and existing grant/goal/death-link tests | Protocol/game state doubled; not interactive gameplay |
+| Native full-game executable | 394 assertions pass in disposable application/user directories; genuine mod loader and generated hooks, all condition resources, individual entitlements, shared-condition loadout separation, free Plasmid toggle, native profile routing and vanilla restoration; normal sentinel save/pointer byte-identical | Headless smoke, not a complete played run |
+
+The smoke harness privately patches only its disposable PCK's settings and adds
+original test code. No recovered scripts/assets are redistributed. Initial
+headless runs logged native dummy-renderer shader/leak diagnostics; assertions
+reject script errors. Interactive UI, a full run, and a complete boss-feat
+playthrough remain unverified.
+
 ## Requested references
 
 - [Godot Modding: mod developer](https://wiki.godotmodding.com/#mod-developer):

@@ -2,22 +2,28 @@ extends RefCounted
 
 const FIRST_LOCATION := 402938001
 const GRANT_ITEM := 402939001
+const UNLOCK_ITEM_BASE := 402960000
+const UNLOCK_LOCATION_BASE := 402970000
 var path := ""
 var identity := ""
 var count := 0
 var checks: Array = []
 var confirmed: Array = []
 var received: Array = []
+var unlock_ids: Array = []
+var earned: Array = []
+var confirmed_unlocks: Array = []
 var bank := 0
 var error := ""
 
 static func integer(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value) == floor(float(value))
 
-func open(file_path: String, campaign_identity: String, location_count: int) -> bool:
+func open(file_path: String, campaign_identity: String, location_count: int, ids: Array = []) -> bool:
 	path = file_path
 	identity = campaign_identity
 	count = location_count
+	unlock_ids = ids.map(func(value): return int(value))
 	if not FileAccess.file_exists(path):
 		return _save()
 	var parser := JSON.new()
@@ -37,16 +43,52 @@ func open(file_path: String, campaign_identity: String, location_count: int) -> 
 			error = "Confirmed location missing from campaign journal."
 			return false
 	for item in data.received:
-		if not integer(item) or int(item) != GRANT_ITEM:
+		if not _valid_item(item):
 			error = "Unknown item in campaign journal."
 			return false
-	if int(data.bank) > data.received.size():
+	var grants: int = data.received.filter(func(item): return int(item) == GRANT_ITEM).size()
+	if int(data.bank) > grants:
 		error = "Invalid grant balance in campaign journal."
 		return false
 	checks = data.checks.map(func(value: Variant) -> int: return int(value))
 	confirmed = data.confirmed.map(func(value: Variant) -> int: return int(value))
 	received = data.received.map(func(value: Variant) -> int: return int(value))
+	if not _unlock_locations(data.get("earned", [])) or not _unlock_locations(data.get("confirmed_unlocks", [])):
+		error = "Invalid natural unlock journal; it has not been reset."
+		return false
+	earned = data.get("earned", []).map(func(value: Variant) -> int: return int(value))
+	confirmed_unlocks = data.get("confirmed_unlocks", []).map(func(value: Variant) -> int: return int(value))
+	for location in confirmed_unlocks:
+		if not location in earned:
+			error = "Confirmed natural unlock missing from journal."
+			return false
 	bank = int(data.bank)
+	return true
+
+func _valid_item(item: Variant) -> bool:
+	return integer(item) and (int(item) == GRANT_ITEM or int(item) - UNLOCK_ITEM_BASE in unlock_ids)
+
+func _unlock_locations(locations: Variant) -> bool:
+	if not locations is Array:
+		return false
+	var seen := {}
+	for location in locations:
+		if not integer(location) or not int(location) - UNLOCK_LOCATION_BASE in unlock_ids or seen.has(int(location)):
+			return false
+		seen[int(location)] = true
+	return true
+
+func earn(id: int) -> bool:
+	var location := UNLOCK_LOCATION_BASE + id
+	if not id in unlock_ids:
+		error = "Attempted to earn an unlock absent from this slot."
+		return false
+	if location in earned:
+		return true
+	earned.append(location)
+	if not _save():
+		earned.pop_back()
+		return false
 	return true
 
 func _locations(value: Variant) -> bool:
@@ -82,18 +124,29 @@ func accept_checks(ids: Array) -> bool:
 			return false
 	var previous_checks := checks.duplicate()
 	var previous_confirmed := confirmed.duplicate()
+	var previous_earned := earned.duplicate()
+	var previous_unlocks := confirmed_unlocks.duplicate()
 	for id in ids:
+		if int(id) - UNLOCK_LOCATION_BASE in unlock_ids:
+			if not int(id) in earned:
+				earned.append(int(id))
+			if not int(id) in confirmed_unlocks:
+				confirmed_unlocks.append(int(id))
+			continue
 		if int(id) < FIRST_LOCATION or int(id) >= FIRST_LOCATION + count:
 			continue
 		if not int(id) in checks:
 			checks.append(int(id))
 		if not int(id) in confirmed:
 			confirmed.append(int(id))
-	if checks == previous_checks and confirmed == previous_confirmed:
+	if checks == previous_checks and confirmed == previous_confirmed and earned == previous_earned \
+			and confirmed_unlocks == previous_unlocks:
 		return true
 	if not _save():
 		checks = previous_checks
 		confirmed = previous_confirmed
+		earned = previous_earned
+		confirmed_unlocks = previous_unlocks
 		return false
 	return true
 
@@ -102,7 +155,7 @@ func accept_items(items: Array) -> bool:
 		error = "Server received-item history is shorter than the persisted history."
 		return false
 	for i in items.size():
-		if not items[i] is Dictionary or not integer(items[i].get("item")) or int(items[i].item) != GRANT_ITEM:
+		if not items[i] is Dictionary or not _valid_item(items[i].get("item")):
 			error = "Unsupported item for this APWorld."
 			return false
 		if i < received.size() and int(items[i].item) != int(received[i]):
@@ -111,12 +164,15 @@ func accept_items(items: Array) -> bool:
 	var added := items.size() - received.size()
 	if added == 0:
 		return true
-	for i in added:
-		received.append(GRANT_ITEM)
-	bank += added
+	var previous_bank := bank
+	for i in range(received.size(), items.size()):
+		var id := int(items[i].item)
+		received.append(id)
+		if id == GRANT_ITEM:
+			bank += 1
 	if not _save():
 		received.resize(received.size() - added)
-		bank -= added
+		bank = previous_bank
 		return false
 	return true
 
@@ -136,7 +192,8 @@ func _save() -> bool:
 		return false
 	file.store_string(JSON.stringify({
 		"schema": 1, "identity": identity, "count": count, "checks": checks,
-		"confirmed": confirmed, "received": received, "bank": bank
+		"confirmed": confirmed, "received": received, "bank": bank,
+		"earned": earned, "confirmed_unlocks": confirmed_unlocks
 	}))
 	file.flush()
 	var err := file.get_error()

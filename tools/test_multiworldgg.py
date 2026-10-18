@@ -41,12 +41,15 @@ def main(runtime: Path, godot: str) -> None:
         import Main
         import Utils
         from Options import OptionError
-        from worlds import AutoWorldRegister, ensure_worlds_loaded
+        import worlds
+        from worlds import AutoWorldRegister
 
-        ensure_worlds_loaded()
+        if hasattr(worlds, "ensure_worlds_loaded"):
+            worlds.ensure_worlds_loaded()
         world_type = AutoWorldRegister.world_types["Pathogenic"]
-        if world_type.item_name_to_id != {"Research Grant": 402939001}:
-            raise AssertionError("Pathogenic item IDs changed")
+        if world_type.item_name_to_id.get("Research Grant") != 402939001 \
+                or len(world_type.item_name_to_id) < 300:
+            raise AssertionError("Pathogenic item catalogue is missing")
         print(f"MULTIWORLDGG_TEST release={Utils.__version__}", flush=True)
         with tempfile.TemporaryDirectory(prefix="pathogenic-mwgg-live-") as temporary:
             directory = Path(temporary)
@@ -55,16 +58,22 @@ def main(runtime: Path, godot: str) -> None:
             output = directory / "output"
             output.mkdir()
 
-            def generate(count: int, flags: dict, three_players: bool = False):
+            category_options = ["remote_characters", "remote_plasmids", "remote_loadouts",
+                                "remote_organelles", "remote_environment"]
+
+            delivery_item = "Research Grant"
+
+            def generate(count: int, flags: dict, three_players: bool = False, catalogue: bool = False):
                 for path in players.glob("*.yaml"):
                     path.unlink()
                 for player in range(1, 4 if three_players else 2):
-                    options = {"shop_checks": count, **flags}
+                    options = {"shop_checks": count,
+                               **{key: catalogue for key in category_options}, **flags}
                     if three_players and player == 3:
                         options["death_link"] = False
                     if three_players and player == 2:
                         options["plando_items"] = [{
-                            "item": "Research Grant", "location": "Shop Shipment 002",
+                            "item": delivery_item, "location": "Shop Shipment 002",
                             "world": "Pathogenic1", "from_pool": True, "force": True,
                         }]
                     (players / f"{player}.yaml").write_text(json.dumps({
@@ -85,7 +94,8 @@ def main(runtime: Path, godot: str) -> None:
                 flags = {option: source == selected for source, option in source_names.items()}
                 multiworld = generate(1, flags)
                 world = multiworld.worlds[1]
-                expected = {"schema": 2, "shop_checks": 1, "death_link": True,
+                expected = {"schema": 3, "catalog_schema": 1, "unlock_ids": [],
+                            "shop_checks": 1, "death_link": True,
                             "sources": {source: source == selected for source in source_names}}
                 if world.fill_slot_data() != expected or len(multiworld.get_locations(1)) != 1:
                     raise AssertionError(f"Incorrect single-source slot data: {selected}")
@@ -103,20 +113,39 @@ def main(runtime: Path, godot: str) -> None:
                     raise
             else:
                 raise AssertionError("All-disabled sources were accepted")
+            multiworld = generate(1, {}, catalogue=True)
+            data = multiworld.worlds[1].fill_slot_data()
+            unlock_ids = data["unlock_ids"]
+            if len(unlock_ids) < 300 or data["shop_checks"] != len(unlock_ids) \
+                    or len(multiworld.get_locations(1)) != 2 * len(unlock_ids):
+                raise AssertionError("Default catalogue did not expand shipments and natural locations")
+            for identifier in unlock_ids:
+                natural = next(location for location in multiworld.get_locations(1)
+                               if location.address == 402970000 + identifier)
+                if not natural.locked or natural.item.code != 402960000 + identifier \
+                        or natural.item.player != 1:
+                    raise AssertionError("Natural unlock is not a fixed matching self-reward")
             multiworld = generate(2, {}, three_players=True)
             location = multiworld.get_location("Shop Shipment 002", 1)
             if location.item.player != 2:
                 raise AssertionError("Cross-player fixture was not placed as requested")
             archive = output / f"AP_{multiworld.seed_name}.zip"
             live_test(runtime, godot, archive, directory)
+            multiworld = generate(10, {"remote_characters": True})
+            ids = multiworld.worlds[1].fill_slot_data()["unlock_ids"]
+            delivery_item = next(name for name, code in world_type.item_name_to_id.items()
+                                 if code == 402960000 + ids[0])
+            multiworld = generate(10, {"remote_characters": True}, three_players=True)
+            live_test(runtime, godot, output / f"AP_{multiworld.seed_name}.zip", directory, unlocks=True)
             print("MULTIWORLDGG_TEST generation_boundaries=true sources=true death_link=true live=true", flush=True)
     finally:
         world_archive.unlink()
 
 
-def live_test(runtime: Path, godot: str, archive: Path, directory: Path) -> None:
+def live_test(runtime: Path, godot: str, archive: Path, directory: Path, unlocks: bool = False) -> None:
     from websockets.sync.client import connect
 
+    archive.with_suffix(".apsave").unlink(missing_ok=True)
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
@@ -142,17 +171,35 @@ def live_test(runtime: Path, godot: str, archive: Path, directory: Path) -> None
                     if time.monotonic() >= deadline:
                         raise TimeoutError("MultiworldGG test server did not become ready")
                     time.sleep(0.1)
-            engine_tests(godot, endpoint)
+            if unlocks:
+                with connect(endpoint, open_timeout=3) as websocket:
+                    websocket.recv(timeout=3)
+                    websocket.send(json.dumps([{
+                        "cmd": "Connect", "game": "Pathogenic", "name": "Pathogenic1",
+                        "uuid": "unlock-delivery-test", "password": None, "items_handling": 7,
+                        "tags": ["AP"], "version": {"major": 0, "minor": 6, "build": 0, "class": "Version"},
+                    }]))
+                    while not any(packet.get("cmd") == "Connected"
+                                  for packet in json.loads(websocket.recv(timeout=5))):
+                        pass
+                    websocket.send(json.dumps([{"cmd": "LocationChecks", "locations": [402938002]}]))
+                    while not any(packet.get("cmd") == "RoomUpdate"
+                                  for packet in json.loads(websocket.recv(timeout=5))):
+                        pass
+            engine_tests(godot, endpoint, unlocks=unlocks)
             server.communicate("/exit\n".encode(), timeout=15)
             if server.returncode:
                 raise RuntimeError(f"MultiworldGG test server exited with {server.returncode}")
             from Utils import restricted_loads
             saved = restricted_loads(zlib.decompress(archive.with_suffix(".apsave").read_bytes()))
-            if saved["client_game_state"].get((0, 1)) != 30:
+            if not unlocks and saved["client_game_state"].get((0, 1)) != 30:
                 raise AssertionError("Server did not persist the sender's completed goal")
-            if not {402938001, 402938002}.issubset(saved["location_checks"].get((0, 1), set())):
+            if not unlocks and not {402938001, 402938002}.issubset(saved["location_checks"].get((0, 1), set())):
                 raise AssertionError("Server did not persist both confirmed checks")
-            print("MULTIWORLDGG_TEST server_goal_and_checks_persisted=true", flush=True)
+            if unlocks and not any(402970000 <= location < 402980000
+                                   for location in saved["location_checks"].get((0, 2), set())):
+                raise AssertionError("Server did not persist the optional natural unlock")
+            print(f"MULTIWORLDGG_TEST unlocks={unlocks} server_checks_persisted=true", flush=True)
         finally:
             if server.poll() is None:
                 server.terminate()

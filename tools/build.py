@@ -10,9 +10,13 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MOD_ID = "ViMaSter-MultiworldGGShop"
-MOD_FILES = ("manifest.json", "mod_main.gd", "shop_item.gd", "client.gd", "state.gd")
+MOD_FILES = ("manifest.json", "mod_main.gd", "shop_item.gd", "client.gd", "state.gd",
+             "isolation.gd", "profile_manager.gd", "platform.gd", "achievement.gd",
+             "unlocks.gd", "unlock_condition.gd", "plasmid.gd", "unlock_plasmid.gd",
+             "run_save_manager.gd", "player_selection_menu.gd", "bodypart_button.gd", "utils.gd",
+             "plasmid_manager.gd", "catalog.json")
 APWORLD = "pathogenic"
-APWORLD_FILES = ("__init__.py", "archipelago.json", "docs/en_Pathogenic.md", "docs/setup_en.md")
+APWORLD_FILES = ("__init__.py", "archipelago.json", "catalog.json", "docs/en_Pathogenic.md", "docs/setup_en.md")
 
 
 def archive(output: Path, entries: list[tuple[Path, str]]) -> str:
@@ -63,7 +67,8 @@ def build(root: Path = ROOT) -> dict:
     world = root / "apworld" / APWORLD
     hashes = {
         mod_zip.name: archive(
-            mod_zip, [(source / name, f"mods-unpacked/{MOD_ID}/{name}") for name in MOD_FILES]
+            mod_zip, [(world / name if name == "catalog.json" else source / name,
+                       f"mods-unpacked/{MOD_ID}/{name}") for name in MOD_FILES]
         ),
         f"{APWORLD}.apworld": archive(
             dist / f"{APWORLD}.apworld",

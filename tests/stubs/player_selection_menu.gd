@@ -7,6 +7,12 @@ var full := true
 var clicks := 0
 var starts := 0
 
+func _on_button_select_pressed() -> void:
+	if loadout_active:
+		starts += 1
+	else:
+		loadout_active = true
+
 func _init() -> void:
 	var button := Button.new()
 	button.name = "ButtonSelect"

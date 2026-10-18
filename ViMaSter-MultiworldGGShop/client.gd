@@ -38,6 +38,8 @@ const MUTATION_PLACEHOLDER := "res://gfx/player/mutations/mutation_placeholder.p
 const LEVEL_CARD := 3
 const REMOTE_ICON_SCALE := Vector2(3.0, 3.0)
 const State = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/state.gd")
+const Isolation = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/isolation.gd")
+const Unlocks = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/unlocks.gd")
 
 var socket := WebSocketPeer.new()
 var authenticated := false
@@ -77,6 +79,15 @@ var connecting := false
 var room_seen := false
 var item_stream: Array = []
 var item_stream_ready := false
+var synchronized := false
+var sync_key := ""
+var slot_schema := 2
+var campaign_identity := ""
+var _connected_server := ""
+var _connected_slot := ""
+var native_conditions: Dictionary = {}
+var server_unlock_checks: Array = []
+var _profile_refresh_pending := false
 var fatal := false
 var log_lines: PackedStringArray = []
 var log_revision := 0
@@ -108,6 +119,8 @@ func _ready() -> void:
 		_fail("Cannot create MultiworldGG campaign directory.")
 	_open_log()
 	_build_toast()
+	if not Isolation.error.is_empty():
+		_fail(Isolation.error)
 	get_tree().node_added.connect(_on_node_added)
 	var config := ConfigFile.new()
 	var err := config.load(ROOT + "/connection.cfg")
@@ -120,7 +133,11 @@ func _ready() -> void:
 	elif err != ERR_FILE_NOT_FOUND:
 		_fail("Cannot read MultiworldGG connection configuration: " + error_string(err))
 	log_line("Client log: " + ProjectSettings.globalize_path(LOG_FILE))
-	notify(status if not enabled else "MultiworldGG is on for new runs.")
+	_select_profile()
+	if not fatal:
+		notify(status if not enabled else "MultiworldGG is on for new runs.")
+	if enabled and not fatal and not Unlocks.hooks_ready:
+		notify("Restart Pathogenic once to activate the new progression hooks. Campaign starts are blocked until then.")
 	# The main menu (and its options panel) exists before this node joins the tree.
 	_scan_existing.call_deferred(get_tree().root)
 	if enabled and not slot_name.is_empty() and not fatal:
@@ -142,12 +159,58 @@ func set_enabled(value: bool) -> void:
 		return
 	var current := " This run stays %s." % ("MultiworldGG" if run_multiworld else "vanilla") if _run_active() else ""
 	notify("MultiworldGG %s for new runs.%s" % ["enabled" if enabled else "disabled", current])
+	_select_profile()
 	if enabled and not authenticated and not connecting and not slot_name.is_empty() and not fatal:
 		connect_server()
 
 func _run_active() -> bool:
 	var globals := get_node_or_null("/root/G")
 	return globals != null and is_instance_valid(globals.get("main")) and globals.main.is_inside_tree()
+
+func campaign_ready() -> bool:
+	return (enabled or (run_multiworld and _run_active())) and not fatal \
+			and authenticated and synchronized and Unlocks.hooks_ready and campaign != null \
+			and Isolation.active and Isolation.identity == campaign_identity and not campaign_identity.is_empty()
+
+func _select_profile() -> void:
+	if _run_active() or fatal:
+		return
+	var previous_generation := Isolation.generation
+	if enabled:
+		var target := campaign_identity if authenticated and synchronized else ""
+		# A disconnect must retain the campaign, not load staging or local data.
+		if Isolation.active and not Isolation.identity.is_empty() and target.is_empty():
+			return
+		if not Isolation.enter(target):
+			_fail(Isolation.error)
+			return
+	else:
+		if Isolation.active:
+			socket.close()
+			authenticated = false
+			synchronized = false
+			Unlocks.reset()
+			_reset_deathlink()
+		Isolation.leave()
+	if previous_generation == Isolation.generation:
+		return
+	Isolation.reload_stores(get_tree())
+	native_conditions.clear()
+	# Rebuild cached menu/loadout previews after their backing profile changes.
+	if get_tree().current_scene != null and not _profile_refresh_pending:
+		_profile_refresh_pending = true
+		_reload_profile_menu.call_deferred()
+
+func _reload_profile_menu() -> void:
+	_profile_refresh_pending = false
+	if _run_active():
+		return
+	var result := get_tree().reload_current_scene()
+	if result != OK:
+		_fail("Could not rebuild the campaign menu: " + error_string(result))
+
+func _run_file() -> String:
+	return Isolation.PM.profile_path("multiworldgg-run.cfg") if Isolation.active else RUN_FILE
 
 # Called when main.tscn enters the tree: after apply_run_save restored the seed
 # on Continue, before any room or reward spawns.
@@ -161,13 +224,13 @@ func begin_run() -> void:
 	var continuing: bool = saves != null and saves.get("is_loading_run") == true
 	var config := ConfigFile.new()
 	if continuing:
-		run_multiworld = config.load(RUN_FILE) == OK and str(config.get_value("run", "seed", "")) == run_seed \
+		run_multiworld = config.load(_run_file()) == OK and str(config.get_value("run", "seed", "")) == run_seed \
 				and config.get_value("run", "multiworldgg", false) == true
 	else:
 		run_multiworld = enabled
 		config.set_value("run", "seed", run_seed)
 		config.set_value("run", "multiworldgg", run_multiworld)
-		var err := config.save(RUN_FILE)
+		var err := config.save(_run_file())
 		if err != OK:
 			log_line("Cannot save run mode: " + error_string(err))
 	remote_rewards.clear()
@@ -205,6 +268,8 @@ func notify(message: String) -> void:
 func _fail(message: String) -> void:
 	fatal = true
 	authenticated = false
+	synchronized = false
+	Unlocks.synchronized = false
 	push_error("[MultiworldGGShop] " + message)
 	notify(message + " Purchases are blocked; see the client log.")
 
@@ -231,8 +296,18 @@ func connect_server() -> void:
 	if server.strip_edges().is_empty():
 		notify("Enter the WebSocket address from your multiworld.gg room page before connecting.")
 		return
+	if not enabled and not (run_multiworld and _run_active()):
+		notify("Enable MultiworldGG in the main menu before connecting its isolated campaign.")
+		return
+	if _run_active() and not run_multiworld:
+		notify("This run is vanilla. Return to the main menu before connecting a MultiworldGG campaign.")
+		return
 	if fatal:
 		notify("Restart after resolving the campaign/configuration error in the log.")
+		return
+	if _run_active() and run_multiworld and not _connected_server.is_empty() \
+			and (server.strip_edges() != _connected_server or slot_name.strip_edges() != _connected_slot):
+		notify("Return to the main menu before connecting this run to a different server or slot.")
 		return
 	server = server.strip_edges()
 	slot_name = slot_name.strip_edges()
@@ -250,7 +325,10 @@ func connect_server() -> void:
 	authenticated = false
 	room_seen = false
 	item_stream_ready = false
+	synchronized = false
+	Unlocks.synchronized = false
 	item_stream.clear()
+	server_unlock_checks.clear()
 	scouts.clear()
 	players.clear()
 	slot_games.clear()
@@ -286,6 +364,8 @@ func _process(delta: float) -> void:
 		connecting = false
 		authenticated = false
 		item_stream_ready = false
+		synchronized = false
+		Unlocks.synchronized = false
 		notify("Disconnected (code %d). MultiworldGG pedestals are blocked; reconnect in Settings > MultiworldGG." % socket.get_close_code())
 	if authenticated and not fatal:
 		retry_time += delta
@@ -310,6 +390,8 @@ func _process(delta: float) -> void:
 		if campaign != null and campaign.bank > 0:
 			redeem_grants(true)
 		_refresh_pages()
+		_select_profile()
+		_scan_natural_unlocks()
 
 func _send(message: Dictionary) -> bool:
 	if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
@@ -387,6 +469,17 @@ func _handle(message: Dictionary) -> void:
 				item_names[str(game_name)] = names
 		"ReceivedItems":
 			_received(message)
+		"Retrieved":
+			if authenticated and not synchronized and message.get("keys") is Dictionary and message["keys"].has(sync_key):
+				if not item_stream_ready:
+					if not campaign.accept_items([]):
+						_fail("Server item history is empty but the campaign journal is not. " + campaign.error)
+						return
+					item_stream_ready = true
+				synchronized = true
+				Unlocks.synchronized = true
+				_reconcile_unlocks()
+				_select_profile()
 		"PrintJSON":
 			var parts: Variant = message.get("data", [])
 			if parts is Array:
@@ -446,7 +539,7 @@ func _connected(message: Dictionary) -> void:
 	var data: Variant = message.get("slot_data")
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(data.get("shop_checks")) \
-			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2] or int(data.shop_checks) < 1 \
+			or not State.integer(data.get("schema")) or not int(data.schema) in [1, 2, 3] or int(data.shop_checks) < 1 \
 			or int(data.shop_checks) > MAX_CHECKS or parse_sources(data) == null \
 			or parse_death_link(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
@@ -454,13 +547,30 @@ func _connected(message: Dictionary) -> void:
 		return
 	team = int(message.team)
 	slot = int(message.slot)
+	slot_schema = int(data.schema)
+	var ids: Array = []
+	if slot_schema == 3:
+		if data.get("catalog_schema") != 1 or not data.get("unlock_ids") is Array:
+			_fail("Missing or incompatible server unlock catalogue.")
+			return
+		ids = data.unlock_ids
+		if not Unlocks.configure(ids):
+			_fail(Unlocks.error)
+			return
+	else:
+		Unlocks.reset()
 	count = int(data.shop_checks)
 	sources = parse_sources(data)
 	if _save_config() != OK:
 		log_line("Could not remember this slot's remote unlock sources.")
 	var identity := JSON.stringify([seed_name, team, slot])
+	if _run_active() and run_multiworld and Isolation.active and Isolation.identity != identity:
+		_fail("This run belongs to a different campaign. Return to the main menu before switching.")
+		return
+	campaign_identity = identity
+	server_unlock_checks.clear()
 	campaign = State.new()
-	if not campaign.open(ROOT + "/" + identity.sha256_text() + ".json", identity, count):
+	if not campaign.open(ROOT + "/" + identity.sha256_text() + ".json", identity, count, ids):
 		_fail(campaign.error)
 		return
 	var missing: Variant = message.get("missing_locations")
@@ -478,6 +588,10 @@ func _connected(message: Dictionary) -> void:
 		if not inventory.has(FIRST_LOCATION + i):
 			_fail("Server location inventory does not match this APWorld.")
 			return
+	for id in ids:
+		if not inventory.has(Unlocks.LOCATION_BASE + int(id)):
+			_fail("Server natural-unlock inventory does not match this APWorld.")
+			return
 	var info: Variant = message.get("slot_info", {})
 	if info is Dictionary:
 		for key in info:
@@ -487,6 +601,8 @@ func _connected(message: Dictionary) -> void:
 	if fatal:
 		return
 	authenticated = true
+	_connected_server = server.strip_edges()
+	_connected_slot = slot_name.strip_edges()
 	connecting = false
 	death_link = parse_death_link(data)
 	if death_link:
@@ -511,6 +627,10 @@ func _connected(message: Dictionary) -> void:
 	_send({"cmd": "GetDataPackage", "games": games})
 	_send({"cmd": "LocationScouts", "locations": range(FIRST_LOCATION, FIRST_LOCATION + count), "create_as_hint": 0})
 	_send({"cmd": "Sync"})
+	sync_key = "multiworldgg_pathogenic_sync_%d_%d_%d" % [team, slot, Time.get_ticks_usec()]
+	# WebSocket command ordering makes Retrieved a barrier after Sync, including
+	# the protocol's valid empty-inventory case (which sends no ReceivedItems).
+	_send({"cmd": "Get", "keys": [sync_key]})
 	_send_checks()
 	notify("Connected as %s (slot %d). %d/%d checks confirmed. Remote unlocks in: %s. DeathLink %s." % [
 		slot_name, slot, campaign.confirmed.size(), count, sources_text(), "on" if death_link else "off"])
@@ -680,8 +800,13 @@ func _accept_checks(list: Variant) -> void:
 	if not campaign.accept_checks(list):
 		_fail(campaign.error)
 		return
+	for location in list:
+		if Unlocks.selected.has(int(location) - Unlocks.LOCATION_BASE) \
+				and not int(location) in server_unlock_checks:
+			server_unlock_checks.append(int(location))
 	if campaign.confirmed.size() == count:
 		_send({"cmd": "StatusUpdate", "status": 30})
+	_reconcile_unlocks()
 
 func _received(message: Dictionary) -> void:
 	if not authenticated:
@@ -717,10 +842,76 @@ func _received(message: Dictionary) -> void:
 	if campaign.bank > before:
 		log_line("Received %d Research Grant(s)." % (campaign.bank - before))
 		redeem_grants(true)
+	_reconcile_unlocks()
 
 func _send_checks() -> void:
-	if campaign != null and not campaign.checks.is_empty():
-		_send({"cmd": "LocationChecks", "locations": campaign.checks})
+	if campaign != null and (not campaign.checks.is_empty() or not campaign.earned.is_empty()):
+		_send({"cmd": "LocationChecks", "locations": campaign.checks + campaign.earned})
+
+func earn_unlock(id: int) -> void:
+	if not campaign_ready() or slot_schema != 3 or not Unlocks.selected.has(id):
+		return
+	var globals := get_node_or_null("/root/G")
+	if globals == null or int(globals.get("daily_run")) != 0:
+		return
+	var location := Unlocks.LOCATION_BASE + id
+	if location in campaign.earned:
+		return
+	if not campaign.earn(id):
+		_fail(campaign.error)
+		return
+	log_line("Naturally earned %s; awaiting server confirmation." % Unlocks.entries[id].name)
+	_send_checks()
+
+func _reconcile_unlocks() -> void:
+	if slot_schema != 3 or not synchronized or campaign == null:
+		return
+	if Unlocks.reconcile(item_stream.map(func(item): return int(item.item)), server_unlock_checks):
+		log_line("Server owns %d/%d campaign unlocks." % [Unlocks.owned.size(), Unlocks.selected.size()])
+		var bus := get_node_or_null("/root/SignalBus")
+		if bus != null:
+			for signal_name in ["unlocks_changed", "plasmid_state_changed"]:
+				if bus.has_signal(signal_name):
+					bus.emit_signal(signal_name)
+		_refresh_unlock_menus(get_tree().root)
+
+func _refresh_unlock_menus(node: Node) -> void:
+	var script: Script = node.get_script()
+	if script != null:
+		if script.resource_path == "res://scn/ui/start_menus/tube.gd":
+			node.update_lock()
+		elif script.resource_path == "res://scn/ui/start_menus/bodypart_button.gd":
+			var unlocked: bool = node.is_unlocked()
+			node.disabled = not unlocked
+			node.get_node("Lock").visible = not unlocked
+	for child in node.get_children():
+		_refresh_unlock_menus(child)
+
+func _scan_natural_unlocks() -> void:
+	if not campaign_ready() or slot_schema != 3:
+		return
+	var globals := get_node_or_null("/root/G")
+	if globals == null or int(globals.get("daily_run")) != 0:
+		return
+	for id in Unlocks.selected:
+		var entry: Dictionary = Unlocks.entries[id]
+		var path := str(entry.get("condition", ""))
+		if path.is_empty() or Unlocks.LOCATION_BASE + id in campaign.earned:
+			continue
+		if entry.kind == "loadout" and not entry.get("global", false) \
+				and int(entry.parasite) != int(globals.get("selected_parasite")):
+			continue
+		if not native_conditions.has(path):
+			if not ResourceLoader.exists(path):
+				_fail("Native unlock resource is unavailable: " + path)
+				return
+			var condition := load(path)
+			if condition == null or not condition.has_method("is_unlocked"):
+				_fail("Native unlock hook is unavailable: " + path)
+				return
+			native_conditions[path] = condition
+		if Unlocks.natural_condition(native_conditions[path]):
+			earn_unlock(id)
 
 # --- Shop pedestals ---------------------------------------------------------
 
@@ -1480,6 +1671,9 @@ func start_stages(button: Button) -> Array:
 
 func _start_pressed(button: Button) -> void:
 	var hook: Dictionary = button.get_meta("multiworldgg_start")
+	if enabled and Isolation.active and hook.menu.get("loadout_active") and not campaign_ready():
+		notify("Connect and synchronize this campaign before starting a MultiworldGG run. Your normal save is untouched.")
+		return
 	var stages := start_stages(button)
 	var stage: int = hook.stage
 	if stage < stages.size():
@@ -1625,7 +1819,12 @@ func _build_page() -> Control:
 
 func run_text() -> String:
 	if not _run_active():
-		return "Takes effect when a run starts; a continued run keeps the mode it started with."
+		if Isolation.active:
+			if not Unlocks.hooks_ready:
+				return "Isolated save selected. Restart Pathogenic once to activate progression hooks."
+			return "Isolated campaign save: %s. Normal saves are not used. %s" % [
+				Isolation.PM.profile_dir(), "Ready." if campaign_ready() else "Connect and synchronize before playing."]
+		return "Normal save selected. Enabling MultiworldGG selects a separate server-bound campaign."
 	if run_multiworld:
 		return "This run uses MultiworldGG (locked at run start). Disconnects block remote unlocks until you reconnect."
 	return "This run is vanilla (MultiworldGG was off when it started). Enabling applies to the next run."
