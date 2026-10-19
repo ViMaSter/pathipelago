@@ -16,14 +16,14 @@ Pathogenic:
 
   # things other people can unlock
   remote_characters: true
-  remote_plasmids: true
-  remote_loadouts: true
+  remote_plasmids: false
+  remote_loadouts: false
   remote_organelles: true
-  remote_environment: true
+  remote_environment: false
   
   # Additional filler checks (0-10000 each):
   # Amount of times other player can grant coins
-  coin_checks: 20
+  coin_checks: 0
   # Amount of coins granted by each coin check
   coin_amount: 15
   # Amount of times other player can grant DNA
