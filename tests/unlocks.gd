@@ -129,6 +129,9 @@ func _run() -> void:
 	var plasmid_hooks = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/plasmid.gd").new()
 	var plasmid: Node = load("res://scn/metaprogression/plasmids/plasmid.gd").new()
 	plasmid.name = str(Unlocks.entries[node_id].node)
+	check(plasmid_hooks._id(plasmid) == node_id, "detached Plasmid resolves its catalogue ID through the main tree")
+	plasmid_hooks.restore(Chain.new(plasmid, "restore"))
+	check(not plasmid.active, "detached Plasmid restore works before entering the tree")
 	var map := MapDouble.new()
 	root.add_child(map)
 	map.add_child(plasmid)
@@ -207,7 +210,14 @@ func _run() -> void:
 	check(not Unlocks.received(gate_id), "a cached confirmation absent from the current server cannot confer ownership")
 	client._accept_checks([Unlocks.LOCATION_BASE + gate_id])
 	check(Unlocks.received(gate_id), "server acknowledgment applies native unlock entitlement")
+	check(not is_instance_valid(global.main) and client.toast.visible
+			and client.toast.text.contains(str(Unlocks.entries[gate_id].name)),
+			"permanent unlock toast is visible in the main menu without a living run")
+	client.toast.visible = false
+	client._reconcile_unlocks()
+	check(not client.toast.visible, "unchanged unlock reconciliation does not replay the toast")
 	_victories(client, global)
+	_loadout_buttons(client, global)
 	client.authenticated = false
 	client._select_profile()
 	check(Isolation.identity == "seedA/0/1", "disconnect retains campaign instead of normal profile")
@@ -272,6 +282,37 @@ func _run() -> void:
 	plasmid_hooks.free()
 	print("GODOT_UNLOCK_TEST_RESULT assertions=%d failures=%d" % [assertions, failures])
 	quit(1 if failures else 0)
+
+func _loadout_buttons(client: Node, global: Node) -> void:
+	var ids: Array = Unlocks.entries.keys().filter(func(id): return Unlocks.entries[id].kind == "loadout")
+	check(ids.size() == 68 and Unlocks.configure(ids), "configure every character's loadout unlocks")
+	for id in ids:
+		var entry: Dictionary = Unlocks.entries[id]
+		global.selected_parasite = int(entry.parasite)
+		var button: Button = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/bodypart_button.gd").new()
+		var bodypart := Resource.new()
+		bodypart.take_over_path(str(entry.bodypart))
+		button.bodypart_res = bodypart
+		root.add_child(button)
+		Unlocks.reconcile([], [])
+		client._refresh_unlock_menus(button)
+		check(not button.is_unlocked() and button.disabled and button.get_node("Lock").visible,
+				"unreceived copied loadout stays locked: " + entry.name)
+		Unlocks.reconcile([Unlocks.ITEM_BASE + id], [])
+		client._refresh_unlock_menus(button)
+		check(button.is_unlocked() and not button.disabled and not button.get_node("Lock").visible
+				and button.modulate == Color.WHITE, "received loadout is selectable and visibly unlocked: " + entry.name)
+		for other_id in ids:
+			var other: Dictionary = Unlocks.entries[other_id]
+			if other.parasite != entry.parasite and other.bodypart == entry.bodypart:
+				global.selected_parasite = int(other.parasite)
+				check(not button.is_unlocked(), "same bodypart receipt cannot unlock another character's loadout")
+				break
+		button.free()
+	Unlocks.reset()
+	var vanilla: Button = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/bodypart_button.gd").new()
+	check(vanilla.is_unlocked(), "disabled remote loadouts preserve native availability")
+	vanilla.free()
 
 func _victories(client: Node, globals: Node) -> void:
 	client.campaign = State.new()

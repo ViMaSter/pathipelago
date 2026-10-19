@@ -1,3 +1,3 @@
 extends Node
 
-signal picked
+signal picked(taker: Node)

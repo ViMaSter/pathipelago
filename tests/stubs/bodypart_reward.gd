@@ -9,6 +9,7 @@ var bodypart: Node2D
 var unique_from: Array = []
 var pickup_area: Node
 var vanilla_picks := 0
+var last_taker: Node
 
 func _init() -> void:
 	pickup_area = load("res://tests/stubs/pickup_area.gd").new()
@@ -24,7 +25,8 @@ func _init() -> void:
 	bodypart = Node2D.new()
 	add_child(bodypart)
 
-func _player_entered() -> void:
+func _player_entered(taker: Node = null) -> void:
+	last_taker = taker
 	vanilla_picks += 1
 	consumed = true
 

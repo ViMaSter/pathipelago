@@ -3,7 +3,8 @@ extends Object
 const Unlocks = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/unlocks.gd")
 
 func _id(node: Node) -> int:
-	return Unlocks.plasmid_id(node, int(node.get_node("/root/G").selected_parasite))
+	var tree := Engine.get_main_loop() as SceneTree
+	return Unlocks.plasmid_id(node, int(tree.root.get_node("G").selected_parasite))
 
 func restore(chain):
 	chain.execute_next()

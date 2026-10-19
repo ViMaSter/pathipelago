@@ -14,6 +14,7 @@ static var synchronized := false
 static var evaluating_native := false
 static var hooks_ready := false
 static var resources: Dictionary = {}
+static var loadouts: Dictionary = {}
 static var error := ""
 
 static func load_catalog() -> bool:
@@ -43,6 +44,8 @@ static func load_catalog() -> bool:
 			conditions[path].append(int(entry.id))
 		if entry.kind == "plasmid":
 			nodes["%d/%s" % [int(entry.parasite), entry.node]] = int(entry.id)
+		elif entry.kind == "loadout":
+			loadouts["%d/%s" % [int(entry.parasite), entry.bodypart]] = int(entry.id)
 	return true
 
 static func configure(ids: Array) -> bool:
@@ -100,6 +103,10 @@ static func condition_override(path: String) -> Variant:
 
 static func resource_override(path: String) -> Variant:
 	var id: int = resources.get(path, -1)
+	return owned.has(id) if governs() and selected.has(id) else null
+
+static func loadout_override(bodypart: String, parasite: int) -> Variant:
+	var id: int = loadouts.get("%d/%s" % [parasite, bodypart], -1)
 	return owned.has(id) if governs() and selected.has(id) else null
 
 static func natural_condition(condition: Resource) -> bool:

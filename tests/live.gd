@@ -84,7 +84,7 @@ func _live() -> bool:
 		shop.add_child(reward)
 		shop._rewards.append(reward)
 		var money_before: int = player.money
-		shop._on_picked()
+		shop._on_picked(player)
 		if player.money != money_before - 10 or not shop.finalized \
 				or not reward.deleted or shop.vanilla_purchases != 0:
 			push_error("TEST FAILED: live purchase debit or local reward suppression")

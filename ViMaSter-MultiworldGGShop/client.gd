@@ -923,8 +923,15 @@ func earn_unlock(id: int) -> void:
 func _reconcile_unlocks() -> void:
 	if slot_schema < 3 or not synchronized or campaign == null:
 		return
+	var previous := Unlocks.owned.duplicate()
 	if Unlocks.reconcile(item_stream.map(func(item): return int(item.item)), server_unlock_checks):
 		log_line("Server owns %d/%d campaign unlocks." % [Unlocks.owned.size(), Unlocks.selected.size()])
+		var names: Array[String] = []
+		for id in Unlocks.owned:
+			if not previous.has(id):
+				names.append(str(Unlocks.entries[id].name))
+		if not names.is_empty():
+			show_toast("Unlocked " + "\n".join(names))
 		var bus := get_node_or_null("/root/SignalBus")
 		if bus != null:
 			for signal_name in ["unlocks_changed", "plasmid_state_changed"]:
@@ -937,10 +944,11 @@ func _refresh_unlock_menus(node: Node) -> void:
 	if script != null:
 		if script.resource_path == "res://scn/ui/start_menus/tube.gd":
 			node.update_lock()
-		elif script.resource_path == "res://scn/ui/start_menus/bodypart_button.gd":
+		elif node.has_method("_multiworld_loadout_override"):
 			var unlocked: bool = node.is_unlocked()
 			node.disabled = not unlocked
 			node.get_node("Lock").visible = not unlocked
+			node.modulate = Color.WHITE if unlocked else Color(0.415, 0.415, 0.415, 1.0)
 	for child in node.get_children():
 		_refresh_unlock_menus(child)
 
@@ -1027,7 +1035,7 @@ func eligible(shop: Node) -> bool:
 
 # Returns true when the pick was consumed by the MultiworldGG path; false lets the
 # vanilla shop purchase run.
-func handle_pick(shop: Node, theft := false) -> bool:
+func handle_pick(shop: Node, theft := false, taker: Node = null) -> bool:
 	var multiworld := is_multiworld(shop)
 	var room := shop_room(shop)
 	var globals := get_node_or_null("/root/G")
@@ -1037,7 +1045,7 @@ func handle_pick(shop: Node, theft := false) -> bool:
 		shop.pay_with_blood, theft, "MULTIWORLDGG" if multiworld else "vanilla local purchase"])
 	if not multiworld:
 		return false
-	purchase(shop)
+	purchase(shop, taker)
 	return true
 
 func _on_node_added(node: Node) -> void:
@@ -1067,9 +1075,9 @@ func _track_shop(shop: Node) -> void:
 	area.picked.connect(_fallback_pick.bind(shop))
 	log_line("Takeover inactive on %s; picks rerouted through the client." % shop.name)
 
-func _fallback_pick(shop: Node) -> void:
-	if is_instance_valid(shop) and not handle_pick(shop):
-		shop._on_picked()
+func _fallback_pick(taker: Node, shop: Node) -> void:
+	if is_instance_valid(shop) and not handle_pick(shop, false, taker):
+		shop._on_picked(taker)
 
 # --- Free choose-one pedestals (blue item rooms and boss rewards) ------------
 
@@ -1156,7 +1164,7 @@ func is_free_multiworld(reward: Variant) -> bool:
 		return false
 	return not (campaign != null and authenticated and campaign.next_location() < 0)
 
-func _free_pick(reward: Node) -> void:
+func _free_pick(taker: Node, reward: Node) -> void:
 	if not is_instance_valid(reward) or reward.deleted or reward.consumed:
 		return
 	var room := free_room(reward)
@@ -1167,7 +1175,7 @@ func _free_pick(reward: Node) -> void:
 	if exhausted:
 		_unmask_reward(reward)
 		_rename_reward(reward, "")
-		reward._player_entered()
+		reward._player_entered(taker)
 		return
 	var location := _claim_location()
 	if location < 0:
@@ -1366,15 +1374,16 @@ func _claim_location() -> int:
 		return -1
 	return location
 
-func purchase(shop: Node) -> void:
+func purchase(shop: Node, taker: Node = null) -> void:
 	if shop.paid:
 		return
 	var location := _claim_location()
 	if location < 0:
 		return
 	var globals := get_node("/root/G")
-	var player: Node = globals.player
-	if not is_instance_valid(player) or int(player.money) < int(shop.cost):
+	var player: Node = taker if is_instance_valid(taker) else globals.player
+	var price: int = shop.get_cost_for(player) if shop.has_method("get_cost_for") and is_instance_valid(player) else int(shop.cost)
+	if not is_instance_valid(player) or int(player.money) < price:
 		_error_sound()
 		notify("Not enough money for this MultiworldGG unlock.")
 		return
@@ -1383,7 +1392,7 @@ func purchase(shop: Node) -> void:
 	if not campaign.purchase(location):
 		_fail(campaign.error)
 		return
-	player.money -= shop.cost
+	player.money -= price
 	shop.pending_refund = 0
 	shop.paid = true
 	for reward in shop._rewards:

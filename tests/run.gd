@@ -200,12 +200,15 @@ func _network_and_purchase() -> void:
 	client.enabled = true
 	start_menu.queue_free()
 	check(not client.is_multiworld(second) and not client.is_multiworld(pickups), "exactly one MultiworldGG pedestal per shop")
-	second._on_picked()
+	second._on_picked(player)
 	check(second.vanilla_purchases == 1, "other pedestals stay vanilla local purchases")
-	shop._on_picked()
+	check(second.last_taker == player, "vanilla purchase receives the pickup participant")
+	second._take_for_free(player)
+	check(second.vanilla_purchases == 2 and second.last_taker == player, "vanilla theft receives the pickup participant")
+	shop._on_picked(player)
 	check(player.money == 50 and shop.vanilla_purchases == 0, "offline MultiworldGG buy neither charges nor grants vanilla")
 	shop.pay_with_blood = true
-	shop._on_picked()
+	shop._on_picked(player)
 	check(shop.vanilla_purchases == 1, "blood purchase stays vanilla")
 	shop.pay_with_blood = false
 	var challenge_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
@@ -275,7 +278,8 @@ func _network_and_purchase() -> void:
 			{"location": 402938001, "item": 9001, "player": 2, "flags": 1},
 			{"location": 402938002, "item": 9001, "player": 2, "flags": 1},
 			{"location": 402938003, "item": 9001, "player": 2, "flags": 1},
-			{"location": 402938004, "item": 9001, "player": 2, "flags": 1}
+			{"location": 402938004, "item": 9001, "player": 2, "flags": 1},
+			{"location": 402938005, "item": 9001, "player": 2, "flags": 1}
 		]
 	}, {"cmd": "ReceivedItems", "index": 0, "items": []}])
 	messages = await _collect(peer, 15)
@@ -322,16 +326,16 @@ func _network_and_purchase() -> void:
 			and not reward.bodypart.visible, "MultiworldGG pedestal shows the Enhancer icon instead of the rolled upgrade")
 	check(client.REMOTE_ICON == "res://gfx/player/bodyparts/internal/upgrade.png", "remote icon is Enhancer's texture")
 	player.money = 2
-	shop._on_picked()
+	shop._on_picked(player)
 	check(client.campaign.checks.is_empty() and player.money == 2, "insufficient funds unchanged")
 	player.money = 50
 	shop.make_free()
 	check(not shop.paid, "theft cannot create a free check or local upgrade")
-	shop._on_picked()
+	shop._on_picked(player)
 	check(player.money == 40 and shop.paid, "paid shipment charges exactly once")
 	check(shop.finalized and reward.deleted, "vanilla reward suppressed and offer finalized")
 	check(shop.vanilla_purchases == 1, "no vanilla bodypart handoff")
-	shop._on_picked()
+	shop._on_picked(player)
 	check(player.money == 40 and client.campaign.checks.size() == 1, "repeat signal idempotent")
 	messages = await _collect(peer, 10)
 	var sent: Array = _find(messages, "LocationChecks").get("locations", [])
@@ -368,7 +372,7 @@ func _network_and_purchase() -> void:
 	check(free[0].get_node("%MutationIcon").texture == client.remote_icon and not free[0].bodypart.visible,
 			"item-room remote unlock shows the Enhancer icon")
 	var coins: int = player.money
-	free[0].pickup_area.picked.emit()
+	free[0].pickup_area.picked.emit(player)
 	check(free[0].vanilla_picks == 0 and free[0].deleted and free[1].consumed and item_room.looted,
 			"item-room pick grants nothing locally and consumes the choice")
 	check(player.money == coins and client.campaign.checks.size() == 2, "item-room remote unlock is free and sends the next check")
@@ -406,7 +410,7 @@ func _network_and_purchase() -> void:
 	client._mask_rewards()
 	check(boss[0].get_node("%Label").text == "Remote Unlock 3/5" and boss[0].get_node("%MutationIcon").texture == client.remote_icon,
 			"boss remote unlock renamed with the Enhancer icon")
-	boss[0].pickup_area.picked.emit()
+	boss[0].pickup_area.picked.emit(player)
 	check(boss[0].vanilla_picks == 0 and boss[0].deleted and boss[1].consumed and boss[2].consumed,
 			"boss pick grants nothing locally and consumes the other choices")
 	check(player.money == coins and client.campaign.checks.size() == 3, "boss remote unlock is free and sends the next check")
@@ -469,8 +473,19 @@ func _network_and_purchase() -> void:
 	check(not client.is_multiworld(gated_shop), "shop_unlocks=false keeps shops vanilla")
 	check(client.is_free_multiworld(gated_rooms[0]), "item_room_unlocks=true keeps item-room remote unlocks")
 	check(not client.is_free_multiworld(gated_rooms[1]), "boss_reward_unlocks=false keeps boss rewards vanilla")
-	gated_rooms[1].pickup_area.picked.emit()
+	gated_rooms[1].pickup_area.picked.emit(player)
 	check(gated_rooms[1].vanilla_picks == 1 and client.campaign.checks.size() == 4, "disabled boss reward picks normally")
+	check(gated_rooms[1].last_taker == player, "free reward fallback receives the pickup participant")
+	var fallback_area: Node = load("res://tests/stubs/pickup_area.gd").new()
+	fallback_area.name = "PickupArea"
+	var vanilla_shop: Node = load("res://scn/environ/pickups/shop_item.gd").new()
+	gated_shop_room.add_child(vanilla_shop)
+	vanilla_shop.add_child(fallback_area)
+	fallback_area.picked.connect(vanilla_shop._on_picked)
+	client._track_shop(vanilla_shop)
+	fallback_area.picked.emit(player)
+	check(vanilla_shop.vanilla_purchases == 1 and vanilla_shop.last_taker == player,
+			"shop signal fallback forwards the pickup participant")
 	client.sources = {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}
 	gated_shop_room.queue_free()
 	editor.mutations[3] = null
@@ -501,6 +516,22 @@ func _network_and_purchase() -> void:
 	await _collect(peer, 10)
 	check(player.money == 55 and player.dna == 3 and plasmids.plasmid_fragments == 2,
 			"network replay does not duplicate currency rewards")
+	var other_player: Node = load("res://tests/stubs/player.gd").new()
+	root.add_child(other_player)
+	other_player.shop_discount = 0.5
+	var other_room: Node = load("res://scn/environ/rooms/special/shop.gd").new()
+	root.add_child(other_room)
+	var other_shop := _pedestal(other_room, "Item1", true)
+	var primary_money: int = player.money
+	var other_money: int = other_player.money
+	var checks_before: int = client.campaign.checks.size()
+	other_shop._on_picked(other_player)
+	check(other_player.money == other_money - 5 and player.money == primary_money,
+			"remote purchase charges the pickup participant with their own discount")
+	check(client.campaign.checks.size() == checks_before + 1 and other_shop.finalized,
+			"participant-specific purchase still journals and finalizes the shipment")
+	other_player.queue_free()
+	other_room.queue_free()
 	_send(peer, [{"cmd": "RoomUpdate", "checked_locations": range(402938001, 402938006)}])
 	messages = await _collect(peer, 10)
 	check(_find(messages, "StatusUpdate").get("status") == 30, "goal only after every server-confirmed check")

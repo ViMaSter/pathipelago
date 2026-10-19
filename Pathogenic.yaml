@@ -17,7 +17,7 @@ Pathogenic:
   # things other people can unlock
   remote_characters: true
   remote_plasmids: false
-  remote_loadouts: false
+  remote_loadouts: true
   remote_organelles: true
   remote_environment: false
   

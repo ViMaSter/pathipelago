@@ -19,6 +19,21 @@ organelle-drop, and environment unlocks in a separate server-bound campaign.
    starts remain blocked until they are active.
 6. Wait for the campaign to connect and synchronize, then start or continue its run.
 
+### Game compatibility and startup recovery
+
+The mod targets **Pathogenic v1.3.4**. This game version added a pickup
+participant argument to shop callbacks and reward signals; older mod builds can
+fail to parse and trigger Mod Loader recovery mode. Update the complete mod ZIP
+and keep only one installed copy (Workshop or local development ZIP).
+After updating, re-enable MultiworldGGShop in Mod Loader if recovery disabled it
+and restart once if requested to regenerate the progression hooks.
+
+Use the WebSocket address from the current room, including its assigned port.
+For a local server without TLS, use `ws://`, not `wss://`. If a previous
+connection reported incompatible slot data, correct the address and restart
+Pathogenic before connecting again. Start remains blocked until the campaign
+has synchronized; this prevents falling back to a normal save after an error.
+
 ## Generate a room
 
 1. Get `pathogenic.apworld` through the [Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3821496115).
@@ -78,6 +93,14 @@ character-specific Plasmid nodes, 68 starting-loadout options, 14 organelle-drop
 gates, and 6 environment features. Repeated Plasmid effects on different maps
 are separate items. A starting-loadout unlock is distinct from that organelle's
 random-drop gate.
+
+Remote starting-loadout items unlock the matching character's editor choice,
+including when received while that editor is open. The lock and disabled styling
+refresh immediately. Shared bodyparts remain separate per-character unlocks.
+Newly granted permanent unlocks also show in the MultiworldGG notification label
+in the main menu and during runs.
+The browser's randomized shipment count is distinct from **Server owns**: the
+latter also includes unlocks earned through optional native-feat checks.
 
 All five remote categories default on. The generator creates one shipment for each
 enabled unlock (309 with every category enabled) plus the configured currency checks.

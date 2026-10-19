@@ -60,6 +60,7 @@ def engine_tests(godot: str, live_server: str | None = None, unlocks: bool = Fal
                 "plasmid.gd": "scn/metaprogression/plasmids/plasmid.gd",
                 "unlock_plasmid.gd": "scn/metaprogression/plasmids/unlock_plasmid.gd",
                 "plasmid_manager.gd": "scn/metaprogression/plasmids/plasmid_manager.gd",
+                "bodypart_button.gd": "scn/ui/start_menus/bodypart_button.gd",
             }.items():
                 destination = project / target
                 destination.parent.mkdir(parents=True, exist_ok=True)

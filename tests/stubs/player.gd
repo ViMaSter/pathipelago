@@ -1,6 +1,7 @@
 extends Node
 
 var money := 50
+var shop_discount := 0.0
 var dna := 0
 var dead := false
 var hp := 6
