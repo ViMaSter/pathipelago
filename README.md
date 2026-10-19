@@ -25,6 +25,8 @@ The mod targets **Pathogenic v1.3.4**. This game version added a pickup
 participant argument to shop callbacks and reward signals; older mod builds can
 fail to parse and trigger Mod Loader recovery mode. Update the complete mod ZIP
 and keep only one installed copy (Workshop or local development ZIP).
+Release **0.2.4** includes these compatibility fixes and scopes the CI test server
+to the fixture worlds so unrelated game imports cannot delay its startup.
 After updating, re-enable MultiworldGGShop in Mod Loader if recovery disabled it
 and restart once if requested to regenerate the progression hooks.
 

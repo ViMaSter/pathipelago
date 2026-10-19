@@ -2,7 +2,10 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -21,6 +24,39 @@ def module(name):
 builder = module("build")
 installer = module("install")
 workshop = module("workshop_vdf")
+multiworldgg = module("test_multiworldgg")
+
+
+class MultiworldGGServerTests(unittest.TestCase):
+    def test_server_activates_world_filter_and_preserves_arguments(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            server = directory / "MultiServer.py"
+            server.write_text(
+                "import json, os, sys\n"
+                "print(json.dumps({'test_mode': 'unittest' in sys.modules,\n"
+                "                  'worlds': os.environ['AP_TEST_WORLDS'],\n"
+                "                  'argv': sys.argv, 'main': __name__}))\n"
+            )
+            archive = directory / "seed.zip"
+            client = types.ModuleType("websockets.sync.client")
+            client.connect = None
+            with patch.dict(sys.modules, {"websockets.sync.client": client}), \
+                    patch.object(multiworldgg.subprocess, "Popen",
+                                 side_effect=RuntimeError("captured launch")) as launch:
+                with self.assertRaisesRegex(RuntimeError, "captured launch"):
+                    multiworldgg.live_test(directory, "unused", archive, directory)
+            command = launch.call_args.args[0]
+            with patch.dict("os.environ", {"AP_TEST_WORLDS": "pathogenic"}):
+                result = subprocess.check_output(command, cwd=directory, text=True)
+            data = json.loads(result)
+            self.assertTrue(data["test_mode"])
+            self.assertEqual(data["worlds"], "pathogenic")
+            self.assertEqual(data["main"], "__main__")
+            self.assertEqual(data["argv"][:4],
+                             [str(server), str(archive), "--host", "127.0.0.1"])
+            self.assertEqual(data["argv"][4], "--port")
+            self.assertGreater(int(data["argv"][5]), 0)
 
 
 class WorkshopVdfTests(unittest.TestCase):

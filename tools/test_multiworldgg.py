@@ -162,7 +162,11 @@ def live_test(runtime: Path, godot: str, archive: Path, directory: Path, unlocks
     endpoint = f"ws://127.0.0.1:{port}"
     with (directory / "server.log").open("w+") as log:
         server = subprocess.Popen(
-            [sys.executable, str(runtime / "MultiServer.py"), str(archive),
+            # The child also needs unittest loaded to activate AP_TEST_WORLDS.
+            [sys.executable, "-c",
+             "import runpy, sys, unittest; "
+             "sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')",
+             str(runtime / "MultiServer.py"), str(archive),
              "--host", "127.0.0.1", "--port", str(port)],
             cwd=runtime, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
         )
