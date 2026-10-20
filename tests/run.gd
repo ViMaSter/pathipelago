@@ -125,6 +125,15 @@ func _network_and_purchase() -> void:
 	client.connect_server()
 	check(not client.connecting and client.status.contains("room page"),
 			"empty endpoint gives an explicit room-address instruction")
+	check(Client.server_urls("91.67.124.93") == PackedStringArray(["wss://91.67.124.93:38281", "ws://91.67.124.93:38281"]),
+			"bare IP tries wss then ws on the default port")
+	check(Client.server_urls(" example.org:1234 ") == PackedStringArray(["wss://example.org:1234", "ws://example.org:1234"]),
+			"host:port keeps the given port")
+	check(Client.server_urls("ws://host") == PackedStringArray(["ws://host:38281"]), "explicit ws:// is not upgraded")
+	check(Client.server_urls("WSS://host:5/path") == PackedStringArray(["wss://host:5/path"]), "explicit wss:// keeps path")
+	check(Client.server_urls("[::1]") == PackedStringArray(["wss://[::1]:38281", "ws://[::1]:38281"]), "bracketed IPv6")
+	for bad in ["", "http://host", "::1", "host:0", "host:70000", "host:abc", ":38281", "a b", "[::1"]:
+		check(Client.server_urls(bad).is_empty(), "reject server address '%s'" % bad)
 	check(early_menu.tab_buttons.size() == 3 and early_menu.tab_buttons[2].text == "MultiworldGG",
 			"menu created before the mod (main menu) also gets the tab")
 	early_menu.queue_free()
@@ -233,16 +242,41 @@ func _network_and_purchase() -> void:
 	check(menu.current_tab == 2 and menu.tab_content.get_child(2).visible, "settings tab selectable")
 	var page: Control = menu.tab_content.get_child(2)
 	check(page is ScrollContainer and page.custom_minimum_size.y <= client.PAGE_MAX_HEIGHT, "settings page height capped")
-	var tcp := TCPServer.new()
-	check(tcp.listen(0, "127.0.0.1") == OK, "listen local websocket fixture")
-	client.server = "ws://127.0.0.1:%d" % tcp.get_local_port()
+	client.server = "host:abc"
 	client.slot_name = "Tester"
 	client.connect_server()
+	check(not client.connecting and client.status.contains("server address"), "invalid address is reported visibly")
+	var closed := TCPServer.new()
+	closed.listen(0, "127.0.0.1")
+	var closed_port := closed.get_local_port()
+	closed.stop()
+	client.server = "127.0.0.1:%d" % closed_port
+	client.connect_server()
+	for i in 600:
+		if not client.connecting:
+			break
+		await process_frame
+	check(not client.connecting and client.status.contains("Could not reach the server")
+			and client.status.contains("wss://") and client.status.contains("ws://127"),
+			"unreachable server fails visibly after trying wss:// and ws://")
+	var tcp := TCPServer.new()
+	check(tcp.listen(0, "127.0.0.1") == OK, "listen local websocket fixture")
+	client.server = "127.0.0.1:%d" % tcp.get_local_port()
+	client.slot_name = "Tester"
+	client.connect_server()
+	check(client.connecting and client._dialing.begins_with("wss://"), "scheme-less address tries wss:// first")
 	for i in 120:
 		if tcp.is_connection_available():
 			break
 		await process_frame
-	check(tcp.is_connection_available(), "client connects")
+	if tcp.is_connection_available():
+		# Refuse the TLS attempt like a plain ws:// MultiworldGG server would.
+		tcp.take_connection().disconnect_from_host()
+	for i in 600:
+		if tcp.is_connection_available():
+			break
+		await process_frame
+	check(tcp.is_connection_available() and client._dialing.begins_with("ws://"), "client falls back to ws://")
 	if not tcp.is_connection_available():
 		return
 	var peer := WebSocketPeer.new()

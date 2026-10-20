@@ -11,6 +11,10 @@ const MAX_CHECKS := 30309
 # Godot's 64 KiB default closes the socket (1009) on large data packages such as Stardew's.
 const INBOUND_BUFFER := 16 * 1024 * 1024
 const GRANT_COINS := 15
+# The standard MultiworldGG/Archipelago server port, used when an address omits one.
+const DEFAULT_PORT := 38281
+# A secure attempt that neither opens nor fails within this time falls back to ws://.
+const CONNECT_TIMEOUT := 10.0
 const ROOT := "user://multiworldgg_shop"
 const LOG_FILE := ROOT + "/client.log"
 const LOG_LIMIT := 512 * 1024
@@ -82,6 +86,11 @@ var item_names: Dictionary = {}
 var refresh_time := 0.0
 var retry_time := 0.0
 var connecting := false
+var _candidates := PackedStringArray()
+var _tried := PackedStringArray()
+var _dialing := ""
+var _opened := false
+var _connect_time := 0.0
 var room_seen := false
 var item_stream: Array = []
 var item_stream_ready := false
@@ -195,6 +204,8 @@ func _select_profile() -> void:
 			return
 	else:
 		if Isolation.active:
+			_candidates.clear()
+			connecting = false
 			socket.close()
 			authenticated = false
 			synchronized = false
@@ -340,8 +351,9 @@ func connect_server() -> void:
 		return
 	server = server.strip_edges()
 	slot_name = slot_name.strip_edges()
-	if not (server.begins_with("ws://") or server.begins_with("wss://")) or slot_name.is_empty():
-		notify("Enter a ws:// or wss:// server URL and a nonempty slot name.")
+	var urls := server_urls(server)
+	if urls.is_empty() or slot_name.is_empty():
+		notify("Enter a server address (host, host:port, ws:// or wss:// URL; port %d if omitted) and a nonempty slot name." % DEFAULT_PORT)
 		return
 	var err := _save_config()
 	if err != OK:
@@ -349,8 +361,6 @@ func connect_server() -> void:
 		return
 	socket.close()
 	_reset_deathlink()
-	socket = WebSocketPeer.new()
-	socket.inbound_buffer_size = INBOUND_BUFFER
 	authenticated = false
 	room_seen = false
 	item_stream_ready = false
@@ -363,18 +373,92 @@ func connect_server() -> void:
 	slot_games.clear()
 	item_names.clear()
 	campaign = null
-	err = socket.connect_to_url(server)
+	retry_time = 0.0
+	_candidates = urls
+	_tried.clear()
+	_dial()
+
+# Addresses without a scheme try wss:// first, then ws://, like MultiworldGG's own
+# clients; a missing port means DEFAULT_PORT. Returns [] for unusable input.
+static func server_urls(address: String) -> PackedStringArray:
+	address = address.strip_edges()
+	var schemes := ["wss://", "ws://"]
+	for scheme in ["ws://", "wss://"]:
+		if address.to_lower().begins_with(scheme):
+			schemes = [scheme]
+			address = address.substr(scheme.length())
+	if address.contains("://") or address.contains(" ") or address.contains("@"):
+		return PackedStringArray()
+	var slash := address.find("/")
+	var authority := address if slash < 0 else address.left(slash)
+	var path := "" if slash < 0 else address.substr(slash)
+	var host := authority
+	var port := ""
+	if authority.begins_with("["):
+		var close := authority.find("]")
+		if close < 0:
+			return PackedStringArray()
+		host = authority.left(close + 1)
+		var tail := authority.substr(close + 1)
+		if not tail.is_empty():
+			if not tail.begins_with(":"):
+				return PackedStringArray()
+			port = tail.substr(1)
+	elif authority.count(":") == 1:
+		host = authority.get_slice(":", 0)
+		port = authority.get_slice(":", 1)
+	elif authority.count(":") > 1:
+		# IPv6 literals need brackets to separate the port.
+		return PackedStringArray()
+	if host.is_empty() or host == "[]":
+		return PackedStringArray()
+	if port.is_empty():
+		port = str(DEFAULT_PORT)
+	elif not port.is_valid_int() or int(port) < 1 or int(port) > 65535:
+		return PackedStringArray()
+	var urls := PackedStringArray()
+	for scheme in schemes:
+		urls.append("%s%s:%s%s" % [scheme, host, port, path])
+	return urls
+
+func _dial() -> void:
+	_dialing = _candidates[0]
+	_candidates.remove_at(0)
+	socket.close()
+	socket = WebSocketPeer.new()
+	socket.inbound_buffer_size = INBOUND_BUFFER
+	_opened = false
+	_connect_time = 0.0
+	var err := socket.connect_to_url(_dialing)
 	if err != OK:
-		notify("Connection failed: " + error_string(err))
+		_dial_failed(error_string(err))
 		return
 	connecting = true
-	retry_time = 0.0
-	notify("Connecting to " + server + " as " + slot_name)
+	notify("Connecting to " + _dialing + " as " + slot_name)
+
+func _dial_failed(reason: String) -> void:
+	_tried.append(_dialing)
+	socket.close()
+	if not _candidates.is_empty():
+		log_line("Could not reach %s (%s); trying %s." % [_dialing, reason, _candidates[0]])
+		_dial()
+		return
+	connecting = false
+	notify("Could not reach the server (%s; tried %s). Check the address and port and that the room is running." \
+		% [reason, ", ".join(_tried)])
 
 func _process(delta: float) -> void:
 	socket.poll()
 	var state := socket.get_ready_state()
+	if connecting and not _opened and state != WebSocketPeer.STATE_OPEN:
+		_connect_time += delta
+		if state == WebSocketPeer.STATE_CLOSED:
+			_dial_failed("closed with code %d" % socket.get_close_code())
+		elif _connect_time >= CONNECT_TIMEOUT:
+			_dial_failed("timed out")
+		state = socket.get_ready_state()
 	if state == WebSocketPeer.STATE_OPEN:
+		_opened = true
 		while socket.get_available_packet_count() > 0:
 			var parser := JSON.new()
 			var err := parser.parse(socket.get_packet().get_string_from_utf8())
@@ -1878,7 +1962,7 @@ func _build_page() -> Control:
 	fields.add_theme_constant_override("h_separation", 8)
 	fields.add_theme_constant_override("v_separation", 4)
 	box.add_child(fields)
-	widgets.server = _line(fields, "Server", server, "ws://host:port or wss://host:port")
+	widgets.server = _line(fields, "Server", server, "host or host:port (port %d if omitted)" % DEFAULT_PORT)
 	widgets.slot = _line(fields, "Slot", slot_name, "Slot name from the seed")
 	widgets.password = _line(fields, "Password", password, "Optional, not saved")
 	widgets.password.secret = true

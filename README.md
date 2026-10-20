@@ -12,7 +12,11 @@ organelle-drop, and environment unlocks in a separate server-bound campaign.
 
 1. Subscribe on [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3821496115) and start Pathogenic.
 2. Open **Settings > MultiworldGG**.
-3. Enter the room's WebSocket address (`ws://host:port` or `wss://host:port`), slot name, and password if needed.
+3. Enter the room's address, slot name, and password if needed. A bare host or IP
+   (for example `203.0.113.5`) uses the default MultiworldGG port **38281**; add
+   `:port` for another port. Without a scheme the mod tries `wss://` first, then
+   `ws://`, and reports an error only if both fail. An explicit `ws://` or
+   `wss://` URL is used as given.
 4. Turn on **Enable MultiworldGG for new runs** and click **Connect**.
 5. On the first launch after installing this version, restart Pathogenic once
    when Mod Loader requests it. Progression hooks require that restart; campaign
@@ -25,13 +29,13 @@ The mod targets **Pathogenic v1.3.4**. This game version added a pickup
 participant argument to shop callbacks and reward signals; older mod builds can
 fail to parse and trigger Mod Loader recovery mode. Update the complete mod ZIP
 and keep only one installed copy (Workshop or local development ZIP).
-Release **0.2.4** includes these compatibility fixes and scopes the CI test server
+Release **0.2.4** and later include these compatibility fixes and scopes the CI test server
 to the fixture worlds so unrelated game imports cannot delay its startup.
 After updating, re-enable MultiworldGGShop in Mod Loader if recovery disabled it
 and restart once if requested to regenerate the progression hooks.
 
-Use the WebSocket address from the current room, including its assigned port.
-For a local server without TLS, use `ws://`, not `wss://`. If a previous
+Use the address from the current room; include its port unless the room uses
+the default 38281. If a previous
 connection reported incompatible slot data, correct the address and restart
 Pathogenic before connecting again. Start remains blocked until the campaign
 has synchronized; this prevents falling back to a normal save after an error.
