@@ -12,6 +12,7 @@ organelle-drop, and environment unlocks in a separate server-bound campaign.
 
 1. Subscribe on [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3821496115) and start Pathogenic.
 2. Open **Settings > MultiworldGG**.
+   The installed mod version is displayed at the top of the tab.
 3. Enter the room's address, slot name, and password if needed. A bare host or IP
    (for example `203.0.113.5`) uses the default MultiworldGG port **38281**; add
    `:port` for another port. Without a scheme the mod tries `wss://` first, then
@@ -76,6 +77,8 @@ Pathogenic:
   boss_reward_unlocks: false  # boss rewards
   level_up_unlocks: false     # level-up drafts
 
+  start_with_all_characters: false  # full roster from the start; omits character items/checks
+
   # things other people can unlock
   remote_characters: true
   remote_plasmids: true
@@ -110,6 +113,13 @@ latter also includes unlocks earned through optional native-feat checks.
 
 All five remote categories default on. The generator creates one shipment for each
 enabled unlock (309 with every category enabled) plus the configured currency checks.
+Set `start_with_all_characters: true` to unlock the full roster immediately in the
+isolated campaign. This overrides `remote_characters` and removes all five character
+items, their five randomized shipments and their five optional Earn checks, rather
+than leaving no-op rewards in other players' worlds. Other categories are unchanged
+(304 unlock shipments remain when they are all enabled). The option defaults to
+false; older seeds retain their existing behavior. Use the updated mod and APWorld
+and generate a new seed to apply it; an existing room is not changed.
 Each filler item awards its configured Coins, DNA, or Plasmid Fragments amount.
 Disable categories before generation to keep their ordinary in-campaign acquisition
 behavior. With all remote categories disabled and all currency checks set to zero,

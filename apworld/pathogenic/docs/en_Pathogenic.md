@@ -48,6 +48,13 @@ appears once in the randomized shipment pool and has an additional optional
 never required by generation logic or the goal. Unlock items are useful, not
 progression.
 
+Set `start_with_all_characters: true` to start the isolated campaign with the full
+roster unlocked. It defaults to false. When enabled, `remote_characters` is ignored:
+the five character items, their randomized shipments and their optional Earn checks
+are all omitted, so other players cannot receive no-op character rewards for you.
+Other unlock categories are unchanged. This requires the updated client and a newly
+generated seed; it does not change existing rooms or vanilla profiles.
+
 `coin_checks`, `dna_checks`, and `plasmid_fragment_checks` each add 0-10000
 filler shipment checks. Their corresponding `*_amount` settings (1-10000)
 control how much Coins, DNA, or Plasmid Fragments each item awards. The generator

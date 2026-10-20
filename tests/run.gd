@@ -119,6 +119,14 @@ func _network_and_purchase() -> void:
 	var client := Client.new()
 	client.name = "MultiworldGGShop"
 	root.add_child(client)
+	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
+		"res://mods-unpacked/ViMaSter-MultiworldGGShop/manifest.json"))
+	check(client._mod_version_text() == "Mod version: " + str(manifest.version_number),
+		"version indicator matches the installed manifest")
+	var version_page := client._build_page()
+	check(version_page.get_child(0).get_child(0).text == client._mod_version_text(),
+		"mod version is visible at the top of the MultiworldGG tab")
+	version_page.free()
 	await process_frame
 	await process_frame
 	check(client.server.is_empty(), "fresh configuration has no guessed room endpoint")

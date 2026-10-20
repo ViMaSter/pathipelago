@@ -6,7 +6,7 @@ from pkgutil import get_data
 
 from BaseClasses import Item, ItemClassification, Location, Region, Tutorial
 from Options import (Accessibility, DeathLink, DefaultOnToggle, OptionError, PerGameCommonOptions,
-                     ProgressionBalancing, Range, Visibility)
+                     ProgressionBalancing, Range, Toggle, Visibility)
 from worlds.AutoWorld import WebWorld, World
 
 
@@ -128,9 +128,18 @@ class LevelUpUnlocks(DefaultOnToggle):
 
 
 class RemoteCharacters(DefaultOnToggle):
-    """Include character unlocks; normal character acquisition remains available."""
+    """Include character unlocks unless starting with all characters unlocked."""
 
     display_name = "Remote Character Unlocks"
+
+
+class StartWithAllCharacters(Toggle):
+    """Unlock every character from the start. Ignores remote_characters and removes
+    character items, their randomized shipments and their natural-earn checks.
+    Other unlock categories are unchanged.
+    """
+
+    display_name = "Start with All Characters"
 
 
 class RemotePlasmids(DefaultOnToggle):
@@ -199,6 +208,7 @@ class PathogenicOptions(PerGameCommonOptions):
     boss_reward_unlocks: BossRewardUnlocks
     level_up_unlocks: LevelUpUnlocks
     remote_characters: RemoteCharacters
+    start_with_all_characters: StartWithAllCharacters
     remote_plasmids: RemotePlasmids
     remote_loadouts: RemoteLoadouts
     remote_organelles: RemoteOrganelles
@@ -245,7 +255,9 @@ class PathogenicWorld(World):
     def enabled_unlocks(self) -> tuple:
         """Catalogue order is stable, independent of world RNG or dictionary order."""
         return tuple(entry for entry in CATALOG_ENTRIES
-                     if getattr(self.options, CATEGORY_OPTIONS[entry["kind"]]).value)
+                     if getattr(self.options, CATEGORY_OPTIONS[entry["kind"]]).value
+                     and not (entry["kind"] == "character"
+                              and self.options.start_with_all_characters.value))
 
     def shipment_count(self) -> int:
         return len(self.enabled_unlocks()) + self.options.coin_checks.value \
@@ -311,6 +323,7 @@ class PathogenicWorld(World):
         return {
             "schema": 4,
             "catalog_schema": CATALOG_SCHEMA,
+            "start_with_all_characters": bool(self.options.start_with_all_characters.value),
             "unlock_ids": [entry["id"] for entry in self.enabled_unlocks()],
             "checks": self.shipment_count(),
             "coin_amount": self.options.coin_amount.value,

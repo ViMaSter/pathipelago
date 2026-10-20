@@ -14,6 +14,9 @@ Pathogenic:
   boss_reward_unlocks: false # one choice of every boss bodypart reward
   level_up_unlocks: false    # last card of every level-up mutation draft
 
+  # Start with the full roster and omit character items and checks.
+  start_with_all_characters: false
+
   # things other people can unlock
   remote_characters: true
   remote_plasmids: false

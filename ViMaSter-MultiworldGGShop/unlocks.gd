@@ -10,6 +10,7 @@ static var nodes: Dictionary = {}
 static var selected: Dictionary = {}
 static var owned: Dictionary = {}
 static var configured := false
+static var start_with_all_characters := false
 static var synchronized := false
 static var evaluating_native := false
 static var hooks_ready := false
@@ -48,7 +49,7 @@ static func load_catalog() -> bool:
 			loadouts["%d/%s" % [int(entry.parasite), entry.bodypart]] = int(entry.id)
 	return true
 
-static func configure(ids: Array) -> bool:
+static func configure(ids: Array, all_characters: bool = false) -> bool:
 	if not load_catalog():
 		return false
 	var next := {}
@@ -58,7 +59,11 @@ static func configure(ids: Array) -> bool:
 			error = "Server supplied an unknown or duplicate unlock catalogue ID."
 			return false
 		next[int(id)] = true
+		if all_characters and entries[int(id)].kind == "character":
+			error = "Server included character unlocks despite starting with all characters."
+			return false
 	selected = next
+	start_with_all_characters = all_characters
 	owned.clear()
 	configured = true
 	synchronized = false
@@ -66,6 +71,7 @@ static func configure(ids: Array) -> bool:
 
 static func reset() -> void:
 	configured = false
+	start_with_all_characters = false
 	synchronized = false
 	selected.clear()
 	owned.clear()
@@ -95,6 +101,8 @@ static func condition_override(path: String) -> Variant:
 		return null
 	var relevant := false
 	for id in conditions.get(path, []):
+		if start_with_all_characters and entries[id].kind == "character":
+			return true
 		if selected.has(id):
 			relevant = true
 			if not owned.has(id):
@@ -103,6 +111,9 @@ static func condition_override(path: String) -> Variant:
 
 static func resource_override(path: String) -> Variant:
 	var id: int = resources.get(path, -1)
+	if governs() and start_with_all_characters and entries.has(id) \
+			and entries[id].kind == "character":
+		return true
 	return owned.has(id) if governs() and selected.has(id) else null
 
 static func loadout_override(bodypart: String, parasite: int) -> Variant:

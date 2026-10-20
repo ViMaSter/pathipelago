@@ -594,6 +594,7 @@ func _handle(message: Dictionary) -> void:
 				Unlocks.synchronized = true
 				_reconcile_unlocks()
 				_select_profile()
+				_refresh_unlock_menus(get_tree().root)
 		"PrintJSON":
 			var parts: Variant = message.get("data", [])
 			if parts is Array:
@@ -667,6 +668,7 @@ func _connected(message: Dictionary) -> void:
 			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4] or not valid_amounts \
 			or not State.integer(victories_value) or int(victories_value) < 0 or int(victories_value) > 50 \
 			or int(count_value) < 0 or int(count_value) > MAX_CHECKS or parse_sources(data) == null \
+			or not data.get("start_with_all_characters", false) is bool \
 			or parse_death_link(data) == null:
 		_fail("Incompatible slot data. Generate with the bundled Pathogenic APWorld.")
 		socket.close()
@@ -688,7 +690,7 @@ func _connected(message: Dictionary) -> void:
 			_fail("Missing or incompatible server unlock catalogue.")
 			return
 		ids = data.unlock_ids
-		if not Unlocks.configure(ids):
+		if not Unlocks.configure(ids, data.get("start_with_all_characters", false)):
 			_fail(Unlocks.error)
 			return
 	else:
@@ -1945,6 +1947,8 @@ func _build_page() -> Control:
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 4)
 	page.add_child(box)
+	var version := _label(box, SMALL_FONT_SIZE)
+	version.text = _mod_version_text()
 	var widgets := {"page": page}
 	widgets.toggle = CheckButton.new()
 	widgets.toggle.text = "Enable MultiworldGG for new runs"
@@ -1991,6 +1995,22 @@ func _build_page() -> Control:
 	widgets.revision = -1
 	pages.append(widgets)
 	return page
+
+func _mod_version_text() -> String:
+	var manifest_path := "res://mods-unpacked/ViMaSter-MultiworldGGShop/manifest.json"
+	var text := FileAccess.get_file_as_string(manifest_path)
+	var read_error := FileAccess.get_open_error()
+	var parser := JSON.new()
+	if read_error != OK:
+		log_line("Cannot read mod version: " + error_string(read_error))
+	elif parser.parse(text) != OK:
+		log_line("Cannot read mod version: malformed manifest JSON.")
+	elif not parser.data is Dictionary or not parser.data.get("version_number") is String \
+			or str(parser.data.version_number).strip_edges().is_empty():
+		log_line("Cannot read mod version: manifest version_number is missing or invalid.")
+	else:
+		return "Mod version: " + str(parser.data.version_number)
+	return "Mod version: unavailable (see client log)"
 
 func run_text() -> String:
 	if not _run_active():

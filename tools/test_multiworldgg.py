@@ -98,6 +98,7 @@ def main(runtime: Path, godot: str) -> None:
                             "checks": 1, "coin_amount": 15, "dna_amount": 1,
                             "plasmid_fragment_amount": 1, "death_link": True,
                             "required_victories": 0,
+                            "start_with_all_characters": False,
                             "sources": {source: source == selected for source in source_names}}
                 if world.fill_slot_data() != expected or len(multiworld.get_locations(1)) != 1:
                     raise AssertionError(f"Incorrect single-source slot data: {selected}")

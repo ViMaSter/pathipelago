@@ -85,8 +85,26 @@ func _run() -> void:
 		if node_id < 0 and entry.kind == "plasmid":
 			node_id = id
 	check(gate_id >= 0 and node_id >= 0, "catalogue has gated content and Plasmid nodes")
+	check(Unlocks.configure([], true), "configure full starting roster without remote character IDs")
+	for id in Unlocks.entries:
+		var entry: Dictionary = Unlocks.entries[id]
+		if entry.kind == "character":
+			check(Unlocks.condition_override(entry.condition) == true,
+				"starting character condition is unlocked")
+			check(Unlocks.resource_override(entry.resource) == true,
+				"starting character resource is unlocked")
+			check(not Unlocks.selected.has(id), "starting characters have no remote checks")
+			Isolation.active = false
+			check(Unlocks.condition_override(entry.condition) == null
+					and Unlocks.resource_override(entry.resource) == null,
+				"starting characters never affect vanilla profiles")
+			Isolation.active = true
+			check(not Unlocks.configure([id], true), "reject no-op remote starting-character item")
+	Unlocks.reset()
+	check(not Unlocks.start_with_all_characters, "reset clears starting roster entitlement")
 	var ids := [gate_id, node_id]
 	check(Unlocks.configure(ids), "accept selected server IDs")
+	check(not Unlocks.start_with_all_characters, "older slots retain native character gates")
 	var state := State.new()
 	check(state.open("user://unlocks-journal.json", "seedA/0/1", 3,
 			ids.map(func(id): return float(id))), "create mixed-item journal with JSON numeric IDs")

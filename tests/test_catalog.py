@@ -81,7 +81,7 @@ def load_world(archive=None):
     base.Tutorial = lambda *args: args
     options = ModuleType("Options")
     for name in ("Accessibility", "DeathLink", "DefaultOnToggle", "PerGameCommonOptions",
-                 "ProgressionBalancing", "Range"):
+                 "ProgressionBalancing", "Range", "Toggle"):
         setattr(options, name, type(name, (), {}))
     options.OptionError = ValueError
     options.Visibility = SimpleNamespace(none=0)
@@ -100,7 +100,8 @@ def load_world(archive=None):
 WORLD = load_world()
 
 
-def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=(), required_victories=0):
+def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=(), required_victories=0,
+               start_with_all_characters=False):
     world = WORLD.PathogenicWorld()
     world.player = 1
     world.player_name = "Test Player"
@@ -119,6 +120,7 @@ def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=
         "plasmid_fragment_checks": plasmid_fragment_checks,
         "plasmid_fragment_amount": 1,
         "required_victories": required_victories,
+        "start_with_all_characters": start_with_all_characters,
     }.items()})
     world.options = SimpleNamespace(**values)
     return world
@@ -316,6 +318,43 @@ aggregation = 2
 
 
 class APWorldTests(unittest.TestCase):
+    def test_starting_characters_removes_items_shipments_and_natural_checks(self):
+        expected = [entry for entry in ENTRIES if entry["kind"] != "character"]
+        characters = [entry for entry in ENTRIES if entry["kind"] == "character"]
+        for remote_characters in (False, True):
+            with self.subTest(remote_characters=remote_characters):
+                world = make_world(
+                    coin_checks=2, dna_checks=3, plasmid_fragment_checks=4,
+                    disabled=() if remote_characters else ("remote_characters",),
+                    start_with_all_characters=True)
+                world.generate_early()
+                world.create_regions()
+                world.create_items()
+                slot = world.fill_slot_data()
+                self.assertTrue(slot["start_with_all_characters"])
+                self.assertEqual(slot["unlock_ids"], [entry["id"] for entry in expected])
+                self.assertEqual(slot["checks"], 304 + 9)
+                self.assertEqual(len(world.multiworld.itempool), 304 + 9)
+                locations = world.multiworld.regions[1].locations
+                self.assertEqual(len(locations), 2 * 304 + 9)
+                for entry in characters:
+                    self.assertNotIn(entry["name"], [item.name for item in world.multiworld.itempool])
+                    self.assertNotIn("Earn " + entry["name"], [location.name for location in locations])
+                self.assertEqual(
+                    [location.name for location in locations if location.name.startswith("Earn ")],
+                    ["Earn " + entry["name"] for entry in expected])
+
+    def test_starting_characters_does_not_add_checks_when_other_categories_disabled(self):
+        world = make_world(
+            disabled=tuple(option for kind, option in WORLD.CATEGORY_OPTIONS.items()
+                           if kind != "character"),
+            start_with_all_characters=True)
+        world.create_regions()
+        world.create_items()
+        self.assertEqual(world.fill_slot_data()["checks"], 0)
+        self.assertEqual(world.multiworld.itempool, [])
+        self.assertEqual(world.multiworld.regions[1].locations, [])
+
     def test_required_victories_bounds_and_slot_data(self):
         self.assertEqual((WORLD.RequiredVictories.range_start, WORLD.RequiredVictories.range_end), (0, 50))
         self.assertEqual(WORLD.RequiredVictories.default, 0)
@@ -370,10 +409,12 @@ class APWorldTests(unittest.TestCase):
             self.assertEqual(world.NATURAL_LOCATION_IDS, WORLD.NATURAL_LOCATION_IDS)
             with zipfile.ZipFile(archive) as package:
                 manifest = json.loads(package.read("pathogenic/archipelago.json"))
-            self.assertEqual(manifest["world_version"], "0.2.5")
+            self.assertEqual(manifest["world_version"], json.loads(
+                (ROOT / "ViMaSter-MultiworldGGShop/manifest.json").read_text())["version_number"])
 
     def test_default_pool_and_optional_natural_self_rewards(self):
         world = make_world()
+        self.assertFalse(world.fill_slot_data()["start_with_all_characters"])
         world.generate_early()
         world.create_regions()
         world.create_items()
@@ -414,7 +455,8 @@ class APWorldTests(unittest.TestCase):
         slot = world.fill_slot_data()
         self.assertEqual(set(slot), {
             "schema", "catalog_schema", "unlock_ids", "checks", "coin_amount",
-            "dna_amount", "plasmid_fragment_amount", "sources", "death_link", "required_victories"})
+            "dna_amount", "plasmid_fragment_amount", "sources", "death_link", "required_victories",
+            "start_with_all_characters"})
         self.assertEqual((slot["schema"], slot["catalog_schema"], slot["checks"]),
                          (4, 1, 100))
         self.assertEqual(slot["unlock_ids"], [
