@@ -156,6 +156,12 @@ entitlements. Native attempts, run state, currency, and Plasmid assignments are
 saved inside the campaign profile, not in a normal profile. Steam achievement
 imports, achievement awards, and leaderboard uploads are suppressed there.
 
+Game settings (volumes, language, display and gameplay options) are shared by
+all isolated profiles through `multiworldgg_shop/preferences.json`. They are
+first copied read-only from the normal profile, re-applied whenever MultiworldGG
+connects, disconnects, or the game restarts, and changes made while isolated are
+kept for the next campaign. They are never written back to a normal profile.
+
 Start/Continue require a synchronized server connection. Disconnecting keeps the
 campaign selected rather than falling back to a normal save. Return to the menu
 and disable MultiworldGG to disconnect and restore normal profile routing.

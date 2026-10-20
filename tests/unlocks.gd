@@ -23,6 +23,11 @@ class Chain extends RefCounted:
 	func execute_next(args: Array = []) -> Variant:
 		return original.callv(args)
 
+class AudioDouble extends Node:
+	var music := -1.0
+	func apply_volume_settings() -> void:
+		music = get_node("/root/SaveManager").read_custom("settings", "music_volume", 1.0)
+
 class MapDouble extends Node:
 	var refund_points := 0
 	func can_deactivate(_node: Node) -> bool:
@@ -43,17 +48,33 @@ func check(condition: bool, message: String) -> void:
 
 func _run() -> void:
 	check(OS.get_user_data_dir() == OS.get_cmdline_user_args()[0], "isolated test user directory")
-	var original := "{\"stats0\":{\"shop_reroll\":999},\"plasmids0\":{\"Everything\":true}}"
+	var original := "{\"stats0\":{\"shop_reroll\":999},\"plasmids0\":{\"Everything\":true},\"settings\":{\"music_volume\":0.25,\"language\":\"de\"}}"
 	DirAccess.make_dir_recursive_absolute("user://profile_1")
 	var file := FileAccess.open("user://profile_1/save.json", FileAccess.WRITE)
 	file.store_string(original)
 	file.close()
+	var original_local := "[settings]\n\nlighting_mode=2\n"
+	file = FileAccess.open("user://profile_1/local_settings.cfg", FileAccess.WRITE)
+	file.store_string(original_local)
+	file.close()
+	var audio := AudioDouble.new()
+	audio.name = "AudioManager"
+	root.add_child(audio)
 	var save: Node = root.get_node("SaveManager")
 	check(Isolation.enter("seedA/0/1"), "create isolated profile")
 	Isolation.reload_stores(self)
 	var first := Isolation.PM.active
 	check(first > 3 and save.SAVE_PATH != "user://profile_1/save.json", "every native path selects reserved campaign profile")
-	check(save.save_data.is_empty(), "normal progression not copied")
+	check(not save.save_data.has("stats0") and not save.save_data.has("plasmids0"), "normal progression not copied")
+	check(save.read_custom("settings", "music_volume") == 0.25 and save.read_custom("settings", "language") == "de",
+			"campaign inherits the normal profile's settings")
+	check(audio.music == 0.25, "inherited music volume is applied to the live audio buses")
+	var local := ConfigFile.new()
+	check(local.load(Isolation.PM.profile_path("local_settings.cfg")) == OK
+			and typeof(local.get_value("settings", "lighting_mode")) == TYPE_INT
+			and local.get_value("settings", "lighting_mode") == 2, "device-local settings keep their type")
+	save.save_custom("settings", "music_volume", 0.6)
+	Isolation.capture_preferences(self)
 	save.save_custom("stats0", "attempts", 3)
 	save.flush()
 	var manager: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/profile_manager.gd").new()
@@ -68,7 +89,12 @@ func _run() -> void:
 	check(FileAccess.get_file_as_string("user://profile_1/save.json") == original, "normal profile byte-identical")
 	check(Isolation.enter("seedB/0/1"), "select different server seed")
 	Isolation.reload_stores(self)
-	check(Isolation.PM.active != first and save.save_data.is_empty(), "server seeds never share progression")
+	check(Isolation.PM.active != first and not save.save_data.has("stats0"), "server seeds never share progression")
+	check(save.read_custom("settings", "music_volume") == 0.6 and audio.music == 0.6,
+			"volume changed in one campaign survives switching campaigns")
+	check(FileAccess.get_file_as_string("user://profile_1/save.json") == original
+			and FileAccess.get_file_as_string("user://profile_1/local_settings.cfg") == original_local,
+			"sharing settings never writes the normal profile")
 	check(Isolation.enter("seedA/0/1"), "return to original campaign")
 	Isolation.reload_stores(self)
 	check(save.read_custom("stats0", "attempts") == 3, "campaign attempts survive switches")

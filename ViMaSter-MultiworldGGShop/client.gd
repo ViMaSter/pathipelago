@@ -190,7 +190,13 @@ func campaign_ready() -> bool:
 			and authenticated and synchronized and Unlocks.hooks_ready and campaign != null \
 			and Isolation.active and Isolation.identity == campaign_identity and not campaign_identity.is_empty()
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and is_inside_tree():
+		Isolation.capture_preferences(get_tree())
+
 func _select_profile() -> void:
+	# Read-only snapshot; it carries settings changes into the next isolated profile.
+	Isolation.capture_preferences(get_tree())
 	if _run_active() or fatal:
 		return
 	var previous_generation := Isolation.generation
