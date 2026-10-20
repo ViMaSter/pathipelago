@@ -7,6 +7,7 @@ Coins, DNA, and Plasmid Fragments can fill additional checks, with amounts set i
 Currency rewards wait for a living campaign run and progress carries over between runs.
 Version 0.2 also receives permanent character, Plasmid, starting-loadout,
 organelle-drop, and environment unlocks in a separate server-bound campaign.
+Version 0.3 shares Plasmid unlocks between characters as **Plasmid Slot** items.
 
 ## Setup
 
@@ -81,7 +82,7 @@ Pathogenic:
 
   # things other people can unlock
   remote_characters: true
-  remote_plasmids: true
+  remote_plasmids: true      # 36 shared Plasmid Slot items (see below)
   remote_loadouts: true
   remote_organelles: true
   remote_environment: true
@@ -99,9 +100,23 @@ Vanilla and daily runs do not count.
 
 The installed v1.2.1 catalogue contains **309 unlocks**: 5 characters, 216
 character-specific Plasmid nodes, 68 starting-loadout options, 14 organelle-drop
-gates, and 6 environment features. Repeated Plasmid effects on different maps
-are separate items. A starting-loadout unlock is distinct from that organelle's
-random-drop gate.
+gates, and 6 environment features. A starting-loadout unlock is distinct from that
+organelle's random-drop gate.
+
+### Plasmid slots
+
+Plasmids are not sent as 216 per-character items. Instead, each character's map is
+numbered by distance from its starting node (ties by node name): slot 1 is next to
+the start, higher slots are further out. **Plasmid Slot N** unlocks the Nth Plasmid
+of *every* character, so a slot received from another player helps whichever
+character you play. The Bacterium has 36 Plasmids and every other character 30, so
+there are 36 slot items and slots 31–36 only affect the Bacterium. Organelles are
+already global unlocks and loadouts stay per character.
+
+Buying a Plasmid's node with points unlocks it for that character only and sends
+that slot's optional **Earn Plasmid Slot N** check the first time any character
+buys it. These 36 checks hold randomized items; they do not unlock other
+characters' Plasmids. Received slots still need map connectivity to be assigned.
 
 Remote starting-loadout items unlock the matching character's editor choice,
 including when received while that editor is open. The lock and disabled styling
@@ -112,12 +127,14 @@ The browser's randomized shipment count is distinct from **Server owns**: the
 latter also includes unlocks earned through optional native-feat checks.
 
 All five remote categories default on. The generator creates one shipment for each
-enabled unlock (309 with every category enabled) plus the configured currency checks.
+enabled non-Plasmid unlock and each Plasmid slot (93 + 36 = 129 with every category
+enabled) plus the configured currency checks. The 36 Earn Plasmid Slot checks add
+36 Coins items to the pool.
 Set `start_with_all_characters: true` to unlock the full roster immediately in the
 isolated campaign. This overrides `remote_characters` and removes all five character
 items, their five randomized shipments and their five optional Earn checks, rather
 than leaving no-op rewards in other players' worlds. Other categories are unchanged
-(304 unlock shipments remain when they are all enabled). The option defaults to
+(124 unlock shipments remain when they are all enabled). The option defaults to
 false; older seeds retain their existing behavior. Use the updated mod and APWorld
 and generate a new seed to apply it; an existing room is not changed.
 Each filler item awards its configured Coins, DNA, or Plasmid Fragments amount.
@@ -125,8 +142,8 @@ Disable categories before generation to keep their ordinary in-campaign acquisit
 behavior. With all remote categories disabled and all currency checks set to zero,
 there are no shipments and the goal is immediately complete if `required_victories` is 0.
 
-Each selected unlock also has an optional **Earn ...** location with a fixed
-matching self-reward. Either satisfy the original requirement in your campaign
+Each selected non-Plasmid unlock also has an optional **Earn ...** location with a fixed
+matching self-reward (Plasmids use the slot checks above). Either satisfy the original requirement in your campaign
 or receive the item from another player: both routes unlock the same content.
 Native feats submit checks and wait for server confirmation; remote items never
 fabricate achievement statistics. Optional Earn locations do not count toward
@@ -138,7 +155,8 @@ points or require buying a native cap increase. Buying an unowned node normally
 remains a natural acquisition route.
 
 Regenerate with the bundled APWorld to obtain the new item pool. Older schema
-1/2/3 seeds remain compatible: their Research Grant item (ID 402939001) still
+1-4 seeds remain compatible: schema 4 (0.2.x) seeds keep per-character Plasmid
+items, and the Research Grant item (ID 402939001) of schema 1-3 seeds still
 awards 15 coins. Upgrading does not add items to an existing seed.
 
 ## Save isolation
@@ -151,8 +169,8 @@ does not share its progression.
 
 Normal profiles, legacy saves, their active-profile pointer, run saves, and
 keybind files are not imported, cleared, or used by the campaign. Only
-server-received items and server-confirmed native unlock checks confer selected
-entitlements. Native attempts, run state, currency, and Plasmid assignments are
+server-received items, server-confirmed native unlock checks and Plasmids bought
+in the campaign confer selected entitlements. Native attempts, run state, currency, and Plasmid assignments are
 saved inside the campaign profile, not in a normal profile. Steam achievement
 imports, achievement awards, and leaderboard uploads are suppressed there.
 

@@ -262,6 +262,7 @@ func _run() -> void:
 	check(not client.toast.visible, "unchanged unlock reconciliation does not replay the toast")
 	_victories(client, global)
 	_loadout_buttons(client, global)
+	_plasmid_slots(client, global)
 	client.authenticated = false
 	client._select_profile()
 	check(Isolation.identity == "seedA/0/1", "disconnect retains campaign instead of normal profile")
@@ -270,6 +271,7 @@ func _run() -> void:
 	check(not Isolation.active and Isolation.PM.active == 1, "explicit disable restores normal profile")
 	check(FileAccess.get_file_as_string("user://profile_1/save.json") == original, "normal save still byte-identical after round trip")
 	check(hooks.is_unlocked(Chain.new(condition, "is_unlocked")) == condition.natural, "vanilla condition semantics restored")
+	_slot_inventory()
 	var empty_client := ProtocolClient.new()
 	root.add_child(empty_client)
 	empty_client.set_process(false)
@@ -357,6 +359,96 @@ func _loadout_buttons(client: Node, global: Node) -> void:
 	var vanilla: Button = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/bodypart_button.gd").new()
 	check(vanilla.is_unlocked(), "disabled remote loadouts preserve native availability")
 	vanilla.free()
+
+func _slot_inventory() -> void:
+	check(Unlocks.load_catalog(), "catalogue for slot inventory")
+	var bacterium := _slot_plasmid(3, 0)
+	var slot_location: int = Unlocks.LOCATION_BASE + Unlocks.SLOT_BASE + 3
+	for inventory in [[], [slot_location]]:
+		var slot_client := ProtocolClient.new()
+		root.add_child(slot_client)
+		slot_client.set_process(false)
+		slot_client.seed_name = "plasmid-slot-inventory"
+		slot_client._connected({
+			"team": 0, "slot": 1, "players": [], "missing_locations": inventory, "checked_locations": [],
+			"slot_data": {"schema": 5, "catalog_schema": 1, "unlock_ids": [float(bacterium)], "checks": 0,
+				"coin_amount": 15, "dna_amount": 1, "plasmid_fragment_amount": 1,
+				"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true},
+				"death_link": false, "required_victories": 0},
+		})
+		if inventory.is_empty():
+			check(slot_client.fatal, "schema 5 requires the slot's Earn Plasmid Slot check")
+		else:
+			check(not slot_client.fatal and slot_client.authenticated and Unlocks.slot_mode
+					and Unlocks.remote.keys() == [Unlocks.SLOT_BASE + 3]
+					and slot_client.campaign.natural_ids == [bacterium],
+				"schema 5 connects with shared plasmid slots")
+		slot_client.free()
+	Unlocks.reset()
+
+func _slot_plasmid(slot: int, parasite: int) -> int:
+	for id in Unlocks.slot_plasmids.get(Unlocks.SLOT_BASE + slot, []):
+		if int(Unlocks.entries[id].parasite) == parasite:
+			return id
+	return -1
+
+func _plasmid_slots(client: Node, global: Node) -> void:
+	var ids: Array = Unlocks.entries.keys().filter(func(id): return Unlocks.entries[id].kind == "plasmid")
+	check(Unlocks.configure(ids, false, true), "configure shared plasmid slots: " + Unlocks.error)
+	check(Unlocks.remote.size() == 36 and Unlocks.remote.keys().all(func(id): return Unlocks.is_slot(id)),
+		"plasmids map to 36 shared slot items/checks")
+	check(Unlocks.slot_plasmids[Unlocks.SLOT_BASE + 5].size() == 7
+			and Unlocks.slot_plasmids[Unlocks.SLOT_BASE + 31].size() == 1,
+		"slot 5 covers every character; slot 31 only the Bacterium")
+	Unlocks.reconcile([Unlocks.ITEM_BASE + Unlocks.SLOT_BASE + 5], [])
+	check(Unlocks.owned.size() == 7 and Unlocks.slot_plasmids[Unlocks.SLOT_BASE + 5].all(
+			func(id): return Unlocks.received(id)), "one slot item unlocks that slot for every character")
+	check(not Unlocks.received(_slot_plasmid(6, 0)), "a slot item does not unlock other slots")
+	Unlocks.reconcile([Unlocks.ITEM_BASE + _slot_plasmid(5, 0)],
+		[Unlocks.LOCATION_BASE + Unlocks.SLOT_BASE + 5])
+	check(Unlocks.owned.is_empty(), "per-plasmid items and slot checks confer no ownership in slot mode")
+	check(Unlocks.configure(ids) and Unlocks.remote.size() == ids.size(),
+		"schema 4 slots keep per-character plasmid items")
+	check(Unlocks.configure(ids, false, true), "reconfigure shared slots")
+	var bacterium := _slot_plasmid(3, 0)
+	var helminth := _slot_plasmid(3, 2)
+	var slot_location: int = Unlocks.LOCATION_BASE + Unlocks.SLOT_BASE + 3
+	var plasmids: Array = Unlocks.selected.keys()
+	client.slot_schema = 5
+	client.campaign = State.new()
+	check(client.campaign.open("user://plasmid-slots.json", "seedA/0/1", 1, Unlocks.remote.keys(), plasmids),
+		"slot campaign fixture")
+	check(not client.campaign.accept_items([{"item": Unlocks.ITEM_BASE + bacterium}]),
+		"slot campaigns reject per-character plasmid items")
+	check(client.campaign.accept_items([{"item": Unlocks.ITEM_BASE + Unlocks.SLOT_BASE + 36}]),
+		"slot campaigns accept slot items")
+	client.item_stream.clear()
+	client.sent.clear()
+	global.daily_run = 0
+	client.earn_unlock(bacterium)
+	check(Unlocks.received(bacterium) and not Unlocks.received(helminth),
+		"natural purchase unlocks only that character's plasmid")
+	check(client.campaign.earned == [slot_location] and client.sent.any(func(message):
+			return message.get("cmd") == "LocationChecks" and slot_location in message.locations),
+		"natural purchase sends the slot check")
+	check(client.toast.text.contains(str(Unlocks.entries[bacterium].name)), "natural toast names the plasmid")
+	client.earn_unlock(helminth)
+	check(Unlocks.received(helminth) and client.campaign.earned == [slot_location],
+		"later characters unlock locally without a second slot check")
+	client._accept_checks([slot_location])
+	check(not Unlocks.received(_slot_plasmid(3, 1)), "confirmed slot check does not unlock other characters")
+	var reloaded := State.new()
+	check(reloaded.open("user://plasmid-slots.json", "seedA/0/1", 1, Unlocks.remote.keys(), plasmids)
+			and reloaded.natural == [bacterium, helminth], "natural plasmids persist: " + reloaded.error)
+	check(not State.new().open("user://plasmid-slots.json", "seedA/0/1", 1, Unlocks.remote.keys(), []),
+		"natural plasmids outside the slot are rejected")
+	client.item_stream = [{"item": Unlocks.ITEM_BASE + Unlocks.SLOT_BASE + 7}]
+	client._reconcile_unlocks()
+	check(Unlocks.received(_slot_plasmid(7, 4)) and client.toast.text.contains("Plasmid Slot 07")
+			and not client.toast.text.contains("Plasmid:"), "slot receipt toast names the slot once")
+	client.item_stream.clear()
+	client.slot_schema = 3
+	Unlocks.reset()
 
 func _victories(client: Node, globals: Node) -> void:
 	client.campaign = State.new()

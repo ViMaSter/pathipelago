@@ -24,8 +24,8 @@ https://multiworld.gg/uploads and create a room.
 
 Custom-world lobbies can collect files, but require downloading the package for
 local generation. Browser-only generation is not supported for Pathogenic.
-The five `remote_*` category toggles default to true. Each enabled unlock gets a
-shipment, then `coin_checks`, `dna_checks`, and `plasmid_fragment_checks` add that
+The five `remote_*` category toggles default to true. Each enabled non-plasmid
+unlock and each of the 36 shared plasmid slots gets a shipment, then `coin_checks`, `dna_checks`, and `plasmid_fragment_checks` add that
 many Coins, DNA, and Plasmid Fragments filler items (0-10000 each). Set the
 corresponding `*_amount` to configure each reward (1-10000). Optional natural-earn
 self-rewards are additional locations, not randomized shipment slots or goal
@@ -89,7 +89,9 @@ has integer `id`, stable `key`, `kind`, unique AP item `name`, and integer
 Godot `condition` identity (`res://...tres::SubResourceID`), `resource`, `stat`,
 numeric `threshold`, `comparison` (`>=`, `<=`, `truthy`), `global`, and
 `requires_full_game`. Loadout entries also identify their `bodypart`.
-Plasmids expose nonempty `map`, `node`, `scene`, `section`, and `save_key`.
+Plasmids expose nonempty `map`, `node`, `scene`, `section`, `save_key`, and a
+positive integer `slot`: the plasmid's rank on its map by breadth-first distance
+from the starting node, ties broken by node name. Slots are unique per parasite.
 All 216 shipped entries use `section: "plasmids<parasite>"` and `save_key`
 equal to `node`; their required string field `condition` is `""` (no native
 gate). Catalogue IDs are nonnegative integers: ID 0 is valid and must not be
@@ -115,7 +117,7 @@ Representative runtime identities (all paths below are literal catalogue values)
 {"id":5,"kind":"environment","parasite":-1,"resource":"res://scn/metaprogression/unlocks/environmental_unlocks/antibiotics_unlock.tres","condition":"res://scn/metaprogression/unlocks/environmental_unlocks/antibiotics_unlock.tres::Resource_antibiotics_uc","environment":"antibiotics"}
 {"id":11,"kind":"loadout","parasite":5,"resource":"res://scn/metaprogression/loadouts/loadout_amoeba.tres::Resource_34poi","condition":"res://scn/metaprogression/loadouts/loadout_amoeba.tres::Resource_remq2","bodypart":"res://scn/player/bodyparts/internal/backstab.tres"}
 {"id":79,"kind":"organelle","parasite":-1,"resource":"res://scn/player/bodyparts/external/electric_harpoon.tres","condition":"res://scn/player/bodyparts/external/electric_harpoon.tres::Resource_7fst3"}
-{"id":92,"kind":"plasmid","parasite":0,"map":"res://scn/metaprogression/plasmids/plasmid_map.tscn","node":"AttackSpeedPlasmid","scene":"res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn","section":"plasmids0","save_key":"AttackSpeedPlasmid"}
+{"id":92,"kind":"plasmid","parasite":0,"map":"res://scn/metaprogression/plasmids/plasmid_map.tscn","node":"AttackSpeedPlasmid","scene":"res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn","section":"plasmids0","save_key":"AttackSpeedPlasmid","slot":17}
 ```
 
 These are field projections, not complete entries. `key` is `kind:resource` for
@@ -125,20 +127,25 @@ ID 92 is an ordinary purchasable map node. Repeated effects are retained under
 their distinct node keys. All 14 gated organelles are present in the shipped
 `all_bodyparts.tres` resource group's pool; the private-data test checks this.
 
-AP item IDs are `402960000 + id`; optional natural-location IDs are
-`402970000 + id`, named `Earn <item name>`. Currency item IDs are Coins
+AP item IDs of non-plasmid entries are `402960000 + id`; optional
+natural-location IDs are `402970000 + id`, named `Earn <item name>`. Plasmids
+have no per-entry items or locations: `Plasmid Slot NN` items are
+`402960000 + 30000 + N` and `Earn Plasmid Slot NN` locations are
+`402970000 + 30000 + N` (N = 1-36). Slot locations hold randomized items. Currency item IDs are Coins
 (`402939001`), DNA (`402939002`), and Plasmid Fragments (`402939003`);
 existing shipment IDs (`402938000 + shipment index`) do not change. The old
 Research Grant name at ID `402939001` remains accepted by existing seeds.
 The module exports `CATALOG_SCHEMA`, `CATALOG_ENTRIES`, `CATALOG_BY_ID`,
 `CATALOG_BY_KEY`, `UNLOCK_ITEM_BASE`, `NATURAL_LOCATION_BASE`, `UNLOCK_ITEM_IDS`,
-`NATURAL_LOCATION_IDS`, and `natural_location_name(entry)`.
+`NATURAL_LOCATION_IDS`, `PLASMID_SLOT_BASE`, `PLASMID_SLOTS`,
+`PLASMID_SLOT_ITEM_IDS`, `PLASMID_SLOT_LOCATION_IDS`, `natural_location_name(entry)`
+and `plasmid_slot_name(slot)`.
 
 Slot data is exactly:
 
 ```json
 {
-  "schema": 4,
+  "schema": 5,
   "catalog_schema": 1,
   "unlock_ids": [0, 1],
   "checks": 2,
@@ -156,8 +163,10 @@ Slot data is exactly:
 ```
 
 The example selects two catalogue IDs. Actual `unlock_ids` enumerate every
-enabled entry in stable ID order; `checks` is the total randomized shipment count,
-including enabled unlocks and all configured currency checks. Static item/location
-name maps contain the entire catalogue regardless of enabled categories. Schema
-1/2/3 slot data remains supported; `extra_checks` is read as the older total check
+enabled entry (including plasmids) in stable ID order; the client maps enabled
+plasmids to their slots. `checks` is the total randomized shipment count,
+including enabled non-plasmid unlocks, plasmid slots and all configured currency
+checks. Static item/location name maps contain the entire catalogue and all slots
+regardless of enabled categories. Schema 4 slot data (per-character plasmid items)
+and schema 1/2/3 slot data remain supported; `extra_checks` is read as the older total check
 count, and legacy Research Grant items still award 15 Coins.

@@ -16,6 +16,8 @@ var received: Array = []
 var unlock_ids: Array = []
 var earned: Array = []
 var confirmed_unlocks: Array = []
+var natural_ids: Array = []
+var natural: Array = []
 var victories: Array = []
 var bank := 0
 var dna_bank := 0
@@ -25,11 +27,15 @@ var error := ""
 static func integer(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value) == floor(float(value))
 
-func open(file_path: String, campaign_identity: String, location_count: int, ids: Array = []) -> bool:
+# ids are item/location pseudo IDs; plasmids are catalogue IDs that may be bought per character.
+func open(file_path: String, campaign_identity: String, location_count: int, ids: Array = [],
+		plasmids: Array = []) -> bool:
 	path = file_path
 	identity = campaign_identity
 	count = location_count
 	unlock_ids = ids.map(func(value): return int(value))
+	natural_ids = plasmids.map(func(value): return int(value))
+	natural.clear()
 	if not FileAccess.file_exists(path):
 		return _save()
 	var parser := JSON.new()
@@ -75,6 +81,17 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 		if not location in earned:
 			error = "Confirmed natural unlock missing from journal."
 			return false
+	var saved_natural: Variant = data.get("natural_plasmids", [])
+	var seen_natural := {}
+	if not saved_natural is Array:
+		error = "Invalid natural Plasmid journal; it has not been reset."
+		return false
+	for id in saved_natural:
+		if not integer(id) or not int(id) in natural_ids or seen_natural.has(int(id)):
+			error = "Invalid natural Plasmid journal; it has not been reset."
+			return false
+		seen_natural[int(id)] = true
+	natural = saved_natural.map(func(value: Variant) -> int: return int(value))
 	var saved_victories: Variant = data.get("victories", [])
 	if not saved_victories is Array:
 		error = "Invalid victory history in campaign journal."
@@ -115,6 +132,18 @@ func earn(id: int) -> bool:
 	earned.append(location)
 	if not _save():
 		earned.pop_back()
+		return false
+	return true
+
+func earn_plasmid(id: int) -> bool:
+	if not id in natural_ids:
+		error = "Attempted to earn a Plasmid absent from this slot."
+		return false
+	if id in natural:
+		return true
+	natural.append(id)
+	if not _save():
+		natural.pop_back()
 		return false
 	return true
 
@@ -246,7 +275,8 @@ func _save() -> bool:
 		"schema": 1, "identity": identity, "count": count, "checks": checks,
 		"confirmed": confirmed, "received": received, "bank": bank,
 		"dna_bank": dna_bank, "plasmid_fragment_bank": plasmid_fragment_bank,
-		"earned": earned, "confirmed_unlocks": confirmed_unlocks, "victories": victories
+		"earned": earned, "confirmed_unlocks": confirmed_unlocks, "victories": victories,
+		"natural_plasmids": natural
 	}))
 	file.flush()
 	var err := file.get_error()

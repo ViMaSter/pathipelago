@@ -28,14 +28,32 @@ CATEGORY_OPTIONS = {
 }
 
 
+# Plasmid slot N is the pseudo catalogue ID PLASMID_SLOT_BASE + N, outside real IDs (< 10000).
+PLASMID_SLOT_BASE = 30000
+PLASMID_SLOTS = max(entry["slot"] for entry in CATALOG_ENTRIES if entry["kind"] == "plasmid")
+
+
 def natural_location_name(entry: dict) -> str:
     return f"Earn {entry['name']}"
 
 
-UNLOCK_ITEM_IDS = {entry["name"]: UNLOCK_ITEM_BASE + entry["id"] for entry in CATALOG_ENTRIES}
+def plasmid_slot_name(slot: int) -> str:
+    return f"Plasmid Slot {slot:02d}"
+
+
+INDIVIDUAL_ENTRIES = tuple(entry for entry in CATALOG_ENTRIES if entry["kind"] != "plasmid")
+UNLOCK_ITEM_IDS = {entry["name"]: UNLOCK_ITEM_BASE + entry["id"] for entry in INDIVIDUAL_ENTRIES}
 NATURAL_LOCATION_IDS = {
     natural_location_name(entry): NATURAL_LOCATION_BASE + entry["id"]
-    for entry in CATALOG_ENTRIES
+    for entry in INDIVIDUAL_ENTRIES
+}
+PLASMID_SLOT_ITEM_IDS = {
+    plasmid_slot_name(slot): UNLOCK_ITEM_BASE + PLASMID_SLOT_BASE + slot
+    for slot in range(1, PLASMID_SLOTS + 1)
+}
+PLASMID_SLOT_LOCATION_IDS = {
+    "Earn " + plasmid_slot_name(slot): NATURAL_LOCATION_BASE + PLASMID_SLOT_BASE + slot
+    for slot in range(1, PLASMID_SLOTS + 1)
 }
 COINS = "Coins"
 DNA = "DNA"
@@ -46,7 +64,7 @@ FILLER_ITEM_IDS = {
     PLASMID_FRAGMENTS: 402939003,
 }
 MAX_FILLER_CHECKS = 10_000
-MAX_SHIPMENTS = len(CATALOG_ENTRIES) + len(FILLER_ITEM_IDS) * MAX_FILLER_CHECKS
+MAX_SHIPMENTS = len(INDIVIDUAL_ENTRIES) + PLASMID_SLOTS + len(FILLER_ITEM_IDS) * MAX_FILLER_CHECKS
 
 
 class CoinChecks(Range):
@@ -143,7 +161,11 @@ class StartWithAllCharacters(Toggle):
 
 
 class RemotePlasmids(DefaultOnToggle):
-    """Include individual character-specific plasmid nodes, not starting nodes."""
+    """Include shared Plasmid Slot items. Every character's plasmids are numbered by
+    distance from its starting node; Plasmid Slot N unlocks the Nth plasmid of every
+    character. Buying a slot's plasmid naturally unlocks it for that character only and
+    sends the slot's "Earn Plasmid Slot N" check once.
+    """
 
     display_name = "Remote Plasmid Unlocks"
 
@@ -245,12 +267,13 @@ class PathogenicWorld(World):
     options: PathogenicOptions
     required_client_version = (0, 6, 0)
     topology_present = False
-    item_name_to_id = {**FILLER_ITEM_IDS, **UNLOCK_ITEM_IDS}
+    item_name_to_id = {**FILLER_ITEM_IDS, **UNLOCK_ITEM_IDS, **PLASMID_SLOT_ITEM_IDS}
     location_name_to_id = {
         f"Shop Shipment {index:03d}": 402938000 + index
         for index in range(1, MAX_SHIPMENTS + 1)
     }
     location_name_to_id.update(NATURAL_LOCATION_IDS)
+    location_name_to_id.update(PLASMID_SLOT_LOCATION_IDS)
 
     def enabled_unlocks(self) -> tuple:
         """Catalogue order is stable, independent of world RNG or dictionary order."""
@@ -259,8 +282,16 @@ class PathogenicWorld(World):
                      and not (entry["kind"] == "character"
                               and self.options.start_with_all_characters.value))
 
+    def individual_unlocks(self) -> tuple:
+        return tuple(entry for entry in self.enabled_unlocks() if entry["kind"] != "plasmid")
+
+    def plasmid_slots(self) -> tuple:
+        return tuple(sorted({entry["slot"] for entry in self.enabled_unlocks()
+                             if entry["kind"] == "plasmid"}))
+
     def shipment_count(self) -> int:
-        return len(self.enabled_unlocks()) + self.options.coin_checks.value \
+        return len(self.individual_unlocks()) + len(self.plasmid_slots()) \
+            + self.options.coin_checks.value \
             + self.options.dna_checks.value + self.options.plasmid_fragment_checks.value
 
     def unlock_sources(self) -> dict:
@@ -288,21 +319,31 @@ class PathogenicWorld(World):
             campaign.locations.append(
                 PathogenicLocation(self.player, name, self.location_name_to_id[name], campaign)
             )
-        for entry in self.enabled_unlocks():
+        for entry in self.individual_unlocks():
             name = natural_location_name(entry)
             location = PathogenicLocation(
                 self.player, name, self.location_name_to_id[name], campaign
             )
             location.place_locked_item(self.create_item(entry["name"]))
             campaign.locations.append(location)
+        # Slot checks hold randomized items; the natural plasmid stays character-local.
+        for slot in self.plasmid_slots():
+            name = "Earn " + plasmid_slot_name(slot)
+            campaign.locations.append(
+                PathogenicLocation(self.player, name, self.location_name_to_id[name], campaign)
+            )
         self.multiworld.completion_condition[self.player] = lambda state: all(
             state.can_reach_location(f"Shop Shipment {index:03d}", self.player)
             for index in range(1, self.shipment_count() + 1)
         )
 
     def create_items(self) -> None:
-        entries = self.enabled_unlocks()
-        self.multiworld.itempool.extend(self.create_item(entry["name"]) for entry in entries)
+        self.multiworld.itempool.extend(
+            self.create_item(entry["name"]) for entry in self.individual_unlocks())
+        self.multiworld.itempool.extend(
+            self.create_item(plasmid_slot_name(slot)) for slot in self.plasmid_slots())
+        self.multiworld.itempool.extend(
+            self.create_item(self.get_filler_item_name()) for _ in self.plasmid_slots())
         for name, count in (
             (COINS, self.options.coin_checks.value),
             (DNA, self.options.dna_checks.value),
@@ -321,7 +362,7 @@ class PathogenicWorld(World):
 
     def fill_slot_data(self) -> dict:
         return {
-            "schema": 4,
+            "schema": 5,
             "catalog_schema": CATALOG_SCHEMA,
             "start_with_all_characters": bool(self.options.start_with_all_characters.value),
             "unlock_ids": [entry["id"] for entry in self.enabled_unlocks()],

@@ -3,6 +3,8 @@ extends RefCounted
 const Isolation = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/isolation.gd")
 const ITEM_BASE := 402960000
 const LOCATION_BASE := 402970000
+# Plasmid slot N uses pseudo ID SLOT_BASE + N for its item and "Earn Plasmid Slot N" check.
+const SLOT_BASE := 30000
 const CATALOG := "res://mods-unpacked/ViMaSter-MultiworldGGShop/catalog.json"
 static var entries: Dictionary = {}
 static var conditions: Dictionary = {}
@@ -16,6 +18,11 @@ static var evaluating_native := false
 static var hooks_ready := false
 static var resources: Dictionary = {}
 static var loadouts: Dictionary = {}
+static var slots: Dictionary = {}
+static var slot_plasmids: Dictionary = {}
+static var slot_mode := false
+static var remote: Dictionary = {}
+static var natural: Dictionary = {}
 static var error := ""
 
 static func load_catalog() -> bool:
@@ -45,11 +52,17 @@ static func load_catalog() -> bool:
 			conditions[path].append(int(entry.id))
 		if entry.kind == "plasmid":
 			nodes["%d/%s" % [int(entry.parasite), entry.node]] = int(entry.id)
+			if entry.get("slot") is float or entry.get("slot") is int:
+				var slot := SLOT_BASE + int(entry.slot)
+				slots[int(entry.id)] = slot
+				if not slot_plasmids.has(slot):
+					slot_plasmids[slot] = []
+				slot_plasmids[slot].append(int(entry.id))
 		elif entry.kind == "loadout":
 			loadouts["%d/%s" % [int(entry.parasite), entry.bodypart]] = int(entry.id)
 	return true
 
-static func configure(ids: Array, all_characters: bool = false) -> bool:
+static func configure(ids: Array, all_characters: bool = false, shared_slots: bool = false) -> bool:
 	if not load_catalog():
 		return false
 	var next := {}
@@ -62,9 +75,17 @@ static func configure(ids: Array, all_characters: bool = false) -> bool:
 		if all_characters and entries[int(id)].kind == "character":
 			error = "Server included character unlocks despite starting with all characters."
 			return false
+		if shared_slots and entries[int(id)].kind == "plasmid" and not slots.has(int(id)):
+			error = "Server selected a Plasmid without a shared slot."
+			return false
 	selected = next
 	start_with_all_characters = all_characters
+	slot_mode = shared_slots
+	remote.clear()
+	for id in selected:
+		remote[remote_id(id)] = true
 	owned.clear()
+	natural.clear()
 	configured = true
 	synchronized = false
 	return true
@@ -73,8 +94,11 @@ static func reset() -> void:
 	configured = false
 	start_with_all_characters = false
 	synchronized = false
+	slot_mode = false
 	selected.clear()
+	remote.clear()
 	owned.clear()
+	natural.clear()
 
 static func governs() -> bool:
 	return Isolation.active and configured
@@ -82,14 +106,31 @@ static func governs() -> bool:
 static func received(id: int) -> bool:
 	return governs() and owned.has(id)
 
+# Item/location pseudo ID: the shared slot for plasmids in slot mode, else the catalogue ID.
+static func remote_id(id: int) -> int:
+	return slots[id] if slot_mode and slots.has(id) else id
+
+static func is_slot(id: int) -> bool:
+	return id >= SLOT_BASE
+
 static func reconcile(items: Array, confirmed: Array) -> bool:
 	var next := {}
 	for item in items:
 		var id := int(item) - ITEM_BASE
-		if selected.has(id):
+		if not remote.has(id):
+			continue
+		if is_slot(id):
+			for plasmid in slot_plasmids.get(id, []):
+				if selected.has(plasmid):
+					next[plasmid] = true
+		else:
 			next[id] = true
+	# Slot checks hold randomized items; natural plasmids are tracked per character instead.
 	for location in confirmed:
 		var id := int(location) - LOCATION_BASE
+		if remote.has(id) and not is_slot(id):
+			next[id] = true
+	for id in natural:
 		if selected.has(id):
 			next[id] = true
 	var changed := next != owned

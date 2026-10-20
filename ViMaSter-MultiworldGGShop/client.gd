@@ -660,18 +660,19 @@ func _connected(message: Dictionary) -> void:
 	goal_sent = false
 	var data: Variant = message.get("slot_data")
 	var schema_value: Variant = data.get("schema") if data is Dictionary else null
-	var count_value: Variant = data.get("checks") if schema_value == 4 \
+	var modern: bool = State.integer(schema_value) and int(schema_value) >= 4
+	var count_value: Variant = data.get("checks") if modern \
 			else data.get("extra_checks") if data is Dictionary else null
 	var victories_value: Variant = data.get("required_victories", 0) if data is Dictionary else null
 	var valid_amounts := true
-	if schema_value == 4:
+	if modern:
 		for key in ["coin_amount", "dna_amount", "plasmid_fragment_amount"]:
 			var amount: Variant = data.get(key)
 			if not State.integer(amount) or int(amount) < 1 or int(amount) > 10000:
 				valid_amounts = false
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(count_value) \
-			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4] or not valid_amounts \
+			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4, 5] or not valid_amounts \
 			or not State.integer(victories_value) or int(victories_value) < 0 or int(victories_value) > 50 \
 			or int(count_value) < 0 or int(count_value) > MAX_CHECKS or parse_sources(data) == null \
 			or not data.get("start_with_all_characters", false) is bool \
@@ -696,7 +697,7 @@ func _connected(message: Dictionary) -> void:
 			_fail("Missing or incompatible server unlock catalogue.")
 			return
 		ids = data.unlock_ids
-		if not Unlocks.configure(ids, data.get("start_with_all_characters", false)):
+		if not Unlocks.configure(ids, data.get("start_with_all_characters", false), slot_schema >= 5):
 			_fail(Unlocks.error)
 			return
 	else:
@@ -712,9 +713,13 @@ func _connected(message: Dictionary) -> void:
 	campaign_identity = identity
 	server_unlock_checks.clear()
 	campaign = State.new()
-	if not campaign.open(ROOT + "/" + identity.sha256_text() + ".json", identity, count, ids):
+	var plasmids: Array = Unlocks.selected.keys().filter(func(id): return Unlocks.slot_mode and Unlocks.slots.has(id))
+	if not campaign.open(ROOT + "/" + identity.sha256_text() + ".json", identity, count,
+			Unlocks.remote.keys(), plasmids):
 		_fail(campaign.error)
 		return
+	for id in campaign.natural:
+		Unlocks.natural[id] = true
 	var missing: Variant = message.get("missing_locations")
 	var checked: Variant = message.get("checked_locations")
 	if not missing is Array or not checked is Array:
@@ -730,7 +735,7 @@ func _connected(message: Dictionary) -> void:
 		if not inventory.has(FIRST_LOCATION + i):
 			_fail("Server location inventory does not match this APWorld.")
 			return
-	for id in ids:
+	for id in Unlocks.remote:
 		if not inventory.has(Unlocks.LOCATION_BASE + int(id)):
 			_fail("Server natural-unlock inventory does not match this APWorld.")
 			return
@@ -943,7 +948,7 @@ func _accept_checks(list: Variant) -> void:
 		_fail(campaign.error)
 		return
 	for location in list:
-		if Unlocks.selected.has(int(location) - Unlocks.LOCATION_BASE) \
+		if Unlocks.remote.has(int(location) - Unlocks.LOCATION_BASE) \
 				and not int(location) in server_unlock_checks:
 			server_unlock_checks.append(int(location))
 	_send_goal()
@@ -1003,13 +1008,24 @@ func earn_unlock(id: int) -> void:
 	var globals := get_node_or_null("/root/G")
 	if globals == null or int(globals.get("daily_run")) != 0:
 		return
-	var location := Unlocks.LOCATION_BASE + id
+	var remote := Unlocks.remote_id(id)
+	if Unlocks.is_slot(remote) and not id in campaign.natural:
+		if not campaign.earn_plasmid(id):
+			_fail(campaign.error)
+			return
+		Unlocks.natural[id] = true
+		log_line("Naturally earned %s for this character." % Unlocks.entries[id].name)
+		_reconcile_unlocks()
+	var location := Unlocks.LOCATION_BASE + remote
 	if location in campaign.earned:
 		return
-	if not campaign.earn(id):
+	if not campaign.earn(remote):
 		_fail(campaign.error)
 		return
-	log_line("Naturally earned %s; awaiting server confirmation." % Unlocks.entries[id].name)
+	if Unlocks.is_slot(remote):
+		log_line("Sent Earn Plasmid Slot %02d." % (remote - Unlocks.SLOT_BASE))
+	else:
+		log_line("Naturally earned %s; awaiting server confirmation." % Unlocks.entries[id].name)
 	_send_checks()
 
 func _reconcile_unlocks() -> void:
@@ -1020,8 +1036,14 @@ func _reconcile_unlocks() -> void:
 		log_line("Server owns %d/%d campaign unlocks." % [Unlocks.owned.size(), Unlocks.selected.size()])
 		var names: Array[String] = []
 		for id in Unlocks.owned:
-			if not previous.has(id):
-				names.append(str(Unlocks.entries[id].name))
+			if previous.has(id):
+				continue
+			var remote := Unlocks.remote_id(id)
+			var label := str(Unlocks.entries[id].name)
+			if Unlocks.is_slot(remote) and not Unlocks.natural.has(id):
+				label = "Plasmid Slot %02d" % (remote - Unlocks.SLOT_BASE)
+			if not label in names:
+				names.append(label)
 		if not names.is_empty():
 			show_toast("Unlocked " + "\n".join(names))
 		var bus := get_node_or_null("/root/SignalBus")

@@ -176,15 +176,17 @@ class Extractor:
                 raise ValueError(f"Missing map connection target: {doc.path}: {endpoints}")
             edges[left].add(right)
             edges[right].add(left)
-        visited = set(starts)
-        pending = list(starts)
+        depths = dict.fromkeys(starts, 0)
+        pending = sorted(starts)
         while pending:
-            for neighbor in edges[pending.pop()] - visited:
-                visited.add(neighbor)
+            current = pending.pop(0)
+            for neighbor in sorted(edges[current] - depths.keys()):
+                depths[neighbor] = depths[current] + 1
                 pending.append(neighbor)
-        unreachable = nodes.keys() - visited
+        unreachable = nodes.keys() - depths.keys()
         if unreachable:
             raise ValueError(f"Unreachable plasmid nodes: {doc.path}: {sorted(unreachable)}")
+        return depths
 
     def extract(self):
         entries = []
@@ -218,7 +220,8 @@ class Extractor:
             parasite, character = self.character(suffix)
             identity = "res://" + path.relative_to(self.root).as_posix()
             doc = self.document(identity)
-            self.validate_map_connections(doc)
+            depths = self.validate_map_connections(doc)
+            plasmids = []
             for kind, attrs, props in doc.sections:
                 if kind != "node" or attrs.get("parent") != "." or "instance" not in attrs:
                     continue
@@ -242,7 +245,12 @@ class Extractor:
                 }
                 if "unlock_name" in effective:
                     entry.update(section="unlocks", save_key=json.loads(effective["unlock_name"][1]))
-                entries.append(entry)
+                plasmids.append(entry)
+            # Shared slot N: every character's Nth plasmid by distance from the start node.
+            plasmids.sort(key=lambda entry: (depths[entry["node"]], entry["node"]))
+            for slot, entry in enumerate(plasmids, 1):
+                entry["slot"] = slot
+            entries.extend(plasmids)
         loadouts = sorted(self.root.glob("scn/metaprogression/loadouts/loadout_*.tres"))
         full_loadouts = [p for p in loadouts if not p.stem.endswith("_demo")]
         if len(full_loadouts) != 7:
@@ -282,7 +290,7 @@ class Extractor:
         return entries
 
 
-def validate_catalog(catalog):
+def validate_catalog(catalog, require_slots=True):
     if catalog.get("schema") != CATALOG_SCHEMA or not isinstance(catalog.get("entries"), list):
         raise ValueError("Unsupported catalogue schema")
     for field in ("id", "key", "name"):
@@ -299,14 +307,21 @@ def validate_catalog(catalog):
                     or not isinstance(entry.get("map"), str)
                     or not entry["map"] and RETIRED_IDS.get(entry["key"]) != entry["id"]):
                 raise ValueError(f"Missing plasmid identity: {entry['key']}")
+            if require_slots and entry["map"] and (type(entry.get("slot")) is not int or entry["slot"] < 1):
+                raise ValueError(f"Missing plasmid slot: {entry['key']}")
         elif not entry.get("condition"):
             raise ValueError(f"Missing native gate: {entry['key']}")
+    slots = [(entry["parasite"], entry.get("slot")) for entry in catalog["entries"]
+             if entry["kind"] == "plasmid" and entry["map"] and require_slots]
+    if len(set(slots)) != len(slots):
+        raise ValueError("Duplicate plasmid slot")
 
 
 def build_catalog(recovered, previous=None):
     entries = Extractor(recovered).extract()
     previous = previous or {"schema": CATALOG_SCHEMA, "entries": []}
-    validate_catalog(previous)
+    # Releases before shared plasmid slots lack the derived slot field.
+    validate_catalog(previous, require_slots=False)
     old_ids = {entry["key"]: entry["id"] for entry in previous["entries"]}
     for key, identity in RETIRED_IDS.items():
         if key in old_ids and old_ids[key] != identity:

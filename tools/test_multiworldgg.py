@@ -48,7 +48,7 @@ def main(runtime: Path, godot: str) -> None:
             worlds.ensure_worlds_loaded()
         world_type = AutoWorldRegister.world_types["Pathogenic"]
         if world_type.item_name_to_id.get("Coins") != 402939001 \
-                or len(world_type.item_name_to_id) < 300:
+                or len(world_type.item_name_to_id) < 100:
             raise AssertionError("Pathogenic item catalogue is missing")
         print(f"MULTIWORLDGG_TEST release={Utils.__version__}", flush=True)
         with tempfile.TemporaryDirectory(prefix="pathogenic-mwgg-live-") as temporary:
@@ -94,7 +94,7 @@ def main(runtime: Path, godot: str) -> None:
                 flags = {option: source == selected for source, option in source_names.items()}
                 multiworld = generate(1, flags)
                 world = multiworld.worlds[1]
-                expected = {"schema": 4, "catalog_schema": 1, "unlock_ids": [],
+                expected = {"schema": 5, "catalog_schema": 1, "unlock_ids": [],
                             "checks": 1, "coin_amount": 15, "dna_amount": 1,
                             "plasmid_fragment_amount": 1, "death_link": True,
                             "required_victories": 0,
@@ -127,15 +127,27 @@ def main(runtime: Path, godot: str) -> None:
             multiworld = generate(0, {}, catalogue=True)
             data = multiworld.worlds[1].fill_slot_data()
             unlock_ids = data["unlock_ids"]
-            if len(unlock_ids) < 300 or data["checks"] != len(unlock_ids) \
-                    or len(multiworld.get_locations(1)) != 2 * len(unlock_ids):
+            module = sys.modules[world_type.__module__]
+            individual = [identifier for identifier in unlock_ids
+                          if module.CATALOG_BY_ID[identifier]["kind"] != "plasmid"]
+            slots = module.PLASMID_SLOTS
+            if len(unlock_ids) < 300 or data["checks"] != len(individual) + slots \
+                    or len(multiworld.get_locations(1)) != 2 * (len(individual) + slots):
                 raise AssertionError("Default catalogue did not expand shipments and natural locations")
-            for identifier in unlock_ids:
+            for identifier in individual:
                 natural = next(location for location in multiworld.get_locations(1)
                                if location.address == 402970000 + identifier)
                 if not natural.locked or natural.item.code != 402960000 + identifier \
                         or natural.item.player != 1:
                     raise AssertionError("Natural unlock is not a fixed matching self-reward")
+            for slot in range(1, slots + 1):
+                if multiworld.get_location(f"Earn Plasmid Slot {slot:02d}", 1).locked:
+                    raise AssertionError("Plasmid slot check is not randomized")
+            pool = [location.item.name for location in multiworld.get_locations()
+                    if location.item and location.item.player == 1]
+            if not all(f"Plasmid Slot {slot:02d}" in pool for slot in range(1, slots + 1)) \
+                    or any("Plasmid:" in name for name in pool):
+                raise AssertionError("Per-character plasmid items were not replaced by slots")
             multiworld = generate(2, {}, three_players=True)
             location = multiworld.get_location("Shop Shipment 002", 1)
             if location.item.player != 2:

@@ -307,7 +307,7 @@ func _network_and_purchase() -> void:
 		"slot_info": {"1": {"name": "Tester", "game": "Pathogenic"}, "2": {"name": "Friend", "game": "Example"}},
 		"missing_locations": range(402938001, 402938006),
 		"checked_locations": [], "slot_data": {
-			"schema": 4, "catalog_schema": 1, "unlock_ids": [], "checks": 5,
+			"schema": 5, "catalog_schema": 1, "unlock_ids": [], "checks": 5,
 			"coin_amount": 15, "dna_amount": 3, "plasmid_fragment_amount": 2,
 			"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true},
 			"death_link": true}

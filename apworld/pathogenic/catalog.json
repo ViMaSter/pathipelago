@@ -1374,6 +1374,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "AttackSpeedPlasmid",
+      "slot": 17,
       "id": 92
     },
     {
@@ -1387,6 +1388,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/auto_shoot_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "AutoShootPlasmid",
+      "slot": 25,
       "id": 93
     },
     {
@@ -1400,6 +1402,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 5,
       "id": 94
     },
     {
@@ -1413,6 +1416,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BetterDropsProgressionPlasmid2",
+      "slot": 26,
       "id": 95
     },
     {
@@ -1426,6 +1430,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BetterDropsProgressionPlasmid3",
+      "slot": 1,
       "id": 96
     },
     {
@@ -1439,6 +1444,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BetterEnergyPlasmid2",
+      "slot": 6,
       "id": 97
     },
     {
@@ -1452,6 +1458,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BossArmorPlasmid",
+      "slot": 27,
       "id": 98
     },
     {
@@ -1465,6 +1472,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BossArmorPlasmid2",
+      "slot": 28,
       "id": 99
     },
     {
@@ -1478,6 +1486,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_hp_pickup_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BossHpPickupPlasmid",
+      "slot": 9,
       "id": 100
     },
     {
@@ -1491,6 +1500,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BossMoneyPlasmid",
+      "slot": 18,
       "id": 101
     },
     {
@@ -1504,6 +1514,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BossMoneyPlasmid2",
+      "slot": 19,
       "id": 102
     },
     {
@@ -1517,6 +1528,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/bottom_damage_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "BottomDamagePlasmid",
+      "slot": 10,
       "id": 103
     },
     {
@@ -1530,6 +1542,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "DamageLowerHpPlasmid2",
+      "slot": 11,
       "id": 104
     },
     {
@@ -1543,6 +1556,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "DamagePlasmid",
+      "slot": 2,
       "id": 105
     },
     {
@@ -1556,6 +1570,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 20,
       "id": 106
     },
     {
@@ -1569,6 +1584,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/glass_cannon_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "GlassCannonPlasmid",
+      "slot": 35,
       "id": 107
     },
     {
@@ -1582,6 +1598,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "HpPlasmid",
+      "slot": 3,
       "id": 108
     },
     {
@@ -1595,6 +1612,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "HpPlasmid2",
+      "slot": 12,
       "id": 109
     },
     {
@@ -1608,6 +1626,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_mitochondria_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "LoadoutLimitMitochondriaPlasmid",
+      "slot": 13,
       "id": 110
     },
     {
@@ -1621,6 +1640,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "LoadoutLimitWeaponPlasmid",
+      "slot": 14,
       "id": 111
     },
     {
@@ -1634,6 +1654,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "MoneyDamagePlasmid",
+      "slot": 29,
       "id": 112
     },
     {
@@ -1647,6 +1668,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/no_stamina_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "NoStaminaPlasmid",
+      "slot": 30,
       "id": 113
     },
     {
@@ -1660,6 +1682,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "RerollPlasmid",
+      "slot": 21,
       "id": 114
     },
     {
@@ -1673,6 +1696,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "RerollPlasmid2",
+      "slot": 22,
       "id": 115
     },
     {
@@ -1686,6 +1710,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "RerollPlasmid3",
+      "slot": 31,
       "id": 116
     },
     {
@@ -1699,6 +1724,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "SpeedDamagePlasmid",
+      "slot": 32,
       "id": 117
     },
     {
@@ -1712,6 +1738,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_no_lashes_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "SpeedNoLashesPlasmid",
+      "slot": 36,
       "id": 118
     },
     {
@@ -1725,6 +1752,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "SpeedPlasmid",
+      "slot": 4,
       "id": 119
     },
     {
@@ -1738,6 +1766,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "SpeedPlasmid2",
+      "slot": 15,
       "id": 120
     },
     {
@@ -1751,6 +1780,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "SpeedPlasmid3",
+      "slot": 33,
       "id": 121
     },
     {
@@ -1764,6 +1794,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "StaminaPlasmid",
+      "slot": 34,
       "id": 122
     },
     {
@@ -1777,6 +1808,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "StartingDnaPlasmid",
+      "slot": 16,
       "id": 123
     },
     {
@@ -1790,6 +1822,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "StartingDnaPlasmid2",
+      "slot": 23,
       "id": 124
     },
     {
@@ -1803,6 +1836,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_money_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "StartingMoneyPlasmid2",
+      "slot": 7,
       "id": 125
     },
     {
@@ -1816,6 +1850,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "StashSlotPlasmid",
+      "slot": 8,
       "id": 126
     },
     {
@@ -1829,6 +1864,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids0",
       "save_key": "StashSlotPlasmid2",
+      "slot": 24,
       "id": 127
     },
     {
@@ -1842,6 +1878,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 5,
       "id": 128
     },
     {
@@ -1855,6 +1892,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BetterDropsProgressionPlasmid2",
+      "slot": 9,
       "id": 129
     },
     {
@@ -1868,6 +1906,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BetterEnergyPlasmid2",
+      "slot": 6,
       "id": 130
     },
     {
@@ -1881,6 +1920,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BossArmorPlasmid",
+      "slot": 17,
       "id": 131
     },
     {
@@ -1894,6 +1934,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_hp_pickup_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BossHpPickupPlasmid",
+      "slot": 7,
       "id": 132
     },
     {
@@ -1907,6 +1948,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BossMoneyPlasmid",
+      "slot": 10,
       "id": 133
     },
     {
@@ -1920,6 +1962,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/bottom_melee_damage_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "BottomMeleeDamagePlasmid",
+      "slot": 29,
       "id": 134
     },
     {
@@ -1933,6 +1976,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "DamageLowerHpPlasmid",
+      "slot": 8,
       "id": 135
     },
     {
@@ -1946,6 +1990,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "DamagePlasmid",
+      "slot": 1,
       "id": 136
     },
     {
@@ -1959,6 +2004,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 11,
       "id": 137
     },
     {
@@ -1972,6 +2018,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "HpPlasmid",
+      "slot": 2,
       "id": 138
     },
     {
@@ -1985,6 +2032,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "HpPlasmid4",
+      "slot": 12,
       "id": 139
     },
     {
@@ -1998,6 +2046,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/left_actives_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "LeftActivesPlasmid",
+      "slot": 23,
       "id": 140
     },
     {
@@ -2011,6 +2060,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_internals_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "LoadoutLimitInternalsPlasmid",
+      "slot": 24,
       "id": 141
     },
     {
@@ -2024,6 +2074,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_mitochondria_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "LoadoutLimitMitochondriaPlasmid",
+      "slot": 18,
       "id": 142
     },
     {
@@ -2037,6 +2088,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "LoadoutLimitWeaponPlasmid",
+      "slot": 13,
       "id": 143
     },
     {
@@ -2050,6 +2102,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "LoadoutLimitWeaponPlasmid2",
+      "slot": 14,
       "id": 144
     },
     {
@@ -2063,6 +2116,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "RerollPlasmid",
+      "slot": 25,
       "id": 145
     },
     {
@@ -2076,6 +2130,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "RerollPlasmid2",
+      "slot": 26,
       "id": 146
     },
     {
@@ -2089,6 +2144,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "RerollPlasmid3",
+      "slot": 3,
       "id": 147
     },
     {
@@ -2102,6 +2158,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/right_overcharge_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "RightOverchargePlasmid",
+      "slot": 27,
       "id": 148
     },
     {
@@ -2115,6 +2172,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "SpeedPlasmid4",
+      "slot": 4,
       "id": 149
     },
     {
@@ -2128,6 +2186,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "SpeedPlasmid5",
+      "slot": 19,
       "id": 150
     },
     {
@@ -2141,6 +2200,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "StaminaPlasmid",
+      "slot": 28,
       "id": 151
     },
     {
@@ -2154,6 +2214,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "StartingDnaPlasmid",
+      "slot": 15,
       "id": 152
     },
     {
@@ -2167,6 +2228,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "StartingDnaPlasmid2",
+      "slot": 20,
       "id": 153
     },
     {
@@ -2180,6 +2242,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_money_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "StartingMoneyPlasmid4",
+      "slot": 21,
       "id": 154
     },
     {
@@ -2193,6 +2256,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "StashSlotPlasmid",
+      "slot": 22,
       "id": 155
     },
     {
@@ -2206,6 +2270,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "StashSlotPlasmid2",
+      "slot": 16,
       "id": 156
     },
     {
@@ -2219,6 +2284,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/top_damage_plasmid.tscn",
       "section": "plasmids1",
       "save_key": "TopDamagePlasmid",
+      "slot": 30,
       "id": 157
     },
     {
@@ -2232,6 +2298,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 14,
       "id": 158
     },
     {
@@ -2245,6 +2312,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BetterDropsProgressionPlasmid2",
+      "slot": 15,
       "id": 159
     },
     {
@@ -2258,6 +2326,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BetterDropsProgressionPlasmid3",
+      "slot": 7,
       "id": 160
     },
     {
@@ -2271,6 +2340,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BetterEnergyPlasmid2",
+      "slot": 19,
       "id": 161
     },
     {
@@ -2284,6 +2354,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BossArmorPlasmid",
+      "slot": 16,
       "id": 162
     },
     {
@@ -2297,6 +2368,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BossArmorPlasmid2",
+      "slot": 8,
       "id": 163
     },
     {
@@ -2310,6 +2382,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "BossMoneyPlasmid",
+      "slot": 17,
       "id": 164
     },
     {
@@ -2323,6 +2396,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "DamageLowerHpPlasmid",
+      "slot": 10,
       "id": 165
     },
     {
@@ -2336,6 +2410,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "DamagePlasmid7",
+      "slot": 1,
       "id": 166
     },
     {
@@ -2349,6 +2424,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 25,
       "id": 167
     },
     {
@@ -2362,6 +2438,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "DodgeCdPlasmid",
+      "slot": 4,
       "id": 168
     },
     {
@@ -2375,6 +2452,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "HpPlasmid",
+      "slot": 2,
       "id": 169
     },
     {
@@ -2388,6 +2466,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "HpPlasmid5",
+      "slot": 18,
       "id": 170
     },
     {
@@ -2401,6 +2480,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_internals_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "LoadoutLimitInternalsPlasmid",
+      "slot": 20,
       "id": 171
     },
     {
@@ -2414,6 +2494,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_mitochondria_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "LoadoutLimitMitochondriaPlasmid",
+      "slot": 21,
       "id": 172
     },
     {
@@ -2427,6 +2508,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "LoadoutLimitWeaponPlasmid",
+      "slot": 22,
       "id": 173
     },
     {
@@ -2440,6 +2522,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "RangePlasmid",
+      "slot": 11,
       "id": 174
     },
     {
@@ -2453,6 +2536,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "RerollPlasmid",
+      "slot": 23,
       "id": 175
     },
     {
@@ -2466,6 +2550,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "RerollPlasmid2",
+      "slot": 9,
       "id": 176
     },
     {
@@ -2479,6 +2564,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "RerollPlasmid3",
+      "slot": 26,
       "id": 177
     },
     {
@@ -2492,6 +2578,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "SpeedPlasmid4",
+      "slot": 12,
       "id": 178
     },
     {
@@ -2505,6 +2592,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "SpeedPlasmid6",
+      "slot": 3,
       "id": 179
     },
     {
@@ -2518,6 +2606,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "SpeedPlasmid7",
+      "slot": 29,
       "id": 180
     },
     {
@@ -2531,6 +2620,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "StaminaPlasmid",
+      "slot": 27,
       "id": 181
     },
     {
@@ -2544,6 +2634,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "StartingDnaPlasmid5",
+      "slot": 5,
       "id": 182
     },
     {
@@ -2557,6 +2648,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "StashSlotPlasmid",
+      "slot": 13,
       "id": 183
     },
     {
@@ -2570,6 +2662,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "StashSlotPlasmid2",
+      "slot": 6,
       "id": 184
     },
     {
@@ -2583,6 +2676,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/worm_tail_contact_damage_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "WormTailContactDamagePlasmid",
+      "slot": 28,
       "id": 185
     },
     {
@@ -2596,6 +2690,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/worm_tail_explode_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "WormTailExplodePlasmid",
+      "slot": 30,
       "id": 186
     },
     {
@@ -2609,6 +2704,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/worm_tail_reflect_plasmid.tscn",
       "section": "plasmids2",
       "save_key": "WormTailReflectPlasmid",
+      "slot": 24,
       "id": 187
     },
     {
@@ -2622,6 +2718,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "AttackSpeedPlasmid",
+      "slot": 21,
       "id": 188
     },
     {
@@ -2635,6 +2732,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 22,
       "id": 189
     },
     {
@@ -2648,6 +2746,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BetterDropsProgressionPlasmid2",
+      "slot": 23,
       "id": 190
     },
     {
@@ -2661,6 +2760,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BetterDropsProgressionPlasmid3",
+      "slot": 24,
       "id": 191
     },
     {
@@ -2674,6 +2774,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BetterEnergyPlasmid2",
+      "slot": 5,
       "id": 192
     },
     {
@@ -2687,6 +2788,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BossArmorPlasmid",
+      "slot": 1,
       "id": 193
     },
     {
@@ -2700,6 +2802,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_hp_pickup_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BossHpPickupPlasmid",
+      "slot": 13,
       "id": 194
     },
     {
@@ -2713,6 +2816,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BossMoneyPlasmid",
+      "slot": 6,
       "id": 195
     },
     {
@@ -2726,6 +2830,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BossMoneyPlasmid3",
+      "slot": 7,
       "id": 196
     },
     {
@@ -2739,6 +2844,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "BulletSpreadPlasmid",
+      "slot": 14,
       "id": 197
     },
     {
@@ -2752,6 +2858,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "DamageLowerHpPlasmid2",
+      "slot": 29,
       "id": 198
     },
     {
@@ -2765,6 +2872,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 2,
       "id": 199
     },
     {
@@ -2778,6 +2886,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "DamageProgressionPlasmid4",
+      "slot": 15,
       "id": 200
     },
     {
@@ -2791,6 +2900,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "DamageProgressionPlasmid5",
+      "slot": 16,
       "id": 201
     },
     {
@@ -2804,6 +2914,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "DodgeCdPlasmid",
+      "slot": 8,
       "id": 202
     },
     {
@@ -2817,6 +2928,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "HpPlasmid5",
+      "slot": 25,
       "id": 203
     },
     {
@@ -2830,6 +2942,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_internals_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "LoadoutLimitInternalsPlasmid",
+      "slot": 9,
       "id": 204
     },
     {
@@ -2843,6 +2956,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_mitochondria_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "LoadoutLimitMitochondriaPlasmid",
+      "slot": 10,
       "id": 205
     },
     {
@@ -2856,6 +2970,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "LoadoutLimitWeaponPlasmid2",
+      "slot": 26,
       "id": 206
     },
     {
@@ -2869,6 +2984,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "LoadoutLimitWeaponPlasmid3",
+      "slot": 27,
       "id": 207
     },
     {
@@ -2882,6 +2998,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/recycle_dna_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "RecycleDnaPlasmid",
+      "slot": 11,
       "id": 208
     },
     {
@@ -2895,6 +3012,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/recycle_dna_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "RecycleDnaPlasmid2",
+      "slot": 12,
       "id": 209
     },
     {
@@ -2908,6 +3026,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "RerollPlasmid2",
+      "slot": 17,
       "id": 210
     },
     {
@@ -2921,6 +3040,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "RerollPlasmid3",
+      "slot": 18,
       "id": 211
     },
     {
@@ -2934,6 +3054,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "RerollPlasmid4",
+      "slot": 19,
       "id": 212
     },
     {
@@ -2947,6 +3068,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "SlowerBulletsPlasmid",
+      "slot": 30,
       "id": 213
     },
     {
@@ -2960,6 +3082,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "SpeedPlasmid2",
+      "slot": 3,
       "id": 214
     },
     {
@@ -2973,6 +3096,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "StaminaPlasmid",
+      "slot": 28,
       "id": 215
     },
     {
@@ -2986,6 +3110,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "StashSlotPlasmid",
+      "slot": 20,
       "id": 216
     },
     {
@@ -2999,6 +3124,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids3",
       "save_key": "StashSlotPlasmid2",
+      "slot": 4,
       "id": 217
     },
     {
@@ -3012,6 +3138,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 1,
       "id": 218
     },
     {
@@ -3025,6 +3152,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BetterDropsProgressionPlasmid2",
+      "slot": 11,
       "id": 219
     },
     {
@@ -3038,6 +3166,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BetterDropsProgressionPlasmid3",
+      "slot": 6,
       "id": 220
     },
     {
@@ -3051,6 +3180,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BetterDropsProgressionPlasmid4",
+      "slot": 20,
       "id": 221
     },
     {
@@ -3064,6 +3194,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BetterEnergyPlasmid",
+      "slot": 7,
       "id": 222
     },
     {
@@ -3077,6 +3208,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BossArmorPlasmid",
+      "slot": 8,
       "id": 223
     },
     {
@@ -3090,6 +3222,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BossArmorPlasmid2",
+      "slot": 2,
       "id": 224
     },
     {
@@ -3103,6 +3236,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BossArmorPlasmid3",
+      "slot": 21,
       "id": 225
     },
     {
@@ -3116,6 +3250,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "BossMoneyPlasmid2",
+      "slot": 9,
       "id": 226
     },
     {
@@ -3129,6 +3264,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "DamageLowerHpPlasmid2",
+      "slot": 28,
       "id": 227
     },
     {
@@ -3142,6 +3278,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 12,
       "id": 228
     },
     {
@@ -3155,6 +3292,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "DamageProgressionPlasmid4",
+      "slot": 3,
       "id": 229
     },
     {
@@ -3168,6 +3306,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "DodgeCdPlasmid",
+      "slot": 10,
       "id": 230
     },
     {
@@ -3181,6 +3320,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "LoadoutLimitWeaponPlasmid",
+      "slot": 29,
       "id": 231
     },
     {
@@ -3194,6 +3334,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/nanobot_damage_slot_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "NanobotDamageSlotPlasmid",
+      "slot": 13,
       "id": 232
     },
     {
@@ -3207,6 +3348,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/nanobot_damage_slot_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "NanobotDamageSlotPlasmid2",
+      "slot": 14,
       "id": 233
     },
     {
@@ -3220,6 +3362,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/nanobot_energy_slot_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "NanobotEnergySlotPlasmid",
+      "slot": 15,
       "id": 234
     },
     {
@@ -3233,6 +3376,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "RangePlasmid",
+      "slot": 16,
       "id": 235
     },
     {
@@ -3246,6 +3390,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "RerollPlasmid",
+      "slot": 22,
       "id": 236
     },
     {
@@ -3259,6 +3404,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "RerollPlasmid4",
+      "slot": 4,
       "id": 237
     },
     {
@@ -3272,6 +3418,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "RerollPlasmid5",
+      "slot": 23,
       "id": 238
     },
     {
@@ -3285,6 +3432,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "SpeedPlasmid",
+      "slot": 30,
       "id": 239
     },
     {
@@ -3298,6 +3446,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "SpeedPlasmid2",
+      "slot": 24,
       "id": 240
     },
     {
@@ -3311,6 +3460,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StaminaPlasmid",
+      "slot": 17,
       "id": 241
     },
     {
@@ -3324,6 +3474,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StartingDnaPlasmid",
+      "slot": 5,
       "id": 242
     },
     {
@@ -3337,6 +3488,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StartingDnaPlasmid2",
+      "slot": 18,
       "id": 243
     },
     {
@@ -3350,6 +3502,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StartingDnaPlasmid5",
+      "slot": 25,
       "id": 244
     },
     {
@@ -3363,6 +3516,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StartingMutationPlasmid",
+      "slot": 26,
       "id": 245
     },
     {
@@ -3376,6 +3530,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StashSlotPlasmid",
+      "slot": 19,
       "id": 246
     },
     {
@@ -3389,6 +3544,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids4",
       "save_key": "StashSlotPlasmid3",
+      "slot": 27,
       "id": 247
     },
     {
@@ -3402,6 +3558,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/amoeba_energy_slot_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "AmoebaEnergySlotPlasmid",
+      "slot": 18,
       "id": 248
     },
     {
@@ -3415,6 +3572,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/amoeba_energy_slot_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "AmoebaEnergySlotPlasmid2",
+      "slot": 1,
       "id": 249
     },
     {
@@ -3428,6 +3586,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/amoeba_energy_slot_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "AmoebaEnergySlotPlasmid3",
+      "slot": 19,
       "id": 250
     },
     {
@@ -3441,6 +3600,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 2,
       "id": 251
     },
     {
@@ -3454,6 +3614,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BetterDropsProgressionPlasmid2",
+      "slot": 26,
       "id": 252
     },
     {
@@ -3467,6 +3628,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BetterEnergyPlasmid",
+      "slot": 10,
       "id": 253
     },
     {
@@ -3480,6 +3642,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BossArmorPlasmid",
+      "slot": 11,
       "id": 254
     },
     {
@@ -3493,6 +3656,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BossArmorPlasmid2",
+      "slot": 4,
       "id": 255
     },
     {
@@ -3506,6 +3670,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_hp_pickup_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BossHpPickupPlasmid",
+      "slot": 3,
       "id": 256
     },
     {
@@ -3519,6 +3684,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "BossMoneyPlasmid2",
+      "slot": 5,
       "id": 257
     },
     {
@@ -3532,6 +3698,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "DamageLowerHpPlasmid",
+      "slot": 27,
       "id": 258
     },
     {
@@ -3545,6 +3712,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 6,
       "id": 259
     },
     {
@@ -3558,6 +3726,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "DamageProgressionPlasmid2",
+      "slot": 20,
       "id": 260
     },
     {
@@ -3571,6 +3740,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "DodgeCdPlasmid",
+      "slot": 12,
       "id": 261
     },
     {
@@ -3584,6 +3754,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "HpPlasmid",
+      "slot": 13,
       "id": 262
     },
     {
@@ -3597,6 +3768,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "HpPlasmid2",
+      "slot": 14,
       "id": 263
     },
     {
@@ -3610,6 +3782,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "HpPlasmid4",
+      "slot": 7,
       "id": 264
     },
     {
@@ -3623,6 +3796,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "LoadoutLimitWeaponPlasmid",
+      "slot": 28,
       "id": 265
     },
     {
@@ -3636,6 +3810,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "RangePlasmid",
+      "slot": 29,
       "id": 266
     },
     {
@@ -3649,6 +3824,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "RerollPlasmid",
+      "slot": 15,
       "id": 267
     },
     {
@@ -3662,6 +3838,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "RerollPlasmid3",
+      "slot": 21,
       "id": 268
     },
     {
@@ -3675,6 +3852,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "SpeedPlasmid",
+      "slot": 30,
       "id": 269
     },
     {
@@ -3688,6 +3866,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "SpeedPlasmid6",
+      "slot": 8,
       "id": 270
     },
     {
@@ -3701,6 +3880,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StaminaPlasmid",
+      "slot": 22,
       "id": 271
     },
     {
@@ -3714,6 +3894,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StartingDnaPlasmid2",
+      "slot": 9,
       "id": 272
     },
     {
@@ -3727,6 +3908,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StartingDnaPlasmid3",
+      "slot": 23,
       "id": 273
     },
     {
@@ -3740,6 +3922,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StartingDnaPlasmid4",
+      "slot": 24,
       "id": 274
     },
     {
@@ -3753,6 +3936,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_dna_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StartingDnaPlasmid5",
+      "slot": 25,
       "id": 275
     },
     {
@@ -3766,6 +3950,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StashSlotPlasmid",
+      "slot": 16,
       "id": 276
     },
     {
@@ -3779,6 +3964,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids5",
       "save_key": "StashSlotPlasmid3",
+      "slot": 17,
       "id": 277
     },
     {
@@ -3792,6 +3978,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BetterDropsProgressionPlasmid",
+      "slot": 4,
       "id": 278
     },
     {
@@ -3805,6 +3992,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BetterDropsProgressionPlasmid3",
+      "slot": 10,
       "id": 279
     },
     {
@@ -3818,6 +4006,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/better_drops_progression_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BetterDropsProgressionPlasmid4",
+      "slot": 20,
       "id": 280
     },
     {
@@ -3831,6 +4020,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BossArmorPlasmid",
+      "slot": 21,
       "id": 281
     },
     {
@@ -3844,6 +4034,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_armor_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BossArmorPlasmid2",
+      "slot": 5,
       "id": 282
     },
     {
@@ -3857,6 +4048,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_hp_pickup_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BossHpPickupPlasmid",
+      "slot": 6,
       "id": 283
     },
     {
@@ -3870,6 +4062,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BossMoneyPlasmid",
+      "slot": 22,
       "id": 284
     },
     {
@@ -3883,6 +4076,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BossMoneyPlasmid2",
+      "slot": 11,
       "id": 285
     },
     {
@@ -3896,6 +4090,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/boss_money_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "BossMoneyPlasmid3",
+      "slot": 1,
       "id": 286
     },
     {
@@ -3909,6 +4104,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_lower_hp_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "DamageLowerHpPlasmid",
+      "slot": 23,
       "id": 287
     },
     {
@@ -3922,6 +4118,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/damage_progression_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "DamageProgressionPlasmid",
+      "slot": 2,
       "id": 288
     },
     {
@@ -3935,6 +4132,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "DodgeCdPlasmid",
+      "slot": 12,
       "id": 289
     },
     {
@@ -3948,6 +4146,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "EnergyPlasmid",
+      "slot": 13,
       "id": 290
     },
     {
@@ -3961,6 +4160,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "HpPlasmid",
+      "slot": 24,
       "id": 291
     },
     {
@@ -3974,6 +4174,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/hp_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "HpPlasmid4",
+      "slot": 3,
       "id": 292
     },
     {
@@ -3987,6 +4188,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_internals_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "LoadoutLimitInternalsPlasmid",
+      "slot": 25,
       "id": 293
     },
     {
@@ -4000,6 +4202,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/loadout_limit_weapon_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "LoadoutLimitWeaponPlasmid2",
+      "slot": 29,
       "id": 294
     },
     {
@@ -4013,6 +4216,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "RangePlasmid",
+      "slot": 26,
       "id": 295
     },
     {
@@ -4026,6 +4230,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "RerollPlasmid2",
+      "slot": 27,
       "id": 296
     },
     {
@@ -4039,6 +4244,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "RerollPlasmid3",
+      "slot": 28,
       "id": 297
     },
     {
@@ -4052,6 +4258,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/reroll_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "RerollPlasmid4",
+      "slot": 14,
       "id": 298
     },
     {
@@ -4065,6 +4272,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "SaleMutationPlasmid",
+      "slot": 15,
       "id": 299
     },
     {
@@ -4078,6 +4286,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "SaleMutationPlasmid2",
+      "slot": 16,
       "id": 300
     },
     {
@@ -4091,6 +4300,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "SaleMutationPlasmid3",
+      "slot": 17,
       "id": 301
     },
     {
@@ -4104,6 +4314,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "SlowerBulletsPlasmid",
+      "slot": 30,
       "id": 302
     },
     {
@@ -4117,6 +4328,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/speed_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "SpeedPlasmid6",
+      "slot": 7,
       "id": 303
     },
     {
@@ -4130,6 +4342,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "StaminaPlasmid",
+      "slot": 8,
       "id": 304
     },
     {
@@ -4143,6 +4356,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/starting_mutation_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "StaminaPlasmid2",
+      "slot": 18,
       "id": 305
     },
     {
@@ -4156,6 +4370,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "StashSlotPlasmid",
+      "slot": 19,
       "id": 306
     },
     {
@@ -4169,6 +4384,7 @@
       "scene": "res://scn/metaprogression/plasmids/all/stash_slot_plasmid.tscn",
       "section": "plasmids7",
       "save_key": "StashSlotPlasmid2",
+      "slot": 9,
       "id": 307
     },
     {

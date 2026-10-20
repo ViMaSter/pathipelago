@@ -33,8 +33,14 @@ Character, plasmid, starting-loadout, organelle and environmental unlocks are
 included by default. They are **additive**: receiving one grants it remotely,
 but its normal acquisition remains available. A starting-loadout option and its
 organelle's random-drop unlock are separate items with separate native gates.
-Repeated same-named plasmid effects are distinct character-specific map nodes;
-starting plasmids are excluded.
+Starting plasmids are excluded.
+
+Plasmids are shared between characters as 36 **Plasmid Slot** items. Each
+character's plasmids are numbered by distance from its map's starting node, and
+Plasmid Slot N unlocks the Nth plasmid of every character (slots 31-36 exist
+only for the Bacterium, which has 36 plasmids; the others have 30). Buying a
+plasmid with points unlocks it for that character only and sends the optional
+**Earn Plasmid Slot N** check, which holds a randomized item.
 
 The v1.2.1 catalogue contains 309 entries: 5 characters, 216 plasmids, 68 loadout
 options, 14 organelles and 6 environmental features. Plasmids are connected nodes
@@ -42,9 +48,10 @@ in the seven active maps. Two unreferenced standalone character-unlock scenes
 are excluded because they cannot be naturally acquired through those maps.
 
 Use `remote_characters`, `remote_plasmids`, `remote_loadouts`, `remote_organelles`
-and `remote_environment` to disable individual categories. Every selected unlock
-appears once in the randomized shipment pool and has an additional optional
-`Earn ...` location containing a fixed copy for the same player. Native feats are
+and `remote_environment` to disable individual categories. Every selected
+non-plasmid unlock and plasmid slot appears once in the randomized shipment pool.
+Each non-plasmid unlock has an additional optional `Earn ...` location containing a
+fixed copy for the same player. Native feats are
 never required by generation logic or the goal. Unlock items are useful, not
 progression.
 
