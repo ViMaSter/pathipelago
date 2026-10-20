@@ -103,6 +103,26 @@ character-specific Plasmid nodes, 68 starting-loadout options, 14 organelle-drop
 gates, and 6 environment features. A starting-loadout unlock is distinct from that
 organelle's random-drop gate.
 
+### Where remote unlocks appear
+
+These screenshots show example Pathogenic screens for each category; they are not
+item-receipt popups, and the captured screens do not necessarily show a newly
+received item.
+
+<table>
+<tr>
+<td><strong><code>remote_characters</code></strong><br>Unlocks characters in the character selector.<br><img src="docs/screenshots/remote-characters.png" alt="Pathogenic character selector" width="480"></td>
+<td><strong><code>remote_loadouts</code></strong><br>Unlocks character-specific starting-loadout choices in the loadout editor.<br><img src="docs/screenshots/remote-loadouts.png" alt="Pathogenic starting-loadout editor" width="480"></td>
+</tr>
+<tr>
+<td><strong><code>remote_plasmids</code></strong><br>Received Plasmid Slots unlock map nodes. Assign or unassign them manually in the in-run Editor; adjacency and connectivity still apply.<br><img src="docs/screenshots/remote-plasmids.png" alt="Pathogenic in-run Editor with the Plasmid map" width="480"></td>
+<td><strong><code>remote_organelles</code></strong><br>Unlocks organelles for their normal random-drop pool. Receipt does not open the Editor or ask you to place or discard one; the Codex screen below is informational.<br><img src="docs/screenshots/remote-organelles.png" alt="Pathogenic Codex with the Organelles tab selected" width="480"></td>
+</tr>
+<tr>
+<td colspan="2"><strong><code>remote_environment</code></strong><br>Unlocks environment features such as Antibiotics, Experiments, and Endless Mode in their normal game menus. There is no single shared placement screen.<br><img src="docs/screenshots/remote-environment.png" alt="Pathogenic main menu and game-mode entry points" width="480"></td>
+</tr>
+</table>
+
 ### Plasmid slots
 
 Plasmids are not sent as 216 per-character items. Instead, each character's map is
