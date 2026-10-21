@@ -1,0 +1,540 @@
+{
+  "schema": 1,
+  "entries": [
+    {
+      "key": "external/assault_rifle",
+      "resource": "res://scn/player/bodyparts/external/assault_rifle.tres",
+      "name": "Pulsar Gland",
+      "id": 1
+    },
+    {
+      "key": "external/bacteriophage_gun",
+      "resource": "res://scn/player/bodyparts/external/bacteriophage_gun.tres",
+      "name": "Bacteriophage Launcher",
+      "id": 2
+    },
+    {
+      "key": "external/burn_lash",
+      "resource": "res://scn/player/bodyparts/external/burn_lash.tres",
+      "name": "Pyroflagellum",
+      "id": 3
+    },
+    {
+      "key": "external/cannon",
+      "resource": "res://scn/player/bodyparts/external/cannon.tres",
+      "name": "Spore Cannon",
+      "id": 4
+    },
+    {
+      "key": "external/charger_tentacle",
+      "resource": "res://scn/player/bodyparts/external/charger_tentacle.tres",
+      "name": "Trophic Pseudopod",
+      "id": 5
+    },
+    {
+      "key": "external/dagger",
+      "resource": "res://scn/player/bodyparts/external/dagger.tres",
+      "name": "Stinger Tendril",
+      "id": 6
+    },
+    {
+      "key": "external/drill",
+      "resource": "res://scn/player/bodyparts/external/drill.tres",
+      "name": "Helical Proboscis",
+      "id": 7
+    },
+    {
+      "key": "external/dual_blades",
+      "resource": "res://scn/player/bodyparts/external/dual_blades.tres",
+      "name": "Tri-phase Tendril",
+      "id": 8
+    },
+    {
+      "key": "external/electric_harpoon",
+      "resource": "res://scn/player/bodyparts/external/electric_harpoon.tres",
+      "name": "Galvanic Cnidocyst",
+      "id": 9
+    },
+    {
+      "key": "external/flamethrower",
+      "resource": "res://scn/player/bodyparts/external/flamethrower.tres",
+      "name": "Oxidator",
+      "id": 10
+    },
+    {
+      "key": "external/freeze_lash",
+      "resource": "res://scn/player/bodyparts/external/freeze_lash.tres",
+      "name": "Cryoflagellum",
+      "id": 11
+    },
+    {
+      "key": "external/grenade_launcher",
+      "resource": "res://scn/player/bodyparts/external/grenade_launcher.tres",
+      "name": "Dehiscence Lobber",
+      "id": 12
+    },
+    {
+      "key": "external/gun",
+      "resource": "res://scn/player/bodyparts/external/gun.tres",
+      "name": "Caustic Secretor",
+      "id": 13
+    },
+    {
+      "key": "external/hammer",
+      "resource": "res://scn/player/bodyparts/external/hammer.tres",
+      "name": "Capsid Flail",
+      "id": 14
+    },
+    {
+      "key": "external/harpoon",
+      "resource": "res://scn/player/bodyparts/external/harpoon.tres",
+      "name": "Cnidocyst",
+      "id": 15
+    },
+    {
+      "key": "external/hydrojet_lash",
+      "resource": "res://scn/player/bodyparts/external/hydrojet_lash.tres",
+      "name": "Ballistic Flagellum",
+      "id": 16
+    },
+    {
+      "key": "external/laser",
+      "resource": "res://scn/player/bodyparts/external/laser.tres",
+      "name": "Thermal Lance",
+      "id": 17
+    },
+    {
+      "key": "external/lash",
+      "resource": "res://scn/player/bodyparts/external/lash.tres",
+      "name": "Flagellum",
+      "id": 18
+    },
+    {
+      "key": "external/lightning_gun",
+      "resource": "res://scn/player/bodyparts/external/lightning_gun.tres",
+      "name": "Galvanic Conduit",
+      "id": 19
+    },
+    {
+      "key": "external/machine_gun",
+      "resource": "res://scn/player/bodyparts/external/machine_gun.tres",
+      "name": "Rotary Extruder",
+      "id": 20
+    },
+    {
+      "key": "external/mine_launcher",
+      "resource": "res://scn/player/bodyparts/external/mine_launcher.tres",
+      "name": "Cyst Depositor",
+      "id": 21
+    },
+    {
+      "key": "external/orb_gun",
+      "resource": "res://scn/player/bodyparts/external/orb_gun.tres",
+      "name": "Mucus Emitter",
+      "id": 22
+    },
+    {
+      "key": "external/pizza_cutter",
+      "resource": "res://scn/player/bodyparts/external/pizza_cutter.tres",
+      "name": "Gyrase Wheel",
+      "id": 23
+    },
+    {
+      "key": "external/rocket_launcher",
+      "resource": "res://scn/player/bodyparts/external/rocket_launcher.tres",
+      "name": "Blastocyst Mortar",
+      "id": 24
+    },
+    {
+      "key": "external/shield",
+      "resource": "res://scn/player/bodyparts/external/shield.tres",
+      "name": "Chitin Shield",
+      "id": 25
+    },
+    {
+      "key": "external/shotgun",
+      "resource": "res://scn/player/bodyparts/external/shotgun.tres",
+      "name": "Scatter Ejector",
+      "id": 26
+    },
+    {
+      "key": "external/shotgun_close",
+      "resource": "res://scn/player/bodyparts/external/shotgun_close.tres",
+      "name": "Cluster Ejector",
+      "id": 27
+    },
+    {
+      "key": "external/sidegun",
+      "resource": "res://scn/player/bodyparts/external/sidegun.tres",
+      "name": "Lateral Vent",
+      "id": 28
+    },
+    {
+      "key": "external/sniper",
+      "resource": "res://scn/player/bodyparts/external/sniper.tres",
+      "name": "Pressurized Spicule",
+      "id": 29
+    },
+    {
+      "key": "external/spawn_gun",
+      "resource": "res://scn/player/bodyparts/external/spawn_gun.tres",
+      "name": "Nidublast",
+      "id": 30
+    },
+    {
+      "key": "external/spear",
+      "resource": "res://scn/player/bodyparts/external/spear.tres",
+      "name": "Perforator Tendril",
+      "id": 31
+    },
+    {
+      "key": "external/sword",
+      "resource": "res://scn/player/bodyparts/external/sword.tres",
+      "name": "Lacerator Tendril",
+      "id": 32
+    },
+    {
+      "key": "external/toxin_lash",
+      "resource": "res://scn/player/bodyparts/external/toxin_lash.tres",
+      "name": "Toxic Flagellum",
+      "id": 33
+    },
+    {
+      "key": "internal/active_laser",
+      "resource": "res://scn/player/bodyparts/internal/active_laser.tres",
+      "name": "Chromatophore Lens",
+      "id": 34
+    },
+    {
+      "key": "internal/armor_maker",
+      "resource": "res://scn/player/bodyparts/internal/armor_maker.tres",
+      "name": "Ossificator",
+      "id": 35
+    },
+    {
+      "key": "internal/auto_shooter",
+      "resource": "res://scn/player/bodyparts/internal/auto_shooter.tres",
+      "name": "Photoreceptor",
+      "id": 36
+    },
+    {
+      "key": "internal/backstab",
+      "resource": "res://scn/player/bodyparts/internal/backstab.tres",
+      "name": "Dorsal Lysosome",
+      "id": 37
+    },
+    {
+      "key": "internal/burn",
+      "resource": "res://scn/player/bodyparts/internal/burn.tres",
+      "name": "Pyrosome",
+      "id": 38
+    },
+    {
+      "key": "internal/charge_active",
+      "resource": "res://scn/player/bodyparts/internal/charge_active.tres",
+      "name": "Vacuole",
+      "id": 39
+    },
+    {
+      "key": "internal/circle_shot_active",
+      "resource": "res://scn/player/bodyparts/internal/circle_shot_active.tres",
+      "name": "Projectile Surge",
+      "id": 40
+    },
+    {
+      "key": "internal/conduit",
+      "resource": "res://scn/player/bodyparts/internal/conduit.tres",
+      "name": "Vesicle",
+      "id": 41
+    },
+    {
+      "key": "internal/damage_charge_mult",
+      "resource": "res://scn/player/bodyparts/internal/damage_charge_mult.tres",
+      "name": "Starved Oxysome",
+      "id": 42
+    },
+    {
+      "key": "internal/damage_mult",
+      "resource": "res://scn/player/bodyparts/internal/damage_mult.tres",
+      "name": "Oxysome",
+      "id": 43
+    },
+    {
+      "key": "internal/damage_no_attack",
+      "resource": "res://scn/player/bodyparts/internal/damage_no_attack.tres",
+      "name": "Turgosome",
+      "id": 44
+    },
+    {
+      "key": "internal/damage_up_on_kill",
+      "resource": "res://scn/player/bodyparts/internal/damage_up_on_kill.tres",
+      "name": "Phagosome",
+      "id": 45
+    },
+    {
+      "key": "internal/deflector",
+      "resource": "res://scn/player/bodyparts/internal/deflector.tres",
+      "name": "Resilinoplast",
+      "id": 46
+    },
+    {
+      "key": "internal/dna_maker",
+      "resource": "res://scn/player/bodyparts/internal/dna_maker.tres",
+      "name": "Mutagen",
+      "id": 47
+    },
+    {
+      "key": "internal/dodge_charge",
+      "resource": "res://scn/player/bodyparts/internal/dodge_charge.tres",
+      "name": "Elusive Mitochondrion",
+      "id": 48
+    },
+    {
+      "key": "internal/dodge_explode",
+      "resource": "res://scn/player/bodyparts/internal/dodge_explode.tres",
+      "name": "Sympathetic Detonator",
+      "id": 49
+    },
+    {
+      "key": "internal/explosion_active",
+      "resource": "res://scn/player/bodyparts/internal/explosion_active.tres",
+      "name": "Explosive Charge",
+      "id": 50
+    },
+    {
+      "key": "internal/fast_shooting_minion_active",
+      "resource": "res://scn/player/bodyparts/internal/fast_shooting_minion_active.tres",
+      "name": "Swarm Nidus",
+      "id": 51
+    },
+    {
+      "key": "internal/firerate_no_miss",
+      "resource": "res://scn/player/bodyparts/internal/firerate_no_miss.tres",
+      "name": "Resonant Cavity",
+      "id": 52
+    },
+    {
+      "key": "internal/freeze",
+      "resource": "res://scn/player/bodyparts/internal/freeze.tres",
+      "name": "Cryosome",
+      "id": 53
+    },
+    {
+      "key": "internal/generator",
+      "resource": "res://scn/player/bodyparts/internal/generator.tres",
+      "name": "Entrant Mitochondrion",
+      "id": 54
+    },
+    {
+      "key": "internal/gib_explode_active",
+      "resource": "res://scn/player/bodyparts/internal/gib_explode_active.tres",
+      "name": "Necrolytic Igniter",
+      "id": 55
+    },
+    {
+      "key": "internal/gravity_pull",
+      "resource": "res://scn/player/bodyparts/internal/gravity_pull.tres",
+      "name": "Magnetosome",
+      "id": 56
+    },
+    {
+      "key": "internal/heal",
+      "resource": "res://scn/player/bodyparts/internal/heal.tres",
+      "name": "Regenerator",
+      "id": 57
+    },
+    {
+      "key": "internal/heavy_minion",
+      "resource": "res://scn/player/bodyparts/internal/heavy_minion.tres",
+      "name": "Apex Nidus",
+      "id": 58
+    },
+    {
+      "key": "internal/hit_charge",
+      "resource": "res://scn/player/bodyparts/internal/hit_charge.tres",
+      "name": "Recuperative Mitochondrion",
+      "id": 59
+    },
+    {
+      "key": "internal/homing",
+      "resource": "res://scn/player/bodyparts/internal/homing.tres",
+      "name": "Attractor",
+      "id": 60
+    },
+    {
+      "key": "internal/hurt_charge",
+      "resource": "res://scn/player/bodyparts/internal/hurt_charge.tres",
+      "name": "Vengeful Mitochondrion",
+      "id": 61
+    },
+    {
+      "key": "internal/invul_active",
+      "resource": "res://scn/player/bodyparts/internal/invul_active.tres",
+      "name": "Iridophore Membrane",
+      "id": 62
+    },
+    {
+      "key": "internal/kill_charge",
+      "resource": "res://scn/player/bodyparts/internal/kill_charge.tres",
+      "name": "Berserk Mitochondrion",
+      "id": 63
+    },
+    {
+      "key": "internal/lightning",
+      "resource": "res://scn/player/bodyparts/internal/lightning.tres",
+      "name": "Galvanic Infuser",
+      "id": 64
+    },
+    {
+      "key": "internal/lightning_connection",
+      "resource": "res://scn/player/bodyparts/internal/lightning_connection.tres",
+      "name": "Galvanic Weave",
+      "id": 65
+    },
+    {
+      "key": "internal/max_hp_up",
+      "resource": "res://scn/player/bodyparts/internal/max_hp_up.tres",
+      "name": "Endospore",
+      "id": 66
+    },
+    {
+      "key": "internal/melee_on_ranged",
+      "resource": "res://scn/player/bodyparts/internal/melee_on_ranged.tres",
+      "name": "Golgi Apparatus",
+      "id": 67
+    },
+    {
+      "key": "internal/money_maker",
+      "resource": "res://scn/player/bodyparts/internal/money_maker.tres",
+      "name": "Opulentor",
+      "id": 68
+    },
+    {
+      "key": "internal/perfect_generator",
+      "resource": "res://scn/player/bodyparts/internal/perfect_generator.tres",
+      "name": "Pristine Mitochondrion",
+      "id": 69
+    },
+    {
+      "key": "internal/pickup_charge",
+      "resource": "res://scn/player/bodyparts/internal/pickup_charge.tres",
+      "name": "Metabolic Mitochondrion",
+      "id": 70
+    },
+    {
+      "key": "internal/piercing",
+      "resource": "res://scn/player/bodyparts/internal/piercing.tres",
+      "name": "Perforin Infuser",
+      "id": 71
+    },
+    {
+      "key": "internal/poison",
+      "resource": "res://scn/player/bodyparts/internal/poison.tres",
+      "name": "Toxisome",
+      "id": 72
+    },
+    {
+      "key": "internal/proximity_zapper",
+      "resource": "res://scn/player/bodyparts/internal/proximity_zapper.tres",
+      "name": "Galvanic Sac",
+      "id": 73
+    },
+    {
+      "key": "internal/range_extender",
+      "resource": "res://scn/player/bodyparts/internal/range_extender.tres",
+      "name": "Extensor",
+      "id": 74
+    },
+    {
+      "key": "internal/reroll_active",
+      "resource": "res://scn/player/bodyparts/internal/reroll_active.tres",
+      "name": "Sequence Scrambler",
+      "id": 75
+    },
+    {
+      "key": "internal/rhythm_damage",
+      "resource": "res://scn/player/bodyparts/internal/rhythm_damage.tres",
+      "name": "Sinoatrial Node",
+      "id": 76
+    },
+    {
+      "key": "internal/rubber_bullets",
+      "resource": "res://scn/player/bodyparts/internal/rubber_bullets.tres",
+      "name": "Elastosome",
+      "id": 77
+    },
+    {
+      "key": "internal/sacrifice_charge_active",
+      "resource": "res://scn/player/bodyparts/internal/sacrifice_charge_active.tres",
+      "name": "Autophagic Mitochondrion",
+      "id": 78
+    },
+    {
+      "key": "internal/second_life",
+      "resource": "res://scn/player/bodyparts/internal/second_life.tres",
+      "name": "Cryptobiotic Core",
+      "id": 79
+    },
+    {
+      "key": "internal/sentry_minion_active",
+      "resource": "res://scn/player/bodyparts/internal/sentry_minion_active.tres",
+      "name": "Sentry Nidus",
+      "id": 80
+    },
+    {
+      "key": "internal/shrapnel",
+      "resource": "res://scn/player/bodyparts/internal/shrapnel.tres",
+      "name": "Ruptusome",
+      "id": 81
+    },
+    {
+      "key": "internal/spear_active",
+      "resource": "res://scn/player/bodyparts/internal/spear_active.tres",
+      "name": "Ciliate Strike",
+      "id": 82
+    },
+    {
+      "key": "internal/splash",
+      "resource": "res://scn/player/bodyparts/internal/splash.tres",
+      "name": "Echosome",
+      "id": 83
+    },
+    {
+      "key": "internal/split_shot",
+      "resource": "res://scn/player/bodyparts/internal/split_shot.tres",
+      "name": "Bifurcator",
+      "id": 84
+    },
+    {
+      "key": "internal/stamina_charger",
+      "resource": "res://scn/player/bodyparts/internal/stamina_charger.tres",
+      "name": "Glycogen Synthesizer",
+      "id": 85
+    },
+    {
+      "key": "internal/travel_modifier",
+      "resource": "res://scn/player/bodyparts/internal/travel_modifier.tres",
+      "name": "Chronosome",
+      "id": 86
+    },
+    {
+      "key": "internal/triple_shot",
+      "resource": "res://scn/player/bodyparts/internal/triple_shot.tres",
+      "name": "Triosome",
+      "id": 87
+    },
+    {
+      "key": "internal/upgrader",
+      "resource": "res://scn/player/bodyparts/internal/upgrader.tres",
+      "name": "Refiner",
+      "id": 88
+    },
+    {
+      "key": "internal/weapon_minion",
+      "resource": "res://scn/player/bodyparts/internal/weapon_minion.tres",
+      "name": "Mitotic Nidus",
+      "id": 89
+    }
+  ],
+  "retired": {}
+}

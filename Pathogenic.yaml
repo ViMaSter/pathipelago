@@ -22,7 +22,6 @@ Pathogenic:
   remote_plasmids: false
   remote_loadouts: true
   remote_organelles: true
-  remote_environment: false
   
   # Additional filler checks (0-10000 each):
   # Amount of times other player can grant coins

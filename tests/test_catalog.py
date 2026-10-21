@@ -30,9 +30,15 @@ def load_module(name, path):
 EXTRACTOR = load_module("_catalog_extractor", ROOT / "tools/extract_unlock_catalog.py")
 CATALOG = json.loads((ROOT / "apworld/pathogenic/catalog.json").read_text(encoding="utf-8"))
 ENTRIES = CATALOG["entries"]
-INDIVIDUAL = [entry for entry in ENTRIES if entry["kind"] != "plasmid"]
+ORGANELLE_POOL = json.loads((ROOT / "apworld/pathogenic/organelles.json").read_text(encoding="utf-8"))
+ORGANELLES = ORGANELLE_POOL["entries"]
+# Organelle gates and environment features are never remote; their IDs stay reserved.
+INDIVIDUAL = [entry for entry in ENTRIES if entry["kind"] in ("character", "loadout")]
+SELECTABLE = [entry for entry in ENTRIES if entry["kind"] in ("character", "loadout", "plasmid")]
 SLOTS = 36
+# REMOTE counts natural checks; SHIPMENTS adds one randomized check per organelle delivery.
 REMOTE = len(INDIVIDUAL) + SLOTS
+SHIPMENTS = REMOTE + len(ORGANELLES)
 
 
 @contextmanager
@@ -111,7 +117,7 @@ def make_world(coin_checks=0, dna_checks=0, plasmid_fragment_checks=0, disabled=
     world.multiworld = SimpleNamespace(
         regions=[], itempool=[], completion_condition={})
     values = {name: SimpleNamespace(value=name not in disabled)
-              for name in WORLD.CATEGORY_OPTIONS.values()}
+              for name in (*WORLD.CATEGORY_OPTIONS.values(), "remote_organelles")}
     values.update({name: SimpleNamespace(value=True) for name in
                    ("shop_unlocks", "item_room_unlocks", "boss_reward_unlocks",
                     "level_up_unlocks", "death_link")})
@@ -152,6 +158,21 @@ class CatalogFactsTests(unittest.TestCase):
         self.assertTrue(all(isinstance(entry["condition"], str) for entry in ENTRIES))
         self.assertTrue(set(WORLD.UNLOCK_ITEM_IDS.values()).isdisjoint(
             WORLD.NATURAL_LOCATION_IDS.values()))
+
+    def test_organelle_pool_has_stable_unique_ids_and_names(self):
+        self.assertEqual(ORGANELLE_POOL["schema"], 1)
+        self.assertEqual(len(ORGANELLES), 89)
+        ids = [entry["id"] for entry in ORGANELLES]
+        self.assertEqual(ids, list(range(1, 90)))
+        self.assertEqual(len({entry["name"] for entry in ORGANELLES}), len(ORGANELLES))
+        self.assertTrue(all(entry["resource"].startswith(("res://scn/player/bodyparts/external/",
+                                                          "res://scn/player/bodyparts/internal/"))
+                            for entry in ORGANELLES))
+        self.assertEqual(WORLD.ORGANELLE_ITEM_IDS["Organelle: Pulsar Gland"], 402980001)
+        self.assertTrue(set(WORLD.ORGANELLE_ITEM_IDS.values()).isdisjoint(
+            [*WORLD.UNLOCK_ITEM_IDS.values(), *WORLD.PLASMID_SLOT_ITEM_IDS.values(),
+             *WORLD.FILLER_ITEM_IDS.values()]))
+        self.assertFalse(set(WORLD.ORGANELLE_ITEM_IDS) & set(WORLD.UNLOCK_ITEM_IDS))
 
     def test_plasmids_preserve_character_node_identity(self):
         ordinary = [entry for entry in ENTRIES
@@ -352,7 +373,7 @@ aggregation = 2
 
 class APWorldTests(unittest.TestCase):
     def test_starting_characters_removes_items_shipments_and_natural_checks(self):
-        expected = [entry for entry in ENTRIES if entry["kind"] != "character"]
+        expected = [entry for entry in SELECTABLE if entry["kind"] != "character"]
         individual = [entry for entry in expected if entry["kind"] != "plasmid"]
         characters = [entry for entry in ENTRIES if entry["kind"] == "character"]
         for remote_characters in (False, True):
@@ -368,10 +389,11 @@ class APWorldTests(unittest.TestCase):
                 self.assertTrue(slot["start_with_all_characters"])
                 self.assertEqual(slot["unlock_ids"], [entry["id"] for entry in expected])
                 remote = len(individual) + SLOTS
-                self.assertEqual(slot["checks"], remote + 9)
-                self.assertEqual(len(world.multiworld.itempool), remote + SLOTS + 9)
+                shipments = remote + len(ORGANELLES)
+                self.assertEqual(slot["checks"], shipments + 9)
+                self.assertEqual(len(world.multiworld.itempool), shipments + SLOTS + 9)
                 locations = world.multiworld.regions[1].locations
-                self.assertEqual(len(locations), 2 * remote + 9)
+                self.assertEqual(len(locations), shipments + remote + 9)
                 for entry in characters:
                     self.assertNotIn(entry["name"], [item.name for item in world.multiworld.itempool])
                     self.assertNotIn("Earn " + entry["name"], [location.name for location in locations])
@@ -383,7 +405,7 @@ class APWorldTests(unittest.TestCase):
     def test_starting_characters_does_not_add_checks_when_other_categories_disabled(self):
         world = make_world(
             disabled=tuple(option for kind, option in WORLD.CATEGORY_OPTIONS.items()
-                           if kind != "character"),
+                           if kind != "character") + ("remote_organelles",),
             start_with_all_characters=True)
         world.create_regions()
         world.create_items()
@@ -398,7 +420,7 @@ class APWorldTests(unittest.TestCase):
             world = make_world(required_victories=victories)
             world.generate_early()
             self.assertEqual(world.fill_slot_data()["required_victories"], victories)
-            self.assertEqual(world.shipment_count(), REMOTE)
+            self.assertEqual(world.shipment_count(), SHIPMENTS)
 
     def test_currency_option_bounds(self):
         for checks, amount in (
@@ -417,12 +439,12 @@ class APWorldTests(unittest.TestCase):
         world.generate_early()
         world.create_regions()
         world.create_items()
-        self.assertEqual(world.shipment_count(), REMOTE)
-        self.assertEqual(len(world.multiworld.itempool), REMOTE + SLOTS)
-        self.assertEqual(world.fill_slot_data()["checks"], REMOTE)
+        self.assertEqual(world.shipment_count(), SHIPMENTS)
+        self.assertEqual(len(world.multiworld.itempool), SHIPMENTS + SLOTS)
+        self.assertEqual(world.fill_slot_data()["checks"], SHIPMENTS)
 
     def test_zero_shipments_without_remote_categories(self):
-        world = make_world(disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
+        world = make_world(disabled=(*WORLD.CATEGORY_OPTIONS.values(), "remote_organelles"))
         world.generate_early()
         world.create_regions()
         world.create_items()
@@ -435,7 +457,7 @@ class APWorldTests(unittest.TestCase):
         with fixture_root() as root:
             archive = root / "pathogenic.apworld"
             with zipfile.ZipFile(archive, "w") as package:
-                for filename in ("__init__.py", "catalog.json", "archipelago.json"):
+                for filename in ("__init__.py", "catalog.json", "organelles.json", "archipelago.json"):
                     package.write(ROOT / "apworld/pathogenic" / filename,
                                   "pathogenic/" + filename)
             world = load_world(archive)
@@ -444,6 +466,7 @@ class APWorldTests(unittest.TestCase):
             self.assertEqual(world.UNLOCK_ITEM_IDS, WORLD.UNLOCK_ITEM_IDS)
             self.assertEqual(world.NATURAL_LOCATION_IDS, WORLD.NATURAL_LOCATION_IDS)
             self.assertEqual(world.PLASMID_SLOT_ITEM_IDS, WORLD.PLASMID_SLOT_ITEM_IDS)
+            self.assertEqual(world.ORGANELLE_ITEM_IDS, WORLD.ORGANELLE_ITEM_IDS)
             with zipfile.ZipFile(archive) as package:
                 manifest = json.loads(package.read("pathogenic/archipelago.json"))
             self.assertEqual(manifest["world_version"], json.loads(
@@ -455,33 +478,37 @@ class APWorldTests(unittest.TestCase):
         world.generate_early()
         world.create_regions()
         world.create_items()
-        self.assertEqual(world.shipment_count(), REMOTE)
+        self.assertEqual(world.shipment_count(), SHIPMENTS)
         pool = world.multiworld.itempool
-        self.assertEqual(len(pool), REMOTE + SLOTS)
+        self.assertEqual(len(pool), SHIPMENTS + SLOTS)
         self.assertEqual({item.name for item in pool if item.classification == "useful"},
-                         set(WORLD.UNLOCK_ITEM_IDS) | set(WORLD.PLASMID_SLOT_ITEM_IDS))
+                         set(WORLD.UNLOCK_ITEM_IDS) | set(WORLD.PLASMID_SLOT_ITEM_IDS)
+                         | set(WORLD.ORGANELLE_ITEM_IDS))
+        self.assertEqual(sum(item.name.startswith("Organelle: ") for item in pool), len(ORGANELLES))
         self.assertEqual([item.name for item in pool if item.classification == "filler"],
                          [WORLD.COINS] * SLOTS)
         self.assertFalse(any("Plasmid:" in item.name for item in pool))
         locations = world.multiworld.regions[1].locations
-        self.assertEqual(len(locations), REMOTE + REMOTE)
-        natural = locations[REMOTE:REMOTE + len(INDIVIDUAL)]
+        self.assertEqual(len(locations), SHIPMENTS + REMOTE)
+        natural = locations[SHIPMENTS:SHIPMENTS + len(INDIVIDUAL)]
         for location in natural:
             self.assertTrue(location.locked)
             self.assertEqual(location.item.player, world.player)
             self.assertEqual(location.name, "Earn " + location.item.name)
             self.assertEqual(location.item.classification, "useful")
         # Slot checks are ordinary randomized locations, not self-rewards.
-        for slot, location in enumerate(locations[REMOTE + len(INDIVIDUAL):], 1):
+        for slot, location in enumerate(locations[SHIPMENTS + len(INDIVIDUAL):], 1):
             self.assertEqual(location.name, f"Earn Plasmid Slot {slot:02d}")
             self.assertEqual(location.address, 402970000 + 30000 + slot)
             self.assertFalse(getattr(location, "locked", False))
         self.assertEqual(WORLD.PLASMID_SLOT_ITEM_IDS["Plasmid Slot 36"], 402960000 + 30036)
-        self.assertEqual(world.fill_slot_data()["unlock_ids"],
-                         [entry["id"] for entry in ENTRIES])
+        slot = world.fill_slot_data()
+        self.assertEqual(slot["unlock_ids"], [entry["id"] for entry in SELECTABLE])
+        self.assertEqual(slot["organelle_ids"], [entry["id"] for entry in ORGANELLES])
 
     def test_all_categories_off_preserves_filler_campaign(self):
-        world = make_world(coin_checks=20, disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
+        world = make_world(coin_checks=20,
+                           disabled=(*WORLD.CATEGORY_OPTIONS.values(), "remote_organelles"))
         world.create_regions()
         world.create_items()
         self.assertEqual(len(world.multiworld.regions[1].locations), 20)
@@ -489,11 +516,12 @@ class APWorldTests(unittest.TestCase):
         self.assertTrue(all(item.name == WORLD.COINS and item.classification == "filler"
                             for item in world.multiworld.itempool))
         self.assertEqual(world.fill_slot_data()["unlock_ids"], [])
-        self.assertEqual(world.fill_slot_data()["schema"], 5)
+        self.assertEqual(world.fill_slot_data()["schema"], 6)
+        self.assertEqual(world.fill_slot_data()["organelle_ids"], [])
 
     def test_subset_and_filler_remainder(self):
         disabled = tuple(option for kind, option in WORLD.CATEGORY_OPTIONS.items()
-                         if kind != "character")
+                         if kind != "character") + ("remote_organelles",)
         world = make_world(coin_checks=95, disabled=disabled)
         world.create_regions()
         world.create_items()
@@ -506,9 +534,10 @@ class APWorldTests(unittest.TestCase):
         self.assertEqual(set(slot), {
             "schema", "catalog_schema", "unlock_ids", "checks", "coin_amount",
             "dna_amount", "plasmid_fragment_amount", "sources", "death_link", "required_victories",
-            "start_with_all_characters"})
+            "start_with_all_characters", "organelle_pool_schema", "organelle_ids"})
         self.assertEqual((slot["schema"], slot["catalog_schema"], slot["checks"]),
-                         (5, 1, 100))
+                         (6, 1, 100))
+        self.assertEqual((slot["organelle_pool_schema"], slot["organelle_ids"]), (1, []))
         self.assertEqual(slot["unlock_ids"], [
             entry["id"] for entry in ENTRIES if entry["kind"] == "character"])
 
@@ -517,7 +546,7 @@ class APWorldTests(unittest.TestCase):
         world.options.dna_amount.value = 250
         world.options.plasmid_fragment_amount.value = 6
         world.create_items()
-        self.assertEqual(world.shipment_count(), REMOTE + 9)
+        self.assertEqual(world.shipment_count(), SHIPMENTS + 9)
         fillers = [item for item in world.multiworld.itempool if item.classification == "filler"]
         self.assertEqual(Counter(item.name for item in fillers), {
             WORLD.COINS: 2 + SLOTS, WORLD.DNA: 3, WORLD.PLASMID_FRAGMENTS: 4})
@@ -529,7 +558,7 @@ class APWorldTests(unittest.TestCase):
         world = make_world(coin_checks=10000, dna_checks=10000, plasmid_fragment_checks=10000)
         self.assertEqual(world.shipment_count(), WORLD.MAX_SHIPMENTS)
         self.assertLessEqual(world.shipment_count(), len(WORLD.PathogenicWorld.location_name_to_id))
-        self.assertEqual(WORLD.MAX_SHIPMENTS, len(INDIVIDUAL) + SLOTS + 30000)
+        self.assertEqual(WORLD.MAX_SHIPMENTS, SHIPMENTS + 30000)
 
     def test_goal_uses_shipments_not_native_feats(self):
         world = make_world()
@@ -539,11 +568,11 @@ class APWorldTests(unittest.TestCase):
                                 visited.append(name) is None)
         self.assertTrue(world.multiworld.completion_condition[1](state))
         self.assertEqual(visited, [f"Shop Shipment {index:03d}"
-                                  for index in range(1, REMOTE + 1)])
+                                  for index in range(1, SHIPMENTS + 1)])
 
     def test_disabled_categories_keep_static_name_maps(self):
-        world = make_world(disabled=tuple(WORLD.CATEGORY_OPTIONS.values()))
-        self.assertEqual(len(world.item_name_to_id), REMOTE + 3)
+        world = make_world(disabled=(*WORLD.CATEGORY_OPTIONS.values(), "remote_organelles"))
+        self.assertEqual(len(world.item_name_to_id), REMOTE + len(ORGANELLES) + 3)
         self.assertEqual(len(world.location_name_to_id), WORLD.MAX_SHIPMENTS + REMOTE)
         self.assertEqual(world.item_name_to_id[WORLD.COINS], 402939001)
         self.assertEqual(world.item_name_to_id[WORLD.DNA], 402939002)
@@ -555,11 +584,11 @@ class APWorldTests(unittest.TestCase):
                              402970000 + entry["id"])
 
     def test_category_defaults_and_generation_are_deterministic(self):
-        for kind in WORLD.CATEGORY_OPTIONS:
-            option_type = getattr(WORLD, "Remote" + {
-                "character": "Characters", "plasmid": "Plasmids", "loadout": "Loadouts",
-                "organelle": "Organelles", "environment": "Environment"}[kind])
-            self.assertTrue(issubclass(option_type, WORLD.DefaultOnToggle))
+        self.assertEqual(set(WORLD.CATEGORY_OPTIONS), {"character", "plasmid", "loadout"})
+        self.assertFalse(hasattr(WORLD, "RemoteEnvironment"))
+        self.assertNotIn("remote_environment", WORLD.PathogenicOptions.__annotations__)
+        for name in ("Characters", "Plasmids", "Loadouts", "Organelles"):
+            self.assertTrue(issubclass(getattr(WORLD, "Remote" + name), WORLD.DefaultOnToggle))
         first, second = make_world(), make_world()
         first.create_items()
         second.create_items()

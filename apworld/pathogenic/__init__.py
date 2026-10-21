@@ -19,13 +19,19 @@ if CATALOG["schema"] != CATALOG_SCHEMA:
 CATALOG_ENTRIES = tuple(CATALOG["entries"])
 CATALOG_BY_ID = {entry["id"]: entry for entry in CATALOG_ENTRIES}
 CATALOG_BY_KEY = {entry["key"]: entry for entry in CATALOG_ENTRIES}
+# Organelle gates are always open in multiworld campaigns, and environment features
+# use native acquisition only. Their catalogue IDs stay reserved for older seeds.
 CATEGORY_OPTIONS = {
     "character": "remote_characters",
     "plasmid": "remote_plasmids",
     "loadout": "remote_loadouts",
-    "organelle": "remote_organelles",
-    "environment": "remote_environment",
 }
+ORGANELLE_POOL_SCHEMA = 1
+ORGANELLE_ITEM_BASE = 402980000
+ORGANELLE_POOL = json.loads(get_data(__name__, "organelles.json").decode("utf-8"))
+if ORGANELLE_POOL["schema"] != ORGANELLE_POOL_SCHEMA:
+    raise ValueError("Unsupported Pathogenic organelle pool")
+ORGANELLES = tuple(ORGANELLE_POOL["entries"])
 
 
 # Plasmid slot N is the pseudo catalogue ID PLASMID_SLOT_BASE + N, outside real IDs (< 10000).
@@ -41,7 +47,12 @@ def plasmid_slot_name(slot: int) -> str:
     return f"Plasmid Slot {slot:02d}"
 
 
-INDIVIDUAL_ENTRIES = tuple(entry for entry in CATALOG_ENTRIES if entry["kind"] != "plasmid")
+def organelle_item_name(entry: dict) -> str:
+    return f"Organelle: {entry['name']}"
+
+
+INDIVIDUAL_ENTRIES = tuple(entry for entry in CATALOG_ENTRIES if entry["kind"] in CATEGORY_OPTIONS
+                           and entry["kind"] != "plasmid")
 UNLOCK_ITEM_IDS = {entry["name"]: UNLOCK_ITEM_BASE + entry["id"] for entry in INDIVIDUAL_ENTRIES}
 NATURAL_LOCATION_IDS = {
     natural_location_name(entry): NATURAL_LOCATION_BASE + entry["id"]
@@ -55,6 +66,9 @@ PLASMID_SLOT_LOCATION_IDS = {
     "Earn " + plasmid_slot_name(slot): NATURAL_LOCATION_BASE + PLASMID_SLOT_BASE + slot
     for slot in range(1, PLASMID_SLOTS + 1)
 }
+ORGANELLE_ITEM_IDS = {
+    organelle_item_name(entry): ORGANELLE_ITEM_BASE + entry["id"] for entry in ORGANELLES
+}
 COINS = "Coins"
 DNA = "DNA"
 PLASMID_FRAGMENTS = "Plasmid Fragments"
@@ -64,7 +78,7 @@ FILLER_ITEM_IDS = {
     PLASMID_FRAGMENTS: 402939003,
 }
 MAX_FILLER_CHECKS = 10_000
-MAX_SHIPMENTS = len(INDIVIDUAL_ENTRIES) + PLASMID_SLOTS + len(FILLER_ITEM_IDS) * MAX_FILLER_CHECKS
+MAX_SHIPMENTS = len(INDIVIDUAL_ENTRIES) + PLASMID_SLOTS + len(ORGANELLES) + len(FILLER_ITEM_IDS) * MAX_FILLER_CHECKS
 
 
 class CoinChecks(Range):
@@ -124,31 +138,31 @@ class PlasmidFragmentAmount(Range):
 class ShopUnlocks(DefaultOnToggle):
     """One pedestal in every coin shop is a Remote Unlock bought with coins."""
 
-    display_name = "Remote Unlocks in Shops"
+    display_name = "Receive a random reward during Shops"
 
 
 class ItemRoomUnlocks(DefaultOnToggle):
     """One free pedestal in every blue item room is a Remote Unlock."""
 
-    display_name = "Remote Unlocks in Blue Item Rooms"
+    display_name = "Receive a random reward during Blue Item Rooms"
 
 
 class BossRewardUnlocks(DefaultOnToggle):
     """One choice of every boss bodypart reward is a Remote Unlock."""
 
-    display_name = "Remote Unlocks in Boss Rewards"
+    display_name = "Receive a random reward during Boss Rewards"
 
 
 class LevelUpUnlocks(DefaultOnToggle):
     """The last card of every level-up mutation draft is a Remote Unlock."""
 
-    display_name = "Remote Unlocks in Level-Up Drafts"
+    display_name = "Receive a random reward during Level-Up Drafts"
 
 
 class RemoteCharacters(DefaultOnToggle):
     """Include character unlocks unless starting with all characters unlocked."""
 
-    display_name = "Remote Character Unlocks"
+    display_name = "Add Characters to the pool of random rewards"
 
 
 class StartWithAllCharacters(Toggle):
@@ -167,25 +181,24 @@ class RemotePlasmids(DefaultOnToggle):
     sends the slot's "Earn Plasmid Slot N" check once.
     """
 
-    display_name = "Remote Plasmid Unlocks"
+    display_name = "Add Plasmids to the pool of random rewards"
 
 
 class RemoteLoadouts(DefaultOnToggle):
     """Include gated starting-loadout choices, using their own native gates."""
 
-    display_name = "Remote Loadout Unlocks"
+    display_name = "Add Loadouts to the pool of random rewards"
 
 
 class RemoteOrganelles(DefaultOnToggle):
-    """Include gated organelle random-drop unlocks, separate from loadout choices."""
+    """Every organelle can always drop in multiworld runs. When enabled, add one
+    "Organelle: <name>" item and one shipment check for each organelle in the drop
+    pool (shared by every character). A received organelle opens the in-run editor
+    holding it, as if it had just been picked up; deliveries queue until the player
+    is in control and arrive oldest first, at least two seconds apart.
+    """
 
-    display_name = "Remote Organelle Unlocks"
-
-
-class RemoteEnvironment(DefaultOnToggle):
-    """Include environmental feature unlocks without replacing normal acquisition."""
-
-    display_name = "Remote Environment Unlocks"
+    display_name = "Add Organelles to the pool of random rewards"
 
 
 class PathogenicDeathLink(DeathLink):
@@ -234,7 +247,6 @@ class PathogenicOptions(PerGameCommonOptions):
     remote_plasmids: RemotePlasmids
     remote_loadouts: RemoteLoadouts
     remote_organelles: RemoteOrganelles
-    remote_environment: RemoteEnvironment
     death_link: PathogenicDeathLink
     required_victories: RequiredVictories
 
@@ -267,7 +279,8 @@ class PathogenicWorld(World):
     options: PathogenicOptions
     required_client_version = (0, 6, 0)
     topology_present = False
-    item_name_to_id = {**FILLER_ITEM_IDS, **UNLOCK_ITEM_IDS, **PLASMID_SLOT_ITEM_IDS}
+    item_name_to_id = {**FILLER_ITEM_IDS, **UNLOCK_ITEM_IDS, **PLASMID_SLOT_ITEM_IDS,
+                       **ORGANELLE_ITEM_IDS}
     location_name_to_id = {
         f"Shop Shipment {index:03d}": 402938000 + index
         for index in range(1, MAX_SHIPMENTS + 1)
@@ -278,7 +291,8 @@ class PathogenicWorld(World):
     def enabled_unlocks(self) -> tuple:
         """Catalogue order is stable, independent of world RNG or dictionary order."""
         return tuple(entry for entry in CATALOG_ENTRIES
-                     if getattr(self.options, CATEGORY_OPTIONS[entry["kind"]]).value
+                     if entry["kind"] in CATEGORY_OPTIONS
+                     and getattr(self.options, CATEGORY_OPTIONS[entry["kind"]]).value
                      and not (entry["kind"] == "character"
                               and self.options.start_with_all_characters.value))
 
@@ -289,8 +303,11 @@ class PathogenicWorld(World):
         return tuple(sorted({entry["slot"] for entry in self.enabled_unlocks()
                              if entry["kind"] == "plasmid"}))
 
+    def organelles(self) -> tuple:
+        return ORGANELLES if self.options.remote_organelles.value else ()
+
     def shipment_count(self) -> int:
-        return len(self.individual_unlocks()) + len(self.plasmid_slots()) \
+        return len(self.individual_unlocks()) + len(self.plasmid_slots()) + len(self.organelles()) \
             + self.options.coin_checks.value \
             + self.options.dna_checks.value + self.options.plasmid_fragment_checks.value
 
@@ -343,6 +360,8 @@ class PathogenicWorld(World):
         self.multiworld.itempool.extend(
             self.create_item(plasmid_slot_name(slot)) for slot in self.plasmid_slots())
         self.multiworld.itempool.extend(
+            self.create_item(organelle_item_name(entry)) for entry in self.organelles())
+        self.multiworld.itempool.extend(
             self.create_item(self.get_filler_item_name()) for _ in self.plasmid_slots())
         for name, count in (
             (COINS, self.options.coin_checks.value),
@@ -362,8 +381,10 @@ class PathogenicWorld(World):
 
     def fill_slot_data(self) -> dict:
         return {
-            "schema": 5,
+            "schema": 6,
             "catalog_schema": CATALOG_SCHEMA,
+            "organelle_pool_schema": ORGANELLE_POOL_SCHEMA,
+            "organelle_ids": [entry["id"] for entry in self.organelles()],
             "start_with_all_characters": bool(self.options.start_with_all_characters.value),
             "unlock_ids": [entry["id"] for entry in self.enabled_unlocks()],
             "checks": self.shipment_count(),

@@ -127,6 +127,22 @@ ID 92 is an ordinary purchasable map node. Repeated effects are retained under
 their distinct node keys. All 14 gated organelles are present in the shipped
 `all_bodyparts.tres` resource group's pool; the private-data test checks this.
 
+Catalogue `organelle` and `environment` entries are retired from generation in
+slot schema 6: their IDs stay reserved and are still honoured for schema 1-5
+seeds, but new seeds never contain them and schema 6 slot data that selects one
+is rejected. In a schema 6 campaign every bodypart drop gate under
+`res://scn/player/bodyparts/` is open.
+
+Organelle deliveries use the separate pool `organelles.json`
+(`{"schema": 1, "entries": [{"key", "resource", "name", "id"}], "retired": {}}`),
+regenerated with `python3 tools/extract_organelle_pool.py --recovered <root>`
+(`--check` verifies it). It lists every non-disabled `external/` and `internal/`
+bodypart in `all_bodyparts.tres` (89 in v1.3.6; every character draws from this
+same pool). IDs are stable per `key` and never reused. Item
+`Organelle: <name>` has ID `402980000 + id`. Received organelles are queued in the
+campaign journal (`organelles_delivered` counts completed deliveries) and each
+opens `G.editor.show_editor(bodypart)` when the player is in control.
+
 AP item IDs of non-plasmid entries are `402960000 + id`; optional
 natural-location IDs are `402970000 + id`, named `Earn <item name>`. Plasmids
 have no per-entry items or locations: `Plasmid Slot NN` items are
@@ -145,10 +161,13 @@ Slot data is exactly:
 
 ```json
 {
-  "schema": 5,
+  "schema": 6,
   "catalog_schema": 1,
+  "organelle_pool_schema": 1,
+  "organelle_ids": [1, 2],
+  "start_with_all_characters": false,
   "unlock_ids": [0, 1],
-  "checks": 2,
+  "checks": 4,
   "coin_amount": 15,
   "dna_amount": 1,
   "plasmid_fragment_amount": 1,
@@ -158,15 +177,18 @@ Slot data is exactly:
     "boss_rewards": true,
     "level_ups": true
   },
-  "death_link": true
+  "death_link": true,
+  "required_victories": 0
 }
 ```
 
-The example selects two catalogue IDs. Actual `unlock_ids` enumerate every
+The example selects two catalogue IDs and two organelle deliveries. Actual `unlock_ids` enumerate every
 enabled entry (including plasmids) in stable ID order; the client maps enabled
 plasmids to their slots. `checks` is the total randomized shipment count,
-including enabled non-plasmid unlocks, plasmid slots and all configured currency
-checks. Static item/location name maps contain the entire catalogue and all slots
-regardless of enabled categories. Schema 4 slot data (per-character plasmid items)
+including enabled character and loadout unlocks, plasmid slots, organelle
+deliveries (`organelle_ids` is empty when `remote_organelles` is off) and all
+configured currency checks. Static item/location name maps contain the entire catalogue and all slots
+regardless of enabled categories. Schema 5 slot data (catalogue organelle-drop and environment items), schema 4
+slot data (per-character plasmid items)
 and schema 1/2/3 slot data remain supported; `extra_checks` is read as the older total check
 count, and legacy Research Grant items still award 15 Coins.

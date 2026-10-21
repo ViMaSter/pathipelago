@@ -29,11 +29,19 @@ keep DeathLink off and must be regenerated to enable it.
 
 ## What items can appear in other players' worlds?
 
-Character, plasmid, starting-loadout, organelle and environmental unlocks are
-included by default. They are **additive**: receiving one grants it remotely,
-but its normal acquisition remains available. A starting-loadout option and its
-organelle's random-drop unlock are separate items with separate native gates.
-Starting plasmids are excluded.
+Character, plasmid and starting-loadout unlocks and organelle deliveries are
+included by default. Unlocks are **additive**: receiving one grants it remotely,
+but its normal acquisition remains available. Starting plasmids are excluded.
+Environmental features are never randomized and keep their native requirements.
+
+Every organelle's random-drop gate is always open in a MultiworldGG campaign.
+With `remote_organelles: true` the pool also contains one **Organelle: ...** item
+for each of the 89 organelles that can drop in a run (the pool is the same for
+every character). Receiving one opens the in-run Editor holding that organelle,
+like buying it in a shop, so you can place or discard it. Deliveries queue up
+oldest first and only open while you freely control your character outside
+combat rooms, at least two seconds after the previous Editor closed. An organelle
+counts as delivered only once its Editor closes; otherwise it is offered again.
 
 Plasmids are shared between characters as 36 **Plasmid Slot** items. Each
 character's plasmids are numbered by distance from its map's starting node, and
@@ -47,10 +55,11 @@ options, 14 organelles and 6 environmental features. Plasmids are connected node
 in the seven active maps. Two unreferenced standalone character-unlock scenes
 are excluded because they cannot be naturally acquired through those maps.
 
-Use `remote_characters`, `remote_plasmids`, `remote_loadouts`, `remote_organelles`
-and `remote_environment` to disable individual categories. Every selected
-non-plasmid unlock and plasmid slot appears once in the randomized shipment pool.
-Each non-plasmid unlock has an additional optional `Earn ...` location containing a
+Use `remote_characters`, `remote_plasmids`, `remote_loadouts` and `remote_organelles`
+to disable individual categories. Every selected character or loadout unlock,
+plasmid slot and organelle appears once in the randomized shipment pool
+(73 + 36 + 89 = 198 with everything enabled).
+Each character or loadout unlock has an additional optional `Earn ...` location containing a
 fixed copy for the same player. Native feats are
 never required by generation logic or the goal. Unlock items are useful, not
 progression.

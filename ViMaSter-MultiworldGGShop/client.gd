@@ -47,6 +47,12 @@ const REMOTE_ICON_SCALE := Vector2(3.0, 3.0)
 const State = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/state.gd")
 const Isolation = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/isolation.gd")
 const Unlocks = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/unlocks.gd")
+const Organelles = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/organelles.gd")
+# Minimum time the player must be in control before each organelle delivery.
+const ORGANELLE_GAP_MSEC := 2000
+# Test hook: while this file exists, the client mirrors its delivery state to DEBUG_STATE.
+const DEBUG_FLAG := ROOT + "/debug_state.flag"
+const DEBUG_STATE := ROOT + "/debug_state.json"
 
 var socket := WebSocketPeer.new()
 var authenticated := false
@@ -128,6 +134,10 @@ var settled_player := 0
 var player_seen := 0
 var player_age := 0.0
 var _log: FileAccess
+var organelle_ready_since := -1
+var organelle_last_wait := -1 # control time before the last delivery opened, for the live test
+var organelle_open := -1
+var debug_time := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -501,6 +511,11 @@ func _process(delta: float) -> void:
 	_update_start_tip()
 	_track_player(delta)
 	_apply_pending_death()
+	_deliver_organelles()
+	debug_time += delta
+	if debug_time >= 0.25:
+		debug_time = 0.0
+		_write_debug_state()
 	refresh_time += delta
 	if refresh_time >= 0.5:
 		refresh_time = 0.0
@@ -672,7 +687,7 @@ func _connected(message: Dictionary) -> void:
 				valid_amounts = false
 	if not State.integer(message.get("team")) or not State.integer(message.get("slot")) \
 			or not data is Dictionary or not State.integer(count_value) \
-			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4, 5] or not valid_amounts \
+			or not State.integer(schema_value) or not int(schema_value) in [1, 2, 3, 4, 5, 6] or not valid_amounts \
 			or not State.integer(victories_value) or int(victories_value) < 0 or int(victories_value) > 50 \
 			or int(count_value) < 0 or int(count_value) > MAX_CHECKS or parse_sources(data) == null \
 			or not data.get("start_with_all_characters", false) is bool \
@@ -697,11 +712,20 @@ func _connected(message: Dictionary) -> void:
 			_fail("Missing or incompatible server unlock catalogue.")
 			return
 		ids = data.unlock_ids
-		if not Unlocks.configure(ids, data.get("start_with_all_characters", false), slot_schema >= 5):
+		if not Unlocks.configure(ids, data.get("start_with_all_characters", false), slot_schema >= 5,
+				slot_schema >= 6):
 			_fail(Unlocks.error)
 			return
 	else:
 		Unlocks.reset()
+	Organelles.reset()
+	if slot_schema >= 6:
+		if data.get("organelle_pool_schema") != 1 or not data.get("organelle_ids") is Array:
+			_fail("Missing or incompatible server organelle pool.")
+			return
+		if not Organelles.configure(data.organelle_ids):
+			_fail(Organelles.error)
+			return
 	count = int(count_value)
 	sources = parse_sources(data)
 	if _save_config() != OK:
@@ -715,7 +739,7 @@ func _connected(message: Dictionary) -> void:
 	campaign = State.new()
 	var plasmids: Array = Unlocks.selected.keys().filter(func(id): return Unlocks.slot_mode and Unlocks.slots.has(id))
 	if not campaign.open(ROOT + "/" + identity.sha256_text() + ".json", identity, count,
-			Unlocks.remote.keys(), plasmids):
+			Unlocks.remote.keys(), plasmids, Organelles.selected.keys()):
 		_fail(campaign.error)
 		return
 	for id in campaign.natural:
@@ -986,9 +1010,18 @@ func _received(message: Dictionary) -> void:
 		else:
 			item_stream.append(item)
 	var before := [campaign.bank, campaign.dna_bank, campaign.plasmid_fragment_bank]
+	var previous_received: int = campaign.received.size()
 	if not campaign.accept_items(item_stream):
 		_fail(campaign.error)
 		return
+	var organelle_names: Array[String] = []
+	for item in campaign.received.slice(previous_received):
+		var organelle := Organelles.id_of(int(item))
+		if organelle >= 0:
+			organelle_names.append(Organelles.display_name(organelle))
+	if not organelle_names.is_empty():
+		log_line("Received organelles (queued for the editor): " + ", ".join(organelle_names))
+		show_toast("Received " + "\n".join(organelle_names))
 	var added_coins: int = campaign.bank - before[0]
 	var added_dna: int = campaign.dna_bank - before[1]
 	var added_fragments: int = campaign.plasmid_fragment_bank - before[2]
@@ -997,6 +1030,135 @@ func _received(message: Dictionary) -> void:
 			added_coins, added_dna, added_fragments])
 		redeem_rewards(true)
 	_reconcile_unlocks()
+
+func _organelle_player() -> Node:
+	if fatal or not authenticated or not run_multiworld or not _run_active() \
+			or campaign_identity != Isolation.identity or not Isolation.active:
+		return null
+	var globals := get_node("/root/G")
+	if int(globals.get("daily_run")) != 0:
+		return null
+	var player: Node = globals.get("player")
+	return player if is_instance_valid(player) and player.is_inside_tree() else null
+
+# True while the player swims freely: no menu, pause, cutscene, editor or fight.
+func _organelle_player_in_control(player: Node, editor: Node) -> bool:
+	return player != null and is_instance_valid(editor) and is_instance_valid(get_node("/root/G").get("world")) \
+			and not get_tree().paused and player.is_node_ready() and player.can_process() \
+			and player.has_method("acts_on_input") and player.acts_on_input() \
+			and player.has_method("in_play") and player.in_play() \
+			and editor.get("active") == false and editor.get("active_bodypart") == null \
+			and editor.get("state") == _enum_value("EditorState", "HIDDEN") \
+			and get_node("/root/G").get("current_room") == null \
+			and editor.has_method("get_following_camera") and is_instance_valid(editor.get_following_camera())
+
+# Received organelles open the editor holding the part, like a picked-up reward. One is
+# shown at a time, oldest first; each counts as delivered once the editor closes again.
+func _deliver_organelles() -> void:
+	if campaign == null or not synchronized:
+		organelle_ready_since = -1
+		return
+	var player := _organelle_player()
+	var editor: Node = get_node("/root/G").get("editor") if get_node_or_null("/root/G") != null else null
+	if organelle_open >= 0:
+		organelle_ready_since = -1
+		if player == null or not is_instance_valid(editor):
+			log_line("Organelle %s was not placed before the run ended; it will be offered again." \
+					% Organelles.display_name(organelle_open))
+			organelle_open = -1
+		elif editor.get("state") == _enum_value("EditorState", "HIDDEN") and editor.get("active") == false:
+			var delivered := organelle_open
+			organelle_open = -1
+			if not campaign.deliver_organelle():
+				_fail(campaign.error)
+				return
+			log_line("Delivered organelle %s (%d queued)." % [Organelles.display_name(delivered),
+					campaign.pending_organelles().size()])
+		return
+	var pending: Array = campaign.pending_organelles()
+	if pending.is_empty() or not _organelle_player_in_control(player, editor):
+		organelle_ready_since = -1
+		return
+	var now := Time.get_ticks_msec()
+	if organelle_ready_since == -1:
+		organelle_ready_since = now
+	if now - organelle_ready_since < ORGANELLE_GAP_MSEC:
+		return
+	organelle_last_wait = now - organelle_ready_since
+	organelle_ready_since = -1
+	var id: int = pending[0]
+	var bodypart := _instantiate_organelle(id)
+	if bodypart == null:
+		# Never block the queue on a part this game version lacks.
+		if campaign.deliver_organelle():
+			notify("Skipped organelle %s: this game version does not provide it." % Organelles.display_name(id))
+		else:
+			_fail(campaign.error)
+		return
+	# Mirrors BodypartReward hand-off: internal parts are shown at editor scale.
+	if not bodypart.has_tag(_enum_value("BodypartTags", "External")):
+		bodypart.scale /= 3.0
+		bodypart.modulate = Color.WHITE
+		bodypart.set_masked_visible(false)
+	organelle_open = id
+	editor.show_editor(bodypart)
+	var audio := get_node_or_null("/root/AudioManager")
+	if audio != null and audio.get("upgrade") is Node and audio.upgrade.has_method("play"):
+		audio.upgrade.play()
+	log_line("Opened editor with organelle %s (%d more queued)." % [Organelles.display_name(id),
+			pending.size() - 1])
+
+func _instantiate_organelle(id: int) -> Node:
+	var path := Organelles.resource(id)
+	var resource: Resource = load(path) if ResourceLoader.exists(path) else null
+	return resource.instantiate() if resource != null and resource.has_method("instantiate") else null
+
+func _write_debug_state() -> void:
+	if not FileAccess.file_exists(DEBUG_FLAG):
+		return
+	var globals := get_node_or_null("/root/G")
+	var editor: Node = globals.get("editor") if globals != null else null
+	var held := ""
+	var editor_state := -1
+	if is_instance_valid(editor):
+		editor_state = int(editor.get("state"))
+		var part: Variant = editor.get("active_bodypart")
+		if is_instance_valid(part) and part.get("res") is Resource:
+			held = str(part.res.resource_path)
+	var player := _organelle_player()
+	var data := {
+		"time_msec": Time.get_ticks_msec(), "authenticated": authenticated, "synchronized": synchronized,
+		"run_multiworld": run_multiworld, "run_active": _run_active(), "player": player != null,
+		"in_control": _organelle_player_in_control(player, editor) if player != null else false,
+		"paused": get_tree().paused, "editor_state": editor_state,
+		"editor_active": is_instance_valid(editor) and editor.get("active") == true, "held": held,
+		"organelle_open": Organelles.resource(organelle_open) if organelle_open >= 0 else "",
+		"pending": campaign.pending_organelles().map(func(id): return Organelles.resource(id)) \
+				if campaign != null else [],
+		"delivered": campaign.organelles_delivered if campaign != null else 0,
+		"last_wait_msec": organelle_last_wait,
+		"scene": get_tree().current_scene.scene_file_path if get_tree().current_scene != null else "",
+		"recycle_button": _debug_screen_rect(editor.get_node_or_null("%RecycleButton")) \
+				if is_instance_valid(editor) else [],
+	}
+	var file := FileAccess.open(DEBUG_STATE + ".tmp", FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(data))
+	file.close()
+	DirAccess.rename_absolute(DEBUG_STATE + ".tmp", DEBUG_STATE)
+
+# Visible control rectangle in macOS screen points, for the live test harness to click.
+func _debug_screen_rect(control: Variant) -> Array:
+	if not control is Control or not control.is_visible_in_tree():
+		return []
+	var rect: Rect2 = control.get_global_rect()
+	var xform: Transform2D = control.get_viewport().get_screen_transform()
+	var origin := Vector2(DisplayServer.window_get_position())
+	var scale := DisplayServer.screen_get_scale()
+	var start: Vector2 = (origin + xform * rect.position) / scale
+	var end: Vector2 = (origin + xform * rect.end) / scale
+	return [start.x, start.y, end.x - start.x, end.y - start.y]
 
 func _send_checks() -> void:
 	if campaign != null and (not campaign.checks.is_empty() or not campaign.earned.is_empty()):

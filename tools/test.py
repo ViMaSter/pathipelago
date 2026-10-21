@@ -31,9 +31,10 @@ def engine_tests(godot: str, live_server: str | None = None, unlocks: bool = Fal
         shutil.copytree(ROOT / "ViMaSter-MultiworldGGShop",
                         project / "mods-unpacked/ViMaSter-MultiworldGGShop")
         shutil.copytree(ROOT / "tests", project / "tests")
-        catalogue = ROOT / "apworld/pathogenic/catalog.json"
-        if catalogue.is_file():
-            shutil.copy2(catalogue, project / "mods-unpacked/ViMaSter-MultiworldGGShop/catalog.json")
+        for data in ("catalog.json", "organelles.json"):
+            source = ROOT / "apworld/pathogenic" / data
+            if source.is_file():
+                shutil.copy2(source, project / "mods-unpacked/ViMaSter-MultiworldGGShop" / data)
         shop = project / "scn/environ/pickups"
         shop.mkdir(parents=True)
         shutil.copy(ROOT / "tests/stubs/profile_manager.gd", project / "scn/profile_manager.gd")

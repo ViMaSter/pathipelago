@@ -6,6 +6,10 @@ const LOCATION_BASE := 402970000
 # Plasmid slot N uses pseudo ID SLOT_BASE + N for its item and "Earn Plasmid Slot N" check.
 const SLOT_BASE := 30000
 const CATALOG := "res://mods-unpacked/ViMaSter-MultiworldGGShop/catalog.json"
+# Every organelle can drop in a multiworld campaign; their native gates live in these files.
+const BODYPART_ROOT := "res://scn/player/bodyparts/"
+# Schema 6 seeds no longer randomize these catalogue kinds; their IDs remain reserved.
+const RETIRED_KINDS := ["organelle", "environment"]
 static var entries: Dictionary = {}
 static var conditions: Dictionary = {}
 static var nodes: Dictionary = {}
@@ -62,7 +66,8 @@ static func load_catalog() -> bool:
 			loadouts["%d/%s" % [int(entry.parasite), entry.bodypart]] = int(entry.id)
 	return true
 
-static func configure(ids: Array, all_characters: bool = false, shared_slots: bool = false) -> bool:
+static func configure(ids: Array, all_characters: bool = false, shared_slots: bool = false,
+		retired_kinds: bool = false) -> bool:
 	if not load_catalog():
 		return false
 	var next := {}
@@ -74,6 +79,9 @@ static func configure(ids: Array, all_characters: bool = false, shared_slots: bo
 		next[int(id)] = true
 		if all_characters and entries[int(id)].kind == "character":
 			error = "Server included character unlocks despite starting with all characters."
+			return false
+		if retired_kinds and entries[int(id)].kind in RETIRED_KINDS:
+			error = "Server selected a retired organelle or environment unlock."
 			return false
 		if shared_slots and entries[int(id)].kind == "plasmid" and not slots.has(int(id)):
 			error = "Server selected a Plasmid without a shared slot."
@@ -140,6 +148,8 @@ static func reconcile(items: Array, confirmed: Array) -> bool:
 static func condition_override(path: String) -> Variant:
 	if not governs():
 		return null
+	if path.begins_with(BODYPART_ROOT):
+		return true
 	var relevant := false
 	for id in conditions.get(path, []):
 		if start_with_all_characters and entries[id].kind == "character":
@@ -151,6 +161,8 @@ static func condition_override(path: String) -> Variant:
 	return true if relevant else null
 
 static func resource_override(path: String) -> Variant:
+	if governs() and path.begins_with(BODYPART_ROOT):
+		return true
 	var id: int = resources.get(path, -1)
 	if governs() and start_with_all_characters and entries.has(id) \
 			and entries[id].kind == "character":

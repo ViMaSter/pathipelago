@@ -7,6 +7,7 @@ const PLASMID_FRAGMENTS_ITEM := 402939003
 const GRANT_ITEM := COINS_ITEM
 const UNLOCK_ITEM_BASE := 402960000
 const UNLOCK_LOCATION_BASE := 402970000
+const ORGANELLE_ITEM_BASE := 402980000
 var path := ""
 var identity := ""
 var count := 0
@@ -19,6 +20,9 @@ var confirmed_unlocks: Array = []
 var natural_ids: Array = []
 var natural: Array = []
 var victories: Array = []
+var organelle_ids: Array = []
+# Received organelle items delivered into the editor, counted in received order.
+var organelles_delivered := 0
 var bank := 0
 var dna_bank := 0
 var plasmid_fragment_bank := 0
@@ -29,13 +33,15 @@ static func integer(value: Variant) -> bool:
 
 # ids are item/location pseudo IDs; plasmids are catalogue IDs that may be bought per character.
 func open(file_path: String, campaign_identity: String, location_count: int, ids: Array = [],
-		plasmids: Array = []) -> bool:
+		plasmids: Array = [], organelles: Array = []) -> bool:
 	path = file_path
 	identity = campaign_identity
 	count = location_count
 	unlock_ids = ids.map(func(value): return int(value))
 	natural_ids = plasmids.map(func(value): return int(value))
+	organelle_ids = organelles.map(func(value): return int(value))
 	natural.clear()
+	organelles_delivered = 0
 	if not FileAccess.file_exists(path):
 		return _save()
 	var parser := JSON.new()
@@ -103,6 +109,12 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 			return false
 		seen_victories[run_id] = true
 	victories = saved_victories.duplicate()
+	var delivered: Variant = data.get("organelles_delivered", 0)
+	if not integer(delivered) or int(delivered) < 0 \
+			or int(delivered) > received.filter(func(item): return _organelle_item(item)).size():
+		error = "Invalid organelle delivery journal; it has not been reset."
+		return false
+	organelles_delivered = int(delivered)
 	bank = int(data.bank)
 	dna_bank = int(dna_bank_value)
 	plasmid_fragment_bank = int(plasmid_fragment_bank_value)
@@ -110,7 +122,26 @@ func open(file_path: String, campaign_identity: String, location_count: int, ids
 
 func _valid_item(item: Variant) -> bool:
 	return integer(item) and (int(item) in [COINS_ITEM, DNA_ITEM, PLASMID_FRAGMENTS_ITEM]
-			or int(item) - UNLOCK_ITEM_BASE in unlock_ids)
+			or int(item) - UNLOCK_ITEM_BASE in unlock_ids or _organelle_item(item))
+
+func _organelle_item(item: Variant) -> bool:
+	return integer(item) and int(item) - ORGANELLE_ITEM_BASE in organelle_ids
+
+# Organelle IDs received but not yet delivered, oldest first.
+func pending_organelles() -> Array:
+	var pending := received.filter(func(item): return _organelle_item(item)) \
+			.map(func(item): return int(item) - ORGANELLE_ITEM_BASE)
+	return pending.slice(organelles_delivered)
+
+func deliver_organelle() -> bool:
+	if pending_organelles().is_empty():
+		error = "Attempted to deliver an organelle that was never received."
+		return false
+	organelles_delivered += 1
+	if not _save():
+		organelles_delivered -= 1
+		return false
+	return true
 
 func _unlock_locations(locations: Variant) -> bool:
 	if not locations is Array:
@@ -276,7 +307,7 @@ func _save() -> bool:
 		"confirmed": confirmed, "received": received, "bank": bank,
 		"dna_bank": dna_bank, "plasmid_fragment_bank": plasmid_fragment_bank,
 		"earned": earned, "confirmed_unlocks": confirmed_unlocks, "victories": victories,
-		"natural_plasmids": natural
+		"natural_plasmids": natural, "organelles_delivered": organelles_delivered
 	}))
 	file.flush()
 	var err := file.get_error()

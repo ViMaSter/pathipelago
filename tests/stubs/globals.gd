@@ -17,5 +17,7 @@ var player: Node
 var main: Node
 var rng_seed := "SEEDAAAA"
 var editor: Node
+var world: Node
+var current_room: Node
 var selected_parasite := 0
 var daily_run := 0

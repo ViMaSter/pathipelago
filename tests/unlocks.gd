@@ -14,6 +14,49 @@ class ProtocolClient extends Client:
 		sent.append(message)
 		return true
 
+class OrganelleClient extends ProtocolClient:
+	func _instantiate_organelle(id: int) -> Node:
+		var part := PartDouble.new()
+		part.id = id
+		return part
+
+class PartDouble extends Node2D:
+	var id := 0
+	var masked := true
+	func has_tag(_tag: int) -> bool:
+		return false
+	func set_masked_visible(value: bool) -> void:
+		masked = value
+
+class EditorDouble extends Node:
+	var state := 3
+	var active := false
+	var active_bodypart: Node = null
+	var shown: Array = []
+	var camera := Node2D.new()
+	func get_following_camera() -> Node:
+		return camera
+	func show_editor(part: Node) -> void:
+		# Like the game, a second hand-off would park the held part; the client must never do that.
+		shown.append(part.id)
+		active_bodypart = part
+		active = true
+		state = 2
+	func place_and_close() -> void:
+		if active_bodypart != null:
+			active_bodypart.free()
+		active_bodypart = null
+		active = false
+		state = 3
+
+class PlayerDouble extends Node:
+	var dead := false
+	var listening := true
+	func acts_on_input() -> bool:
+		return listening and not dead
+	func in_play() -> bool:
+		return not dead
+
 class Chain extends RefCounted:
 	var reference_object: Object
 	var original: Callable
@@ -272,6 +315,7 @@ func _run() -> void:
 	check(FileAccess.get_file_as_string("user://profile_1/save.json") == original, "normal save still byte-identical after round trip")
 	check(hooks.is_unlocked(Chain.new(condition, "is_unlocked")) == condition.natural, "vanilla condition semantics restored")
 	_slot_inventory()
+	_organelle_deliveries(global)
 	var empty_client := ProtocolClient.new()
 	root.add_child(empty_client)
 	empty_client.set_process(false)
@@ -520,3 +564,131 @@ func _victories(client: Node, globals: Node) -> void:
 	globals.main = null
 	globals.player = null
 	hook.free()
+
+func _organelle_deliveries(global: Node) -> void:
+	const Organelles = preload("res://mods-unpacked/ViMaSter-MultiworldGGShop/organelles.gd")
+	check(Organelles.load_pool() and Organelles.entries.size() == 89, "organelle pool loads: " + Organelles.error)
+	var isolation := [Isolation.active, Isolation.identity]
+	Isolation.active = true
+	Isolation.identity = "organelle-campaign"
+	var retired: Array = Unlocks.entries.keys().filter(func(id): return Unlocks.entries[id].kind in ["organelle", "environment"])
+	check(retired.size() == 20 and not Unlocks.configure([retired[0]], false, true, true)
+			and Unlocks.configure([retired[0]], false, true, false),
+		"schema 6 rejects retired organelle/environment unlocks; older schemas keep them")
+	Unlocks.reset()
+	check(Unlocks.configure([]), "configure an organelle-only campaign")
+	var gated := "res://scn/player/bodyparts/internal/upgrader.tres"
+	check(Unlocks.resource_override(gated) == true
+			and Unlocks.condition_override(gated + "::Resource_unlock") == true,
+		"every organelle drop gate is open in multiworld campaigns")
+	Isolation.active = false
+	check(Unlocks.resource_override(gated) == null and Unlocks.condition_override(gated + "::Resource_unlock") == null,
+		"organelle gates stay native outside multiworld campaigns")
+	Isolation.active = true
+	var fixture := {
+		"team": 0, "slot": 1, "players": [], "missing_locations": [], "checked_locations": [],
+		"slot_data": {"schema": 6, "catalog_schema": 1, "unlock_ids": [], "checks": 0,
+			"organelle_pool_schema": 1, "organelle_ids": [1.0, 2.0, 3.0],
+			"coin_amount": 15, "dna_amount": 1, "plasmid_fragment_amount": 1,
+			"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true},
+			"death_link": false, "required_victories": 0},
+	}
+	for invalid in [{"organelle_ids": [999]}, {"organelle_ids": [1, 1]}, {"organelle_pool_schema": 2},
+			{"organelle_ids": null}, {"unlock_ids": [retired[0]]}]:
+		var bad := ProtocolClient.new()
+		root.add_child(bad)
+		bad.set_process(false)
+		bad.seed_name = "organelle-invalid"
+		var data: Dictionary = fixture.duplicate(true)
+		data.slot_data.merge(invalid, true)
+		bad._connected(data)
+		check(bad.fatal, "malformed organelle slot data rejected: " + JSON.stringify(invalid))
+		bad.free()
+	var client := OrganelleClient.new()
+	root.add_child(client)
+	client.set_process(false)
+	client.seed_name = "organelle-queue"
+	client._connected(fixture)
+	check(not client.fatal and client.authenticated and Organelles.selected.size() == 3,
+		"schema 6 connects with organelle deliveries")
+	Isolation.active = true
+	Isolation.identity = "organelle-campaign"
+	client.campaign_identity = Isolation.identity
+	client.synchronized = true
+	client.run_multiworld = true
+	var main := Node.new()
+	var editor := EditorDouble.new()
+	var player := PlayerDouble.new()
+	var world := Node.new()
+	for node in [main, editor, player, world]:
+		root.add_child(node)
+	global.main = main
+	global.editor = editor
+	global.player = player
+	global.world = world
+	global.current_room = null
+	global.daily_run = 0
+	var item := func(id: int) -> Dictionary: return {"item": Organelles.ITEM_BASE + id}
+	client.item_stream = [item.call(2)]
+	client.item_stream_ready = true
+	client._received({"cmd": "ReceivedItems", "index": 1, "items": []})
+	check(client.campaign.pending_organelles() == [2], "received organelle is queued")
+	player.listening = false
+	client.organelle_ready_since = Time.get_ticks_msec() - 60000
+	client._deliver_organelles()
+	check(editor.shown.is_empty(), "no delivery while the player has no control (menu/pause/cutscene)")
+	player.listening = true
+	global.current_room = Node.new()
+	client._deliver_organelles()
+	check(editor.shown.is_empty(), "no delivery during a fight")
+	global.current_room.free()
+	global.current_room = null
+	client._deliver_organelles()
+	check(editor.shown.is_empty() and client.organelle_ready_since != -1, "control starts the two-second wait")
+	client.organelle_ready_since -= 2000
+	client._deliver_organelles()
+	check(editor.shown == [2] and client.organelle_open == 2, "first organelle opens the editor holding it")
+	client._received({"cmd": "ReceivedItems", "index": 1, "items": [item.call(1)]})
+	client.organelle_ready_since = Time.get_ticks_msec() - 60000
+	client._deliver_organelles()
+	client._deliver_organelles()
+	check(editor.shown == [2] and editor.active_bodypart.id == 2 and client.campaign.pending_organelles() == [2, 1],
+		"a second receipt waits while the first is still held")
+	editor.place_and_close()
+	client._deliver_organelles()
+	check(client.campaign.organelles_delivered == 1 and client.campaign.pending_organelles() == [1],
+		"closing the editor completes the delivery")
+	client._deliver_organelles()
+	check(editor.shown == [2], "the next organelle waits at least two seconds after closing")
+	client.organelle_ready_since -= 2000
+	client._deliver_organelles()
+	check(editor.shown == [2, 1], "queued organelles are delivered oldest first")
+	var reloaded := State.new()
+	check(reloaded.open(client.campaign.path, client.campaign.identity, 0, [], [], [1, 2, 3])
+			and reloaded.organelles_delivered == 1 and reloaded.pending_organelles() == [1],
+		"an open, unplaced delivery stays pending across restarts")
+	global.player = null
+	player.free()
+	client._deliver_organelles()
+	check(client.organelle_open == -1 and client.campaign.pending_organelles() == [1],
+		"a run ending with the editor open keeps the organelle queued")
+	var invalid := State.new()
+	var text := FileAccess.get_file_as_string(client.campaign.path).replace(
+		"\"organelles_delivered\":1", "\"organelles_delivered\":3")
+	var journal := FileAccess.open("user://organelle-invalid.json", FileAccess.WRITE)
+	journal.store_string(text)
+	journal.close()
+	check(not invalid.open("user://organelle-invalid.json", client.campaign.identity, 0, [], [], [1, 2, 3]),
+		"delivered count cannot exceed received organelles")
+	if editor.active_bodypart != null:
+		editor.active_bodypart.free()
+	for node in [main, editor, world]:
+		node.free()
+	global.main = null
+	global.editor = null
+	global.world = null
+	client.free()
+	Organelles.reset()
+	Unlocks.reset()
+	Isolation.active = isolation[0]
+	Isolation.identity = isolation[1]

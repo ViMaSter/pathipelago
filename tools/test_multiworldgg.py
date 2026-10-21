@@ -59,7 +59,7 @@ def main(runtime: Path, godot: str) -> None:
             output.mkdir()
 
             category_options = ["remote_characters", "remote_plasmids", "remote_loadouts",
-                                "remote_organelles", "remote_environment"]
+                                "remote_organelles"]
 
             delivery_item = "Coins"
 
@@ -94,7 +94,8 @@ def main(runtime: Path, godot: str) -> None:
                 flags = {option: source == selected for source, option in source_names.items()}
                 multiworld = generate(1, flags)
                 world = multiworld.worlds[1]
-                expected = {"schema": 5, "catalog_schema": 1, "unlock_ids": [],
+                expected = {"schema": 6, "catalog_schema": 1, "unlock_ids": [],
+                            "organelle_pool_schema": 1, "organelle_ids": [],
                             "checks": 1, "coin_amount": 15, "dna_amount": 1,
                             "plasmid_fragment_amount": 1, "death_link": True,
                             "required_victories": 0,
@@ -131,8 +132,12 @@ def main(runtime: Path, godot: str) -> None:
             individual = [identifier for identifier in unlock_ids
                           if module.CATALOG_BY_ID[identifier]["kind"] != "plasmid"]
             slots = module.PLASMID_SLOTS
-            if len(unlock_ids) < 300 or data["checks"] != len(individual) + slots \
-                    or len(multiworld.get_locations(1)) != 2 * (len(individual) + slots):
+            organelles = len(data["organelle_ids"])
+            if len(unlock_ids) < 280 or organelles != len(module.ORGANELLES) or organelles < 80 \
+                    or any(module.CATALOG_BY_ID[identifier]["kind"] in ("organelle", "environment")
+                           for identifier in unlock_ids) \
+                    or data["checks"] != len(individual) + slots + organelles \
+                    or len(multiworld.get_locations(1)) != 2 * (len(individual) + slots) + organelles:
                 raise AssertionError("Default catalogue did not expand shipments and natural locations")
             for identifier in individual:
                 natural = next(location for location in multiworld.get_locations(1)
