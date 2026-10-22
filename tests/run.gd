@@ -272,6 +272,20 @@ func _network_and_purchase() -> void:
 	client.server = "127.0.0.1:%d" % tcp.get_local_port()
 	client.slot_name = "Tester"
 	client.connect_server()
+	var first_socket: WebSocketPeer = client.socket
+	client.connect_server()
+	check(client.socket == first_socket and client._candidates.size() == 1,
+		"duplicate Connect cannot restart dialing or reset fallback candidates")
+	client.disconnect_server()
+	check(not client.connecting and client.socket != first_socket and client._candidates.is_empty()
+			and client.status == "Connection cancelled.", "Cancel aborts dialing and clears URL fallback")
+	for i in 10:
+		await process_frame
+		if tcp.is_connection_available():
+			tcp.take_connection().disconnect_from_host()
+	check(not client.connecting and not client.authenticated and client.status == "Connection cancelled.",
+		"cancelled transport cannot trigger fallback or reconnect")
+	client.connect_server()
 	check(client.connecting and client._dialing.begins_with("wss://"), "scheme-less address tries wss:// first")
 	for i in 120:
 		if tcp.is_connection_available():

@@ -6,6 +6,23 @@ var _start_button_hovered := false
 var full := true
 var clicks := 0
 var starts := 0
+var profile_updates := 0
+var refreshed_profile := -1
+
+class LoadoutDouble extends Node:
+	var player: Node
+	var player_setups := 0
+	var bodypart_setups := 0
+	var refreshed_profile := -1
+	func setup_player() -> void:
+		player_setups += 1
+		refreshed_profile = load("res://scn/profile_manager.gd").active
+	func setup_bodyparts() -> void:
+		bodypart_setups += 1
+
+func update() -> void:
+	profile_updates += 1
+	refreshed_profile = load("res://scn/profile_manager.gd").active
 
 func _on_button_select_pressed() -> void:
 	if loadout_active:
@@ -14,6 +31,11 @@ func _on_button_select_pressed() -> void:
 		loadout_active = true
 
 func _init() -> void:
+	var loadout := LoadoutDouble.new()
+	loadout.name = "LoadoutMenu"
+	add_child(loadout)
+	loadout.owner = self
+	loadout.unique_name_in_owner = true
 	var button := Button.new()
 	button.name = "ButtonSelect"
 	button.text = "Start"

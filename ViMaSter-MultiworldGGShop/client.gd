@@ -111,13 +111,14 @@ var _connected_server := ""
 var _connected_slot := ""
 var native_conditions: Dictionary = {}
 var server_unlock_checks: Array = []
-var _profile_refresh_pending := false
 var fatal := false
 var log_lines: PackedStringArray = []
 var log_revision := 0
 var pages: Array = []
 var toast: Label
 var toast_time := 0.0
+var connection_toast := false
+var pending_toasts: Array[String] = []
 var remote_rewards: Array = []
 var free_rewards: Array = []
 var remote_icon: Texture2D
@@ -190,6 +191,7 @@ func set_enabled(value: bool) -> void:
 	_select_profile()
 	if enabled and not authenticated and not connecting and not slot_name.is_empty() and not fatal:
 		connect_server()
+	_refresh_pages()
 
 func _run_active() -> bool:
 	var globals := get_node_or_null("/root/G")
@@ -220,30 +222,29 @@ func _select_profile() -> void:
 			return
 	else:
 		if Isolation.active:
-			_candidates.clear()
-			connecting = false
-			socket.close()
-			authenticated = false
-			synchronized = false
+			_stop_connection()
 			Unlocks.reset()
-			_reset_deathlink()
 		Isolation.leave()
 	if previous_generation == Isolation.generation:
 		return
 	Isolation.reload_stores(get_tree())
 	native_conditions.clear()
-	# Rebuild cached menu/loadout previews after their backing profile changes.
-	if get_tree().current_scene != null and not _profile_refresh_pending:
-		_profile_refresh_pending = true
-		_reload_profile_menu.call_deferred()
+	_refresh_unlock_menus(get_tree().root)
+	_refresh_profile_menus(get_tree().root)
 
-func _reload_profile_menu() -> void:
-	_profile_refresh_pending = false
-	if _run_active():
-		return
-	var result := get_tree().reload_current_scene()
-	if result != OK:
-		_fail("Could not rebuild the campaign menu: " + error_string(result))
+func _refresh_profile_menus(node: Node) -> void:
+	var script: Script = node.get_script()
+	while script != null:
+		if script.resource_path == START_MENU_SCRIPT:
+			node.update()
+			var loadout := node.get_node_or_null("%LoadoutMenu")
+			if loadout != null and is_instance_valid(loadout.get("player")):
+				loadout.setup_player()
+				loadout.setup_bodyparts()
+			break
+		script = script.get_base_script()
+	for child in node.get_children():
+		_refresh_profile_menus(child)
 
 func _run_file() -> String:
 	return Isolation.PM.profile_path("multiworldgg-run.cfg") if Isolation.active else RUN_FILE
@@ -323,11 +324,10 @@ func notify(message: String) -> void:
 
 func _fail(message: String) -> void:
 	fatal = true
-	authenticated = false
-	synchronized = false
-	Unlocks.synchronized = false
+	_stop_connection()
 	push_error("[MultiworldGGShop] " + message)
 	notify(message + " Purchases are blocked; see the client log.")
+	_refresh_pages()
 
 func _build_toast() -> void:
 	var layer := CanvasLayer.new()
@@ -337,18 +337,71 @@ func _build_toast() -> void:
 	toast.visible = false
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	toast.position = Vector2(24, 24)
+	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
 	toast.add_theme_color_override("font_outline_color", Color.BLACK)
 	toast.add_theme_constant_override("outline_size", 6)
 	layer.add_child(toast)
 
 func show_toast(message: String) -> void:
+	if connection_toast and toast_time > 0.0:
+		pending_toasts.append(message)
+		return
 	if is_instance_valid(toast):
+		toast.size.x = maxf(1.0, get_viewport().get_visible_rect().size.x - 48.0)
 		toast.text = "MultiworldGG: " + message
 		toast.visible = true
 		toast_time = 5.0
 
+func _connection_succeeded() -> void:
+	var message := "Successfully connected to %s (Slot: %s)!" % [_connected_server, _connected_slot]
+	if not _run_active():
+		message += " Start the game to join the MultiWorld!"
+	if is_instance_valid(toast) and toast.visible and toast_time > 0.0:
+		pending_toasts.append(toast.text.trim_prefix("MultiworldGG: "))
+	show_toast(message)
+	connection_toast = true
+	notify(message)
+	_refresh_pages()
+
+func _update_toast(delta: float) -> void:
+	if toast_time > 0.0:
+		toast_time -= delta
+		if toast_time <= 0.0 and is_instance_valid(toast):
+			toast.visible = false
+			connection_toast = false
+			if not pending_toasts.is_empty():
+				show_toast(pending_toasts.pop_front())
+
+func _stop_connection() -> void:
+	_candidates.clear()
+	socket.close()
+	# Discard packets and callbacks from the old session, including URL fallback.
+	socket = WebSocketPeer.new()
+	connecting = false
+	authenticated = false
+	synchronized = false
+	item_stream_ready = false
+	Unlocks.synchronized = false
+	sync_key = ""
+	retry_time = 0.0
+	_reset_deathlink()
+	connection_toast = false
+	pending_toasts.clear()
+	if is_instance_valid(toast):
+		toast.visible = false
+	toast_time = 0.0
+
+func disconnect_server() -> void:
+	var cancelled := not authenticated or not synchronized
+	_stop_connection()
+	notify("Connection cancelled." if cancelled else \
+		"Disconnected. Campaign retained; reconnect before starting or receiving remote unlocks.")
+	_refresh_pages()
+
 func connect_server() -> void:
+	if connecting or authenticated:
+		return
 	if server.strip_edges().is_empty():
 		notify("Enter the WebSocket address from your multiworld.gg room page before connecting.")
 		return
@@ -451,6 +504,7 @@ func _dial() -> void:
 		return
 	connecting = true
 	notify("Connecting to " + _dialing + " as " + slot_name)
+	_refresh_pages()
 
 func _dial_failed(reason: String) -> void:
 	_tried.append(_dialing)
@@ -462,6 +516,7 @@ func _dial_failed(reason: String) -> void:
 	connecting = false
 	notify("Could not reach the server (%s; tried %s). Check the address and port and that the room is running." \
 		% [reason, ", ".join(_tried)])
+	_refresh_pages()
 
 func _process(delta: float) -> void:
 	socket.poll()
@@ -475,7 +530,8 @@ func _process(delta: float) -> void:
 		state = socket.get_ready_state()
 	if state == WebSocketPeer.STATE_OPEN:
 		_opened = true
-		while socket.get_available_packet_count() > 0:
+		var session := socket
+		while socket == session and not fatal and socket.get_available_packet_count() > 0:
 			var parser := JSON.new()
 			var err := parser.parse(socket.get_packet().get_string_from_utf8())
 			if err != OK or not parser.data is Array:
@@ -483,28 +539,24 @@ func _process(delta: float) -> void:
 				socket.close()
 				return
 			for message in parser.data:
+				if socket != session or fatal:
+					break
 				if not message is Dictionary or not message.get("cmd") is String:
 					_fail("Malformed MultiworldGG command.")
 					socket.close()
 					return
 				_handle(message)
 	elif state == WebSocketPeer.STATE_CLOSED and (connecting or authenticated):
-		_reset_deathlink()
-		connecting = false
-		authenticated = false
-		item_stream_ready = false
-		synchronized = false
-		Unlocks.synchronized = false
-		notify("Disconnected (code %d). MultiworldGG pedestals are blocked; reconnect in Settings > MultiworldGG." % socket.get_close_code())
+		var code := socket.get_close_code()
+		_stop_connection()
+		notify("Disconnected (code %d). MultiworldGG pedestals are blocked; reconnect in Settings > MultiworldGG." % code)
+		_refresh_pages()
 	if authenticated and not fatal:
 		retry_time += delta
 		if retry_time >= 5.0:
 			retry_time = 0.0
 			_send_checks()
-	if toast_time > 0.0:
-		toast_time -= delta
-		if toast_time <= 0.0 and is_instance_valid(toast):
-			toast.visible = false
+	_update_toast(delta)
 	_override_tooltip()
 	_mask_rewards()
 	_watch_level_up()
@@ -556,9 +608,10 @@ func _handle(message: Dictionary) -> void:
 				"items_handling": 7, "tags": ["AP"], "slot_data": true
 			})
 		"ConnectionRefused":
+			_stop_connection()
 			notify("Server refused connection: " + str(message.get("errors", [])) \
 				+ ". Use the slot name from the generated seed, not the server alias.")
-			socket.close()
+			_refresh_pages()
 		"Connected":
 			_connected(message)
 		"Bounced":
@@ -615,7 +668,10 @@ func _handle(message: Dictionary) -> void:
 				Unlocks.synchronized = true
 				_reconcile_unlocks()
 				_select_profile()
+				if fatal:
+					return
 				_refresh_unlock_menus(get_tree().root)
+				_connection_succeeded()
 		"PrintJSON":
 			var parts: Variant = message.get("data", [])
 			if parts is Array:
@@ -783,9 +839,9 @@ func _connected(message: Dictionary) -> void:
 		elif not bus.is_connected("player_died", _on_player_died):
 			bus.connect("player_died", _on_player_died)
 	if not _send({"cmd": "ConnectUpdate", "tags": ["AP", "DeathLink"] if death_link else ["AP"]}):
-		authenticated = false
-		_reset_deathlink()
+		_stop_connection()
 		notify("Could not update DeathLink subscription. Reconnect in Settings > MultiworldGG.")
+		_refresh_pages()
 		return
 	_accept_checks(checked)
 	if fatal:
@@ -805,6 +861,7 @@ func _connected(message: Dictionary) -> void:
 	_send_checks()
 	notify("Connected as %s (slot %d). %d/%d checks confirmed. Remote unlocks in: %s. DeathLink %s." % [
 		slot_name, slot, campaign.confirmed.size(), count, sources_text(), "on" if death_link else "off"])
+	_refresh_pages()
 
 static func parse_death_link(data: Dictionary) -> Variant:
 	var value: Variant = data.get("death_link", false)
@@ -2168,8 +2225,11 @@ func _build_page() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
-	var connect_button := _button(row, "Connect")
-	connect_button.pressed.connect(func():
+	widgets.connection = _button(row, _connection_button_text())
+	widgets.connection.pressed.connect(func():
+		if connecting or authenticated:
+			disconnect_server()
+			return
 		server = widgets.server.text.strip_edges()
 		slot_name = widgets.slot.text.strip_edges()
 		password = widgets.password.text
@@ -2190,6 +2250,13 @@ func _build_page() -> Control:
 	widgets.revision = -1
 	pages.append(widgets)
 	return page
+
+func _connection_button_text() -> String:
+	if authenticated and synchronized:
+		return "Disconnect"
+	if connecting or authenticated:
+		return "Cancel"
+	return "Connect"
 
 func _mod_version_text() -> String:
 	var manifest_path := "res://mods-unpacked/ViMaSter-MultiworldGGShop/manifest.json"
@@ -2268,6 +2335,7 @@ func _refresh_pages() -> void:
 		if not is_instance_valid(widgets.page):
 			continue
 		live.append(widgets)
+		widgets.connection.text = _connection_button_text()
 		if not widgets.page.is_visible_in_tree():
 			continue
 		widgets.toggle.set_pressed_no_signal(enabled)

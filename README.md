@@ -25,6 +25,15 @@ Version 0.4 delivers organelles straight into the in-run Editor, the same way pi
    when Mod Loader requests it. Progression hooks require that restart; campaign
    starts remain blocked until they are active.
 6. Wait for the campaign to connect and synchronize, then start or continue its run.
+   Enabling and connecting keep Settings open while the isolated profile and
+   its menus refresh. A blue unlock-style notification confirms successful
+   synchronization with the server address and slot name.
+
+The connection button shows **Cancel** while dialing, authenticating, or
+synchronizing, and **Disconnect** once ready. Cancelling stops the entire
+connection attempt, including automatic `wss://` → `ws://` fallback.
+Disconnecting keeps the isolated campaign selected and blocks remote transactions
+until you explicitly connect again; it never loads a normal save.
 
 ### Game compatibility and startup recovery
 

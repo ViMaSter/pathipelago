@@ -266,6 +266,7 @@ func _run() -> void:
 	client._handle({"cmd": "Retrieved", "keys": {"sync-barrier": null}})
 	check(client.synchronized and client.item_stream_ready and client.campaign_ready(),
 		"ordered server barrier synchronizes an empty item history")
+	client._update_toast(5.1)
 	var starts: Control = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/player_selection_menu.gd").new()
 	root.add_child(starts)
 	starts.loadout_active = true
@@ -314,8 +315,10 @@ func _run() -> void:
 	check(not Isolation.active and Isolation.PM.active == 1, "explicit disable restores normal profile")
 	check(FileAccess.get_file_as_string("user://profile_1/save.json") == original, "normal save still byte-identical after round trip")
 	check(hooks.is_unlocked(Chain.new(condition, "is_unlocked")) == condition.natural, "vanilla condition semantics restored")
+	client.free()
 	_slot_inventory()
 	_organelle_deliveries(global)
+	await _connection_ui(global)
 	var empty_client := ProtocolClient.new()
 	root.add_child(empty_client)
 	empty_client.set_process(false)
@@ -403,6 +406,149 @@ func _loadout_buttons(client: Node, global: Node) -> void:
 	var vanilla: Button = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/bodypart_button.gd").new()
 	check(vanilla.is_unlocked(), "disabled remote loadouts preserve native availability")
 	vanilla.free()
+
+func _connection_ui(global: Node) -> void:
+	var scene := Control.new()
+	root.add_child(scene)
+	current_scene = scene
+	var settings: Node = load("res://scn/ui/options_menu.gd").new()
+	scene.add_child(settings)
+	var starts: Node = load("res://mods-unpacked/ViMaSter-MultiworldGGShop/player_selection_menu.gd").new()
+	scene.add_child(starts)
+	var loadout: Node = starts.get_node("%LoadoutMenu")
+	var preview := Node.new()
+	loadout.add_child(preview)
+	loadout.player = preview
+	var profile_changes := [0]
+	var on_profile_changed := func(): profile_changes[0] += 1
+	root.get_node("SignalBus").profile_changed.connect(on_profile_changed)
+	var client := ProtocolClient.new()
+	scene.add_child(client)
+	client.set_process(false)
+	var store: Node = root.get_node("RunSaveManager")
+	var reloads: int = store.reloads
+	client.server = ""
+	client.slot_name = ""
+	client.set_enabled(true)
+	await process_frame
+	await process_frame
+	check(current_scene == scene and is_instance_valid(settings),
+		"enabling changes profile without replacing the scene or Settings")
+	check(profile_changes[0] > 0 and starts.profile_updates > 0
+			and store.reloads > reloads
+			and root.get_node("SaveManager").SAVE_PATH == Isolation.PM.profile_path("save.json")
+			and starts.refreshed_profile == Isolation.PM.active
+			and loadout.player_setups > 0 and loadout.bodypart_setups > 0
+			and loadout.refreshed_profile == Isolation.PM.active,
+		"profile change refreshes native stores, start menu, and loadout preview")
+	settings._on_tab_changed(2)
+	var page: Control = settings.tab_content.get_child(2)
+	var widgets: Dictionary = client.pages.filter(func(entry): return entry.page == page)[0]
+	var extra_page := client._build_page()
+	scene.add_child(extra_page)
+	check(widgets.connection.text == "Connect", "idle button says Connect")
+	client.connecting = true
+	client._candidates = PackedStringArray(["ws://fallback.invalid:38281"])
+	client._refresh_pages()
+	check(widgets.connection.text == "Cancel" and client.pages[-1].connection.text == "Cancel",
+		"all Settings pages show Cancel during connection")
+	var session: WebSocketPeer = client.socket
+	widgets.server.text = "edited.invalid:1234"
+	widgets.slot.text = "Edited Slot"
+	widgets.connection.pressed.emit()
+	check(client.socket != session and not client.connecting and client._candidates.is_empty()
+			and widgets.connection.text == "Connect" and client.status == "Connection cancelled.",
+		"Cancel discards the old session and all fallback attempts immediately")
+	check(client.server.is_empty() and widgets.server.text == "edited.invalid:1234"
+			and client.slot_name.is_empty() and widgets.slot.text == "Edited Slot",
+		"Cancel preserves field edits without changing connection identity")
+	client.seed_name = "connection-ui"
+	client.server = "127.0.0.1:38281"
+	client.slot_name = "UI Slot"
+	client._connected({
+		"team": 0, "slot": 1, "players": [], "missing_locations": [], "checked_locations": [],
+		"slot_data": {"schema": 3, "catalog_schema": 1, "unlock_ids": [], "extra_checks": 0,
+			"sources": {"shops": true, "item_rooms": true, "boss_rewards": true, "level_ups": true}},
+	})
+	check(client.authenticated and not client.synchronized and widgets.connection.text == "Cancel"
+			and not client.toast.text.contains("Successfully connected"),
+		"authentication remains cancellable and does not announce sync success early")
+	var key: String = client.sync_key
+	var journal: RefCounted = client.campaign
+	client.show_toast("Unlocked fixture")
+	client._handle({"cmd": "Retrieved", "keys": {key: null}})
+	await process_frame
+	check(current_scene == scene and settings.current_tab == 2 and page.is_inside_tree(),
+		"campaign synchronization keeps the Settings instance and selected tab")
+	check(Isolation.identity == client.campaign_identity and starts.refreshed_profile == Isolation.PM.active
+			and loadout.refreshed_profile == Isolation.PM.active and client.campaign_ready(),
+		"synchronization refreshes preview against the server-bound profile")
+	check(widgets.connection.text == "Disconnect" and client.toast.visible
+			and client.toast.text == "MultiworldGG: Successfully connected to 127.0.0.1:38281 (Slot: UI Slot)! Start the game to join the MultiWorld!",
+		"sync success uses unlock toast with the requested server/slot wording")
+	client.show_toast("Unlocked after sync")
+	check(client.toast.text.contains("Successfully connected"), "unlock delivery cannot overwrite connection notice")
+	client._update_toast(5.1)
+	check(client.toast.text == "MultiworldGG: Unlocked fixture", "startup unlock notice is preserved after success")
+	client._update_toast(5.1)
+	check(client.toast.text == "MultiworldGG: Unlocked after sync", "later unlock notices remain queued")
+	client.death_link = true
+	client.pending_death = {"test": true}
+	var identity: String = Isolation.identity
+	widgets.connection.pressed.emit()
+	check(not client.authenticated and not client.synchronized and not client.death_link
+			and client.pending_death.is_empty() and not client.campaign_ready()
+			and widgets.connection.text == "Connect",
+		"Disconnect immediately clears network, sync, DeathLink, and ready state")
+	client._select_profile()
+	check(client.campaign == journal and Isolation.identity == identity and Isolation.active,
+		"Disconnect retains the campaign journal and isolated profile")
+	client.connecting = true
+	client._handle({"cmd": "ConnectionRefused", "errors": ["InvalidSlot"]})
+	check(not client.connecting and widgets.connection.text == "Connect"
+			and client.status.contains("InvalidSlot"), "refusal resets the button and preserves its specific error")
+	client.authenticated = true
+	client.synchronized = false
+	client.sync_key = "cancel-sync"
+	widgets.connection.pressed.emit()
+	client._handle({"cmd": "Retrieved", "keys": {"cancel-sync": null}})
+	check(not client.synchronized and not client.toast.visible, "cancelled sync cannot announce success")
+	client.authenticated = true
+	client.sync_key = "bad-sync"
+	client.item_stream_ready = true
+	var directory := "user://profile_%d" % (16 + "blocked-ui".sha256_text().left(14).hex_to_int())
+	DirAccess.make_dir_recursive_absolute(directory)
+	var file := FileAccess.open(directory.path_join("save.json"), FileAccess.WRITE)
+	file.store_string("{\"unidentified\":true}")
+	file.close()
+	client.campaign_identity = "blocked-ui"
+	client._handle({"cmd": "Retrieved", "keys": {"bad-sync": null}})
+	check(client.fatal and not client.authenticated and not client.toast.visible
+			and widgets.connection.text == "Connect",
+		"failed profile selection never shows success and resets the button")
+	Isolation.error = ""
+	client.fatal = false
+	client.campaign_identity = identity
+	check(Isolation.enter(identity), "restore fixture campaign after expected failure")
+	var main := Node.new()
+	scene.add_child(main)
+	global.main = main
+	client._connection_succeeded()
+	check(not client.toast.text.contains("Start the game"), "active-run reconnect omits the start instruction")
+	client.run_multiworld = false
+	client.connect_server()
+	check(not client.connecting and client.status.contains("This run is vanilla"),
+		"a vanilla run cannot switch to the campaign while staying in its scene")
+	client.run_multiworld = true
+	client.server = "different.invalid:38281"
+	client.connect_server()
+	check(not client.connecting and client.status.contains("different server or slot"),
+		"active campaign still rejects a different server or slot")
+	global.main = null
+	root.get_node("SignalBus").profile_changed.disconnect(on_profile_changed)
+	current_scene = null
+	scene.free()
+	Isolation.leave()
 
 func _slot_inventory() -> void:
 	check(Unlocks.load_catalog(), "catalogue for slot inventory")
