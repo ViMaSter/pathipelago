@@ -15,7 +15,8 @@ func _init() -> void:
 	pickup_area = load("res://tests/stubs/pickup_area.gd").new()
 	pickup_area.name = "PickupArea"
 	add_child(pickup_area)
-	pickup_area.picked.connect(_player_entered)
+	# v1.3.13 wires the pickup to take_reward(taker) in bodypart_reward.tscn.
+	pickup_area.picked.connect(take_reward)
 	for pair in [["Label", Label.new()], ["MutationIcon", Sprite2D.new()]]:
 		pair[1].name = pair[0]
 		add_child(pair[1])
@@ -25,7 +26,10 @@ func _init() -> void:
 	bodypart = Node2D.new()
 	add_child(bodypart)
 
-func _player_entered(taker: Node = null) -> void:
+func _player_entered() -> void:
+	take_reward()
+
+func take_reward(taker: Node = null) -> void:
 	last_taker = taker
 	vanilla_picks += 1
 	consumed = true

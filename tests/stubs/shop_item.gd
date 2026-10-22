@@ -9,14 +9,14 @@ var vanilla_purchases := 0
 var finalized := false
 var last_taker: Node
 
-func _on_picked(taker: Node) -> void:
+func _on_picked(taker: Node = null) -> void:
 	last_taker = taker
 	vanilla_purchases += 1
 
 func make_free() -> void:
 	paid = true
 
-func _take_for_free(taker: Node) -> void:
+func _take_for_free(taker: Node = null) -> void:
 	last_taker = taker
 	vanilla_purchases += 1
 

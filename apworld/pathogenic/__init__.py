@@ -243,10 +243,10 @@ class PathogenicOptions(PerGameCommonOptions):
     boss_reward_unlocks: BossRewardUnlocks
     level_up_unlocks: LevelUpUnlocks
     remote_characters: RemoteCharacters
-    start_with_all_characters: StartWithAllCharacters
     remote_plasmids: RemotePlasmids
     remote_loadouts: RemoteLoadouts
     remote_organelles: RemoteOrganelles
+    start_with_all_characters: StartWithAllCharacters
     death_link: PathogenicDeathLink
     required_victories: RequiredVictories
 

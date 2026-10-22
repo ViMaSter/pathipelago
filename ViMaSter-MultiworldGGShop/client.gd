@@ -1417,9 +1417,11 @@ func _track_free_reward(reward: Node) -> void:
 	if not area is Node or not area.has_signal("picked"):
 		log_line("Free reward layout changed; %s stays vanilla." % reward.name)
 		return
-	var vanilla := Callable(reward, "_player_entered")
-	if area.picked.is_connected(vanilla):
-		area.picked.disconnect(vanilla)
+	# v1.3.13+ wires the pickup to take_reward(taker); older builds to _player_entered(taker).
+	for method in ["take_reward", "_player_entered"]:
+		var vanilla := Callable(reward, method)
+		if area.picked.is_connected(vanilla):
+			area.picked.disconnect(vanilla)
 	area.picked.connect(_free_pick.bind(reward))
 	reward.set_meta("multiworldgg_free", true)
 	free_rewards.append(reward)
@@ -1451,7 +1453,10 @@ func _free_pick(taker: Node, reward: Node) -> void:
 	if exhausted:
 		_unmask_reward(reward)
 		_rename_reward(reward, "")
-		reward._player_entered(taker)
+		if reward.has_method("take_reward"):
+			reward.take_reward(taker)
+		else:
+			reward._player_entered(taker)
 		return
 	var location := _claim_location()
 	if location < 0:

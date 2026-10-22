@@ -37,6 +37,11 @@ to the fixture worlds so unrelated game imports cannot delay its startup.
 After updating, re-enable MultiworldGGShop in Mod Loader if recovery disabled it
 and restart once if requested to regenerate the progression hooks.
 
+The mod is also verified against **Pathogenic v1.3.15**. From v1.3.13, reward
+pedestals connect their pickup to `take_reward(taker)`, and from v1.3.15 the shop
+callbacks default the taker to the local player. Older mod builds fail to
+parse `shop_item.gd` on v1.3.15, so update the complete mod ZIP.
+
 Use the address from the current room; include its port unless the room uses
 the default 38281. If a previous
 connection reported incompatible slot data, correct the address and restart
