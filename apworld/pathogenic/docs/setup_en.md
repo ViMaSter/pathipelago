@@ -12,7 +12,7 @@
 The client log is shown on the same settings tab and stored in the game's user folder
 under `multiworldgg_shop/client.log` (macOS:
 `~/Library/Application Support/Godot/app_userdata/Pathogenic/multiworldgg_shop/client.log`).
-Source and releases: https://github.com/ViMaSter/pathipelago
+Source and releases: https://github.com/mahnkepelago/pathogenic
 
 ## Generation and hosting
 

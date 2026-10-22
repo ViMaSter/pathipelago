@@ -20,8 +20,8 @@ DESCRIPTION = (
     "Remote Unlock that sends a check to another player's game. Optional filler items award "
     "Coins, DNA and Plasmid Fragments.\n\n"
     "Off by default: enable and connect in Settings > MultiworldGG.\n"
-    "APWorld, setup guide and source: [url=https://github.com/ViMaSter/pathipelago]"
-    "github.com/ViMaSter/pathipelago[/url]"
+    "APWorld, setup guide and source: [url=https://github.com/mahnkepelago/pathogenic]"
+    "github.com/mahnkepelago/pathogenic[/url]"
 )
 VISIBILITY = {"public": 0, "friends": 1, "private": 2, "unlisted": 3}
 
